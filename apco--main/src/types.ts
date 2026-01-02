@@ -4,16 +4,76 @@ export const BookingStatus = {
   Pending: 'Pending',
   Completed: 'Completed',
   Cancelled: 'Cancelled'
-} as const;
+}
 
 export const InvoiceStatus = {
   Paid: 'Paid',
   Unpaid: 'Unpaid',
   Overdue: 'Overdue',
-  Draft: 'Draft'
-} as const;
+  Draft: 'Draft',
+  Quotation: 'Quotation'
+}
 
-export type Brand = 'Aaha Kalayanam' | 'Tiny Toes';
+export const TaskStatus = {
+  Todo: 'Todo',
+  InProgress: 'In Progress',
+  Done: 'Done'
+}
+
+export interface StorageVault {
+  id: string;
+  name: string;
+  email: string;
+  usagePercent: number;
+}
+
+export interface InternalSpend {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  timestamp: string;
+  action: string;
+  type: 'Login' | 'AssetView' | 'RequirementAdded' | 'SystemUpdate' | 'FinanceUpdate' | 'TaskUpdate' | 'ClientUpdate';
+  actorId: string;
+  actorName: string;
+  actorRole: 'Admin' | 'Staff' | 'Client';
+  projectId?: string;
+  clientId?: string;
+  clientName?: string;
+}
+
+export interface ClientRequirement {
+  id: string;
+  timestamp: string;
+  text: string;
+  status: 'Pending' | 'Acknowledged' | 'Resolved';
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  assignee: string;
+  dueDate: string;
+  status: string;
+  brand: string;
+  priority: string;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  ownerName: string;
+  phone: string;
+  email: string;
+  color: string;
+  type: 'Wedding' | 'Kids' | 'General';
+  description?: string;
+}
 
 export interface TimelineItem {
   id: string;
@@ -29,28 +89,59 @@ export interface Deliverable {
   url: string;
   type: 'Video' | 'Photos' | 'Document' | 'Other';
   dateAdded: string;
+  origin: 'GoogleDrive' | 'InternalServer' | 'Other';
+  isPublic?: boolean;
+  assignedTo?: string;
 }
 
-export interface Feedback {
+export interface StaffPermissions {
+  canManageClients: boolean;
+  canManageFinance: boolean;
+  canManageTasks: boolean;
+  canUseAI: boolean;
+  canManageEcosystem: boolean;
+}
+
+export interface Staff {
   id: string;
-  date: string;
-  text: string;
-  from: 'Client' | 'Company';
+  name: string;
+  email: string;
+  loginId: string;
+  password?: string;
+  role: string;
+  permissions: StaffPermissions;
+  isActive: boolean;
+}
+
+export interface Person {
+  id: string;
+  name: string;
+  role: 'Groom' | 'Bride' | 'Parent' | 'Other';
+  email: string;
+  phone: string;
+  alternatePhone?: string;
+  loginId: string;
+  password?: string;
+  dateOfBirth?: string;
 }
 
 export interface Client {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
-  weddingDate: string; // ISO Date string or Event Date
+  projectName: string;
+  address?: string;
+  mapLocation?: string;
+  weddingDate: string;
   budget: number;
   notes: string;
-  brand: Brand;
+  brand: string;
+  vaultId?: string;
+  driveFolderId?: string;
+  people: Person[];
+  requirements?: ClientRequirement[];
   portal?: {
     timeline: TimelineItem[];
     deliverables: Deliverable[];
-    feedback: Feedback[];
+    internalSpends: InternalSpend[];
   };
 }
 
@@ -58,10 +149,10 @@ export interface Booking {
   id: string;
   clientId: string;
   title: string;
-  date: string; // ISO Date string
-  status: typeof BookingStatus[keyof typeof BookingStatus];
-  type: string; // Flexible for Indian event types
-  brand: Brand;
+  date: string;
+  status: string;
+  type: string;
+  brand: string;
 }
 
 export interface InvoiceItem {
@@ -69,6 +160,11 @@ export interface InvoiceItem {
   description: string;
   quantity: number;
   price: number;
+  costPrice: number;
+  isOutsourced?: boolean;
+  vendorName?: string;
+  vendorPhone?: string;
+  isCostFinalized?: boolean;
 }
 
 export interface Invoice {
@@ -77,9 +173,10 @@ export interface Invoice {
   issueDate: string;
   dueDate: string;
   items: InvoiceItem[];
-  status: typeof InvoiceStatus[keyof typeof InvoiceStatus];
+  status: string;
   notes?: string;
-  brand: Brand;
+  brand: string;
+  isQuotation?: boolean;
 }
 
 export interface Expense {
@@ -87,9 +184,16 @@ export interface Expense {
   description: string;
   amount: number;
   date: string;
-  category: 'Labor' | 'Equipment' | 'Travel' | 'Vendor' | 'Marketing' | 'Other';
-  clientId?: string; // Optional: if null, it's general overhead
-  brand: Brand;
+  category: string;
+  clientId?: string;
+  brand: string;
 }
 
-export type ViewState = 'DASHBOARD' | 'CLIENTS' | 'CALENDAR' | 'FINANCE' | 'AI_TOOLS' | 'CLIENT_PORTAL';
+export interface CloudConfig {
+  serverUrl: string;
+  vaults: StorageVault[];
+  autoBackup: boolean;
+  mediaOrigin: 'InternalServer' | 'GoogleDrive';
+}
+
+export type ViewState = 'DASHBOARD' | 'CLIENTS' | 'CALENDAR' | 'FINANCE' | 'AI_TOOLS' | 'CLIENT_PORTAL' | 'SETTINGS' | 'TASKS' | 'TEAM' | 'LOGS' | 'PRODUCTION';

@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
 import { Plus, Trash2, FileText, Send, CheckCircle2, Clock, IndianRupee } from 'lucide-react';
-import type { Invoice, InvoiceStatus, Client, InvoiceItem, Brand } from '../types';
+// Fix: removed non-existent Brand import from types
+import { type Invoice, type Client, InvoiceStatus, type InvoiceItem } from '../types';
 import { generateEmailDraft } from '../services/geminiService';
 
 interface InvoiceManagerProps {
@@ -8,13 +10,14 @@ interface InvoiceManagerProps {
   clients: Client[];
   addInvoice: (invoice: Invoice) => void;
   updateInvoiceStatus: (id: string, status: InvoiceStatus) => void;
-  selectedBrand: Brand | 'All';
+  // Fix: replaced non-existent Brand type with string
+  selectedBrand: string | 'All';
 }
 
 const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addInvoice, updateInvoiceStatus, selectedBrand }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedClient, setSelectedClient] = useState<string>('');
-  const [items, setItems] = useState<InvoiceItem[]>([{ id: '1', description: '', quantity: 1, price: 0 }]);
+  const [items, setItems] = useState<InvoiceItem[]>([{ id: '1', description: '', quantity: 1, price: 0, costPrice: 0 }]);
   const [dueDate, setDueDate] = useState('');
   
   const [aiDraft, setAiDraft] = useState<{ id: string, text: string } | null>(null);
@@ -25,7 +28,7 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
   const calculateTotal = (items: InvoiceItem[]) => items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   const handleAddItem = () => {
-    setItems([...items, { id: Date.now().toString(), description: '', quantity: 1, price: 0 }]);
+    setItems([...items, { id: Date.now().toString(), description: '', quantity: 1, price: 0 ,costPrice: 0}]);
   };
 
   const handleRemoveItem = (id: string) => {
@@ -60,7 +63,7 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
 
   const resetForm = () => {
     setSelectedClient('');
-    setItems([{ id: '1', description: '', quantity: 1, price: 0 }]);
+    setItems([{ id: '1', description: '', quantity: 1, price: 0 ,costPrice: 0}]);
     setDueDate('');
   };
 
@@ -115,7 +118,8 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
                     onChange={(e) => setSelectedClient(e.target.value)}
                   >
                     <option value="">Select Client</option>
-                    {clients.map(c => <option key={c.id} value={c.id}>{c.name} ({c.brand})</option>)}
+                    {/* Fix: Client interface uses projectName instead of name */}
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.projectName} ({c.brand})</option>)}
                   </select>
                 </div>
                 <div>
@@ -231,11 +235,13 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
                 <tr className={`${tableRowHover} transition-colors`}>
                   <td className={`p-4 font-mono text-sm ${textSecondary}`}>#{inv.id}</td>
                   <td className="p-4">
-                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-sm ${inv.brand === 'Aaha Kalayanam' ? 'bg-yellow-900/30 text-yellow-500' : 'bg-blue-100 text-blue-600'}`}>
-                      {inv.brand === 'Aaha Kalayanam' ? 'Wedding' : 'Baby'}
+                    {/* Fix: changed 'Aaha Kalayanam' to 'AAHA Kalyanam' for consistency */}
+                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-sm ${inv.brand === 'AAHA Kalyanam' ? 'bg-yellow-900/30 text-yellow-500' : 'bg-blue-100 text-blue-600'}`}>
+                      {inv.brand === 'AAHA Kalyanam' ? 'Wedding' : 'Baby'}
                     </span>
                   </td>
-                  <td className={`p-4 font-medium ${textPrimary}`}>{client?.name || 'Unknown'}</td>
+                  {/* Fix: Client interface uses projectName instead of name */}
+                  <td className={`p-4 font-medium ${textPrimary}`}>{client?.projectName || 'Unknown'}</td>
                   <td className={`p-4 font-medium ${textPrimary}`}>₹{total.toLocaleString('en-IN')}</td>
                   <td className={`p-4 text-sm ${textSecondary}`}>{new Date(inv.dueDate).toLocaleDateString()}</td>
                   <td className="p-4">
@@ -289,11 +295,13 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
 };
 
 const StatusBadge = ({ status, isBaby }: { status: InvoiceStatus, isBaby: boolean }) => {
+  // Fix: removed InvoiceStatus.Completed and InvoiceStatus.Cancelled as they do not exist in the enum
   const styles = {
     [InvoiceStatus.Paid]: isBaby ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-900/30 text-emerald-400 border border-emerald-900',
     [InvoiceStatus.Unpaid]: isBaby ? 'bg-slate-100 text-slate-700' : 'bg-zinc-800 text-zinc-400 border border-zinc-700',
     [InvoiceStatus.Overdue]: isBaby ? 'bg-red-100 text-red-700' : 'bg-red-900/30 text-red-400 border border-red-900',
     [InvoiceStatus.Draft]: 'bg-gray-100 text-gray-600',
+    [InvoiceStatus.Quotation]: isBaby ? 'bg-yellow-100 text-yellow-700' : 'bg-yellow-900/30 text-yellow-400 border border-yellow-900',
   };
   
   return (

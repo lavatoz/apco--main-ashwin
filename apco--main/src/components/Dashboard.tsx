@@ -1,242 +1,195 @@
 
-import React, { useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, CalendarCheck, AlertCircle, RefreshCcw, IndianRupee, Clock, Briefcase } from 'lucide-react';
-import type { Invoice, Client, Booking, Brand } from '../types';
-import { InvoiceStatus, BookingStatus } from '../types';
-import { analyzeBusinessTrends } from '../services/geminiService';
+import React, { useState, useEffect } from 'react';
+import { 
+  Users, CalendarCheck, IndianRupee, Clock, Briefcase, 
+  CheckCircle, AlertCircle, Trophy, User, ArrowUpRight, TrendingUp, Sparkles, Activity, MessageSquare, Database, HardDrive, ChevronRight, Heart, Gift, CheckSquare, Layers
+} from 'lucide-react';
+import { BookingStatus, InvoiceStatus, type ActivityLog, type Booking, type Client, type CloudConfig, type Company, type Invoice, type Task } from '../types';
+import { api } from '../services/api';
+
 
 interface DashboardProps {
   invoices: Invoice[];
   clients: Client[];
   bookings: Booking[];
-  selectedBrand: Brand | 'All';
-  setSelectedBrand: (brand: Brand | 'All') => void;
+  companies: Company[];
+  tasks: Task[];
+  selectedBrand: string | 'All';
+  setSelectedBrand: (brand: string | 'All') => void;
+  userRole: 'Admin' | 'Staff' | 'Client' | 'none';
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ invoices, clients, bookings, selectedBrand, setSelectedBrand }) => {
-  const [aiAnalysis, setAiAnalysis] = useState<string>("");
-  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+const Dashboard: React.FC<DashboardProps> = ({ invoices, clients, bookings, companies, tasks, selectedBrand, setSelectedBrand, userRole }) => {
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [cloudConfig, setCloudConfig] = useState<CloudConfig | null>(null);
 
-  // Filter Data based on Brand
-  const filteredInvoices = selectedBrand === 'All' ? invoices : invoices.filter(i => i.brand === selectedBrand);
-  const filteredClients = selectedBrand === 'All' ? clients : clients.filter(c => c.brand === selectedBrand);
+  useEffect(() => {
+    api.getLogs().then(setLogs);
+    api.getCloudConfig().then(setCloudConfig);
+  }, []);
+
+  const filteredInvoices = selectedBrand === 'All' ? invoices.filter(i => !i.isQuotation) : invoices.filter(i => i.brand === selectedBrand && !i.isQuotation);
   const filteredBookings = selectedBrand === 'All' ? bookings : bookings.filter(b => b.brand === selectedBrand);
 
-  // Calculate Metrics
-  const totalRevenue = filteredInvoices
+  const upcomingBookings = filteredBookings.filter(b => b.status === BookingStatus.Confirmed && new Date(b.date) >= new Date());
+  
+  const cashInHand = filteredInvoices
     .filter(inv => inv.status === InvoiceStatus.Paid)
     .reduce((sum, inv) => sum + inv.items.reduce((s, i) => s + (i.price * i.quantity), 0), 0);
 
-  const pendingRevenue = filteredInvoices
-    .filter(inv => inv.status === InvoiceStatus.Unpaid || inv.status === InvoiceStatus.Overdue)
+  const totalEarnings = filteredInvoices
     .reduce((sum, inv) => sum + inv.items.reduce((s, i) => s + (i.price * i.quantity), 0), 0);
-  
-  // Upcoming Events logic (Next 5 events)
-  const upcomingWork = filteredBookings
-    .filter(b => b.status === BookingStatus.Confirmed && new Date(b.date) >= new Date())
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(0, 5);
 
-  const upcomingEventsCount = upcomingWork.length;
+  // Operational Metrics for Staff
+  const myTasksCount = tasks.filter(t => t.status !== 'Done').length; // Assuming simpler count for now
+  const activeProjectsCount = clients.length;
 
-  const data = [
-    { name: 'Jan', value: 400000 },
-    { name: 'Feb', value: 300000 },
-    { name: 'Mar', value: 200000 },
-    { name: 'Apr', value: 278000 },
-    { name: 'May', value: 189000 },
-    { name: 'Jun', value: 239000 },
-    { name: 'Jul', value: 349000 },
-  ]; 
+  const getCelebrations = () => {
+    const today = new Date();
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 14);
 
-  const handleAnalyze = async () => {
-    setLoadingAnalysis(true);
-    const result = await analyzeBusinessTrends(data);
-    setAiAnalysis(result);
-    setLoadingAnalysis(false);
+    const events: { client: Client, type: 'Birthday' | 'Anniversary', date: Date }[] = [];
+
+    clients.forEach(c => {
+      if (c.weddingDate) {
+        const anniv = new Date(c.weddingDate);
+        anniv.setFullYear(today.getFullYear());
+        if (anniv >= today && anniv <= nextWeek) events.push({ client: c, type: 'Anniversary', date: anniv });
+      }
+      c.people.forEach(p => {
+        if (p.dateOfBirth) {
+          const bday = new Date(p.dateOfBirth);
+          bday.setFullYear(today.getFullYear());
+          if (bday >= today && bday <= nextWeek) {
+            events.push({ client: c, type: 'Birthday', date: bday });
+          }
+        }
+      });
+    });
+
+    return events.sort((a, b) => a.date.getTime() - b.date.getTime());
   };
 
-  // Branding Helpers
-  const isWedding = selectedBrand === 'Aaha Kalayanam';
-  const isBaby = selectedBrand === 'Tiny Toes';
-  const isAll = selectedBrand === 'All';
+  const upcomingCelebrations = getCelebrations();
 
-  // Dynamic Styles (High Contrast)
-  const textPrimary = isBaby ? 'text-slate-900' : 'text-zinc-100';
-  const textSecondary = isBaby ? 'text-slate-600' : 'text-zinc-400';
-  const cardBg = isBaby ? 'bg-white border-slate-200' : 'bg-zinc-900 border-zinc-700';
-  const buttonActive = isBaby ? 'bg-blue-600 text-white shadow-md' : (isWedding ? 'bg-yellow-600 text-black shadow-md' : 'bg-zinc-100 text-black');
-  const buttonInactive = isBaby ? 'text-slate-600 hover:bg-slate-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white';
+  // Define metrics based on role
+  let metrics = [];
 
-  return (
-    <div className="space-y-6 animate-fade-in font-sans pb-10">
-      {/* Brand Selector Header */}
-      <div className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-6 ${isBaby ? 'border-slate-200' : 'border-zinc-800'}`}>
-        <div>
-          <h1 className={`text-3xl font-bold ${textPrimary} font-serif tracking-tight`}>AP Co. Dashboard</h1>
-          <p className={textSecondary}>Overview of Aaha Kalayanam & Tiny Toes performance.</p>
-        </div>
-        
-        <div className={`flex items-center gap-2 p-1 rounded-lg border ${cardBg}`}>
-           <button 
-             onClick={() => setSelectedBrand('All')}
-             className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-all ${isAll ? 'bg-zinc-700 text-white' : buttonInactive}`}
-           >
-             All
-           </button>
-           <button 
-             onClick={() => setSelectedBrand('Aaha Kalayanam')}
-             className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-all ${selectedBrand === 'Aaha Kalayanam' ? 'bg-yellow-600 text-black' : buttonInactive}`}
-           >
-             Aaha Kalayanam
-           </button>
-           <button 
-             onClick={() => setSelectedBrand('Tiny Toes')}
-             className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-all ${selectedBrand === 'Tiny Toes' ? 'bg-blue-600 text-white' : buttonInactive}`}
-           >
-             Tiny Toes
-           </button>
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-         <button 
-          onClick={handleAnalyze}
-          disabled={loadingAnalysis}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium border ${isBaby ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:text-white hover:bg-zinc-700'}`}
-        >
-          {loadingAnalysis ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
-          Get AI Insights
-        </button>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard 
-          title="Total Revenue" 
-          value={`₹${totalRevenue.toLocaleString('en-IN')}`} 
-          icon={IndianRupee} 
-          theme={selectedBrand}
-        />
-        <KpiCard 
-          title="Pending Payments" 
-          value={`₹${pendingRevenue.toLocaleString('en-IN')}`} 
-          icon={AlertCircle} 
-           theme={selectedBrand}
-        />
-        <KpiCard 
-          title="Active Clients" 
-          value={filteredClients.length.toString()} 
-          icon={Users} 
-          theme={selectedBrand}
-        />
-        <KpiCard 
-          title="Upcoming Events" 
-          value={upcomingEventsCount.toString()} 
-          icon={CalendarCheck} 
-           theme={selectedBrand}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Upcoming Work Reminders */}
-        <div className={`lg:col-span-1 p-6 rounded-xl shadow-sm border ${cardBg}`}>
-           <div className="flex items-center gap-2 mb-6">
-              <div className={`p-2 rounded-lg ${isBaby ? 'bg-blue-100 text-blue-600' : 'bg-yellow-900/20 text-yellow-500'}`}>
-                <Clock className="w-5 h-5" />
-              </div>
-              <h3 className={`text-lg font-bold ${textPrimary}`}>Upcoming Schedule</h3>
-           </div>
-           
-           <div className="space-y-4">
-             {upcomingWork.length === 0 && (
-               <p className={`text-sm ${textSecondary}`}>No upcoming work scheduled.</p>
-             )}
-             {upcomingWork.map((booking) => (
-               <div key={booking.id} className={`flex items-start gap-3 p-3 rounded-lg border ${isBaby ? 'bg-slate-50 border-slate-100' : 'bg-black border-zinc-800'}`}>
-                  <div className={`w-12 text-center rounded py-1 ${booking.brand === 'Aaha Kalayanam' ? 'bg-zinc-800 text-yellow-500' : 'bg-white text-blue-600 border border-blue-100'}`}>
-                    <span className="block text-[10px] uppercase font-bold">{new Date(booking.date).toLocaleString('default', { month: 'short' })}</span>
-                    <span className="block text-xl font-bold leading-none">{new Date(booking.date).getDate()}</span>
-                  </div>
-                  <div>
-                    <h4 className={`font-semibold text-sm ${textPrimary}`}>{booking.title}</h4>
-                    <p className={`text-xs ${textSecondary} mt-0.5`}>
-                      {new Date(booking.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {booking.type}
-                    </p>
-                    <span className={`text-[10px] uppercase tracking-wider font-bold mt-1 inline-block ${booking.brand === 'Aaha Kalayanam' ? 'text-yellow-600' : 'text-blue-500'}`}>
-                      {booking.brand}
-                    </span>
-                  </div>
-               </div>
-             ))}
-           </div>
-        </div>
-
-        {/* Revenue Chart */}
-        <div className={`lg:col-span-2 p-6 rounded-xl shadow-sm border ${cardBg}`}>
-          <h3 className={`text-lg font-bold mb-6 ${textPrimary}`}>Revenue Overview (INR)</h3>
-          <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isBaby ? "#e2e8f0" : "#333"} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: isBaby ? '#64748b' : '#999', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: isBaby ? '#64748b' : '#999', fontSize: 12}} tickFormatter={(value) => `₹${value/1000}k`} />
-                <Tooltip 
-                  cursor={{fill: isBaby ? '#f1f5f9' : '#333'}}
-                  formatter={(value: number | undefined) => [`₹${value ? value.toLocaleString('en-IN') : '0'}`, 'Revenue']}
-                  contentStyle={{ 
-                    backgroundColor: isBaby ? '#fff' : '#000', 
-                    borderRadius: '8px', 
-                    border: isBaby ? 'none' : '1px solid #333',
-                    color: isBaby ? '#000' : '#fff'
-                  }}
-                />
-                <Bar dataKey="value" fill={isBaby ? "#3b82f6" : "#ca8a04"} radius={[4, 4, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Analysis Box */}
-      {aiAnalysis && (
-        <div className={`p-4 rounded-xl text-sm leading-relaxed border ${isBaby ? 'bg-blue-50 text-blue-900 border-blue-100' : 'bg-zinc-800 text-zinc-300 border-zinc-700'}`}>
-          <span className={`font-bold block mb-1 ${isBaby ? 'text-blue-700' : 'text-yellow-500'}`}>AP Co. Intelligence:</span>
-          {aiAnalysis}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const KpiCard: React.FC<{ title: string; value: string; icon: React.ElementType; theme: string }> = ({ title, value, icon: Icon, theme }) => {
-  const isBaby = theme === 'Tiny Toes';
-  const isWedding = theme === 'Aaha Kalayanam';
-
-  let bgClass = 'bg-zinc-900 border-zinc-700'; // Increased contrast border
-  let titleClass = 'text-zinc-400';
-  let valueClass = 'text-white';
-  let iconBg = 'bg-zinc-800 text-zinc-100';
-
-  if (isBaby) {
-    bgClass = 'bg-white border-slate-200';
-    titleClass = 'text-slate-500';
-    valueClass = 'text-slate-900';
-    iconBg = 'bg-blue-50 text-blue-600';
-  } else if (isWedding) {
-    iconBg = 'bg-yellow-900/20 text-yellow-500';
-    valueClass = 'text-yellow-500';
+  if (userRole === 'Staff') {
+    metrics = [
+       { id: 1, label: 'My Tasks', value: myTasksCount, hex: '#FFFFFF', icon: CheckSquare, bg: 'bg-zinc-900' },
+       { id: 2, label: 'Active Jobs', value: activeProjectsCount, hex: '#10b981', icon: Layers, bg: 'bg-emerald-950/10' },
+       { id: 3, label: 'Alerts', value: clients.reduce((s, c) => s + (c.requirements?.filter(r => r.status === 'Pending').length || 0), 0), hex: '#f59e0b', icon: MessageSquare, bg: 'bg-amber-950/10' },
+       { id: 4, label: 'Events', value: upcomingBookings.length, hex: '#3b82f6', icon: CalendarCheck, bg: 'bg-blue-950/10' },
+    ];
+  } else {
+    // Admin View
+    metrics = [
+      { id: 1, label: 'Sales', value: `₹${(totalEarnings/100000).toFixed(1)}L`, hex: '#FFFFFF', icon: Briefcase, bg: 'bg-zinc-900' },
+      { id: 2, label: 'Cash', value: `₹${(cashInHand/100000).toFixed(1)}L`, hex: '#10b981', icon: IndianRupee, bg: 'bg-emerald-950/10' },
+      { id: 3, label: 'Alerts', value: clients.reduce((s, c) => s + (c.requirements?.filter(r => r.status === 'Pending').length || 0), 0), hex: '#f59e0b', icon: MessageSquare, bg: 'bg-amber-950/10' },
+      { id: 4, label: 'Events', value: upcomingBookings.length, hex: '#3b82f6', icon: CalendarCheck, bg: 'bg-blue-950/10' },
+    ];
   }
 
   return (
-    <div className={`p-6 rounded-xl shadow-sm border flex items-center justify-between ${bgClass}`}>
-      <div>
-        <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${titleClass}`}>{title}</p>
-        <h3 className={`text-2xl font-bold ${valueClass}`}>{value}</h3>
+    <div className="space-y-8 animate-ios-slide-up">
+      <div className="space-y-4">
+        <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">Command Center</h1>
+        <div className="bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5 flex gap-1 overflow-x-auto no-scrollbar max-w-max">
+           <button 
+             onClick={() => setSelectedBrand('All')}
+             className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${selectedBrand === 'All' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+           >
+             Global
+           </button>
+           {companies.map(co => (
+             <button 
+               key={co.id}
+               onClick={() => setSelectedBrand(co.name)}
+               className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${selectedBrand === co.name ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+             >
+               {co.name.split(' ')[0]}
+             </button>
+           ))}
+        </div>
       </div>
-      <div className={`p-3 rounded-lg ${iconBg}`}>
-        <Icon className="w-6 h-6" />
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {metrics.map((m) => {
+          const Icon = m.icon;
+          return (
+            <div key={m.id} className={`${m.bg} border border-white/5 p-6 squircle-md flex flex-col justify-between h-40 group cursor-pointer active:scale-95 ios-transition`}>
+              <div className="flex justify-between items-start">
+                <div className="p-3 rounded-2xl bg-white/5 text-white shadow-xl group-hover:bg-white group-hover:text-black transition-all">
+                   <Icon className="w-5 h-5" />
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-zinc-700" />
+              </div>
+              <div>
+                <p className="text-zinc-600 text-[9px] font-black uppercase tracking-widest mb-1">{m.label}</p>
+                <h3 className="text-2xl font-black text-white tracking-tight">{m.value}</h3>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Celebration Radar - CRM Focus */}
+        <div className="lg:col-span-2 bg-pink-500/5 border border-pink-500/10 p-10 squircle-lg space-y-8">
+           <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
+                <Heart className="w-5 h-5 text-pink-500 fill-pink-500/20" /> Relationship Nurture
+              </h3>
+              <div className="flex items-center gap-2">
+                 <Sparkles className="w-4 h-4 text-pink-500" />
+                 <span className="text-[8px] font-black uppercase text-pink-500 bg-pink-500/10 px-2 py-1 rounded-md">AI Insights</span>
+              </div>
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {upcomingCelebrations.slice(0, 4).map((celebration, idx) => (
+                <div key={idx} className="p-6 bg-white/5 rounded-3xl border border-white/5 flex items-center justify-between group hover:bg-white/10 ios-transition cursor-pointer">
+                   <div className="flex items-center gap-4 overflow-hidden">
+                      <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center ${celebration.type === 'Birthday' ? 'bg-blue-500/20 text-blue-400' : 'bg-pink-500/20 text-pink-400'}`}>
+                         {celebration.type === 'Birthday' ? <Gift className="w-6 h-6" /> : <Heart className="w-6 h-6" />}
+                      </div>
+                      <div className="overflow-hidden">
+                         <p className="text-xs font-black text-white uppercase tracking-tight truncate">{celebration.client.projectName}</p>
+                         <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest mt-1">{celebration.type} • {celebration.date.toLocaleDateString([], { day: 'numeric', month: 'short' })}</p>
+                      </div>
+                   </div>
+                   <ChevronRight className="w-4 h-4 text-zinc-800 group-hover:text-white group-hover:translate-x-1 ios-transition" />
+                </div>
+              ))}
+              {upcomingCelebrations.length === 0 && (
+                <p className="col-span-full text-center py-10 text-[10px] font-black uppercase text-zinc-700 tracking-widest">No life milestones detected this cycle</p>
+              )}
+           </div>
+        </div>
+
+        {/* Multi-Vault Monitor */}
+        <div className="bg-zinc-900/30 p-10 squircle-lg border border-blue-500/10 space-y-8 flex flex-col justify-center">
+           <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
+                <Database className="w-5 h-5 text-blue-500" /> Storage Ecosystem
+              </h3>
+           </div>
+           <div className="space-y-6">
+              {cloudConfig?.vaults.map(v => (
+                <div key={v.id} className="space-y-3">
+                   <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                      <span className="text-zinc-500">{v.name}</span>
+                      <span className={`${v.usagePercent > 85 ? 'text-red-500 animate-pulse' : 'text-zinc-600'}`}>{v.usagePercent}% Cap</span>
+                   </div>
+                   <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div className={`h-full ios-transition ${v.usagePercent > 85 ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-blue-500'}`} style={{ width: `${v.usagePercent}%` }} />
+                   </div>
+                </div>
+              ))}
+           </div>
+        </div>
       </div>
     </div>
   );

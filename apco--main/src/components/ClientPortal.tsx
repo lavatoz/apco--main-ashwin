@@ -1,13 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, CheckCircle2, Circle, Clock, Link as LinkIcon, 
+  ArrowLeft, CheckCircle2, Circle, Link as LinkIcon, 
   MessageSquare, Send, Sparkles, Image, Video, FileText, Share2,
-  LockKeyhole, Wallet
+  LockKeyhole, UserPlus, IndianRupee, Trash2, UserCheck, Plus, X, Key, Clock, Server, Cloud, FolderOpen, Shield, ShieldOff, Check, Database, Users, User as UserIcon
 } from 'lucide-react';
-import type { Client, TimelineItem, Deliverable, Feedback, Brand, Expense } from '../types';
-import { generateStatusUpdate } from '../services/geminiService';
-import { loadFromStorage, saveToStorage } from '../services/storageService';
+import type { Client, CloudConfig, TimelineItem, Deliverable } from '../types';
+import { api } from '../services/api';
 
 interface ClientPortalProps {
   client: Client;
@@ -16,447 +15,325 @@ interface ClientPortalProps {
 }
 
 const ClientPortal: React.FC<ClientPortalProps> = ({ client, onUpdateClient, onBack }) => {
-  const [activeTab, setActiveTab] = useState<'timeline' | 'deliverables' | 'feedback' | 'costing'>('timeline');
-  const [report, setReport] = useState<string | null>(null);
-  const [loadingReport, setLoadingReport] = useState(false);
+  const [activeTab, setActiveTab] = useState<'timeline' | 'deliverables' | 'requirements' | 'people' | 'private'>('timeline');
+  const [isAddingTimeline, setIsAddingTimeline] = useState(false);
+  const [isAddingDeliverable, setIsAddingDeliverable] = useState(false);
+  const [cloudConfig, setCloudConfig] = useState<CloudConfig | null>(null);
   
-  // Local state for inputs
-  const [newFeedback, setNewFeedback] = useState('');
-  const [newLink, setNewLink] = useState({ title: '', url: '', type: 'Photos' as Deliverable['type'] });
+  const [timelineForm, setTimelineForm] = useState<Partial<TimelineItem>>({ status: 'Pending' });
+  const [deliverableForm, setDeliverableForm] = useState<Partial<Deliverable>>({ type: 'Photos', origin: 'GoogleDrive', isPublic: true });
 
-  // Internal Costing State (Loaded from global storage simulation since expenses are global)
-  // In a real app with Redux/Context, we'd pull expenses from the store. 
-  // Here we'll read from storage directly for the "Private" tab to keep it simple, 
-  // assuming App.tsx passes expenses down would be cleaner but requires refactoring App.tsx again.
-  // Actually, let's just use local state initialized from storage for display, 
-  // and we might need a way to save back.
-  // Ideally, ClientPortal should receive `expenses` and `addExpense`. 
-  // For now, I will create a mini-form that updates the global storage via a helper or assume props.
-  // *Correction*: To do this strictly correctly without prop drilling hell, I'll read/write to localStorage 
-  // directly for this "Private" feature as it's an isolated add-on requested. 
-  const [internalExpenses, setInternalExpenses] = useState<Expense[]>(() => {
-    const data = loadFromStorage();
-    return data?.expenses.filter(e => e.clientId === client.id) || [];
-  });
-  const [newCost, setNewCost] = useState({ description: '', amount: '', category: 'Vendor' });
+  useEffect(() => {
+    api.getCloudConfig().then(setCloudConfig);
+  }, []);
 
-  const isWedding = client.brand === 'Aaha Kalayanam';
-  const isBaby = client.brand === 'Tiny Toes';
-
-  // Theming
+  const isWedding = client.brand === 'AAHA Kalyanam';
   const theme = {
-    bg: isWedding ? 'bg-black' : 'bg-slate-50',
-    card: isWedding ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-200 shadow-sm',
-    textMain: isWedding ? 'text-amber-50' : 'text-slate-900',
-    textSub: isWedding ? 'text-zinc-500' : 'text-slate-500',
-    accent: isWedding ? 'text-yellow-500' : 'text-blue-500',
-    accentBg: isWedding ? 'bg-yellow-600' : 'bg-blue-500',
-    button: isWedding ? 'bg-zinc-800 hover:bg-zinc-700 text-white' : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200',
-    border: isWedding ? 'border-zinc-800' : 'border-slate-200'
+    bg: isWedding ? 'bg-black' : 'bg-slate-900',
+    card: 'glass-panel',
+    text: 'text-white',
+    sub: 'text-zinc-500',
+    accent: isWedding ? 'text-yellow-500' : 'text-blue-500'
   };
 
-  const portalData = client.portal || { timeline: [], deliverables: [], feedback: [] };
+  const portal = client.portal || { timeline: [], deliverables: [], internalSpends: [] };
 
   const handleAddTimeline = () => {
-    const newItem: TimelineItem = {
+    if (!timelineForm.title || !timelineForm.date) return;
+    const item: TimelineItem = {
       id: Date.now().toString(),
-      title: 'New Milestone',
-      date: new Date().toISOString(),
-      status: 'Pending',
-      description: 'Description here'
+      title: timelineForm.title,
+      date: timelineForm.date,
+      status: timelineForm.status || 'Pending',
+      description: timelineForm.description
     };
-    const updatedClient = {
+    onUpdateClient({
       ...client,
-      portal: { ...portalData, timeline: [...portalData.timeline, newItem] }
-    };
-    onUpdateClient(updatedClient);
-  };
-
-  const updateTimelineStatus = (id: string, status: TimelineItem['status']) => {
-    const updatedTimeline = portalData.timeline.map(t => t.id === id ? { ...t, status } : t);
-    onUpdateClient({ ...client, portal: { ...portalData, timeline: updatedTimeline } });
+      portal: { ...portal, timeline: [...(portal.timeline || []), item] }
+    });
+    setIsAddingTimeline(false);
+    setTimelineForm({ status: 'Pending' });
   };
 
   const handleAddDeliverable = () => {
-    if (!newLink.title || !newLink.url) return;
-    const newItem: Deliverable = {
+    if (!deliverableForm.title || !deliverableForm.url) return;
+    const item: Deliverable = {
       id: Date.now().toString(),
-      title: newLink.title,
-      url: newLink.url,
-      type: newLink.type,
-      dateAdded: new Date().toISOString()
+      title: deliverableForm.title,
+      url: deliverableForm.url,
+      type: deliverableForm.type || 'Photos',
+      dateAdded: new Date().toISOString(),
+      origin: deliverableForm.origin || 'GoogleDrive',
+      isPublic: deliverableForm.isPublic,
+      assignedTo: deliverableForm.assignedTo
     };
     onUpdateClient({
       ...client,
-      portal: { ...portalData, deliverables: [...portalData.deliverables, newItem] }
+      portal: { ...portal, deliverables: [...(portal.deliverables || []), item] }
     });
-    setNewLink({ title: '', url: '', type: 'Photos' });
+    setIsAddingDeliverable(false);
+    setDeliverableForm({ type: 'Photos', origin: 'GoogleDrive', isPublic: true });
   };
 
-  const handleAddFeedback = () => {
-    if (!newFeedback) return;
-    const item: Feedback = {
-      id: Date.now().toString(),
-      text: newFeedback,
-      date: new Date().toISOString(),
-      from: 'Company' // Since admin is using this
-    };
-    onUpdateClient({
-      ...client,
-      portal: { ...portalData, feedback: [...portalData.feedback, item] }
+  const toggleTimelineStatus = (id: string) => {
+    const updated = (portal.timeline || []).map(t => {
+      if (t.id === id) {
+        const nextStatus = t.status === 'Completed' ? 'Pending' : 'Completed';
+        return { ...t, status: nextStatus };
+      }
+      return t;
     });
-    setNewFeedback('');
-  };
-
-  const handleAddPrivateCost = () => {
-    if (!newCost.description || !newCost.amount) return;
-    
-    // Create new expense
-    const expense: Expense = {
-      id: Date.now().toString(),
-      description: newCost.description,
-      amount: Number(newCost.amount),
-      date: new Date().toISOString(),
-      category: newCost.category as any,
-      clientId: client.id,
-      brand: client.brand
-    };
-
-    // Update Local State
-    const updatedExpenses = [...internalExpenses, expense];
-    setInternalExpenses(updatedExpenses);
-
-    // Update Storage (This is a bit hacky side-effect to avoid full app reload, but works for local app)
-    const allData = loadFromStorage();
-    if (allData) {
-      allData.expenses.push(expense);
-      saveToStorage(allData.clients, allData.invoices, allData.bookings, allData.expenses);
-    }
-
-    setNewCost({ description: '', amount: '', category: 'Vendor' });
-  };
-
-  const handleGenerateReport = async () => {
-    setLoadingReport(true);
-    const text = await generateStatusUpdate(client);
-    setReport(text);
-    setLoadingReport(false);
+    onUpdateClient({ ...client, portal: { ...portal, timeline: updated } });
   };
 
   return (
-    <div className={`min-h-full ${theme.bg} ${theme.textMain} transition-colors p-6`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className={`p-2 rounded-full ${theme.button}`}>
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+    <div className={`min-h-full ${theme.bg} ${theme.text} p-6 font-sans animate-ios-slide-up`}>
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
+        <div className="flex items-center gap-5">
+          <button onClick={onBack} className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white transition-all active:scale-90 border border-white/5"><ArrowLeft className="w-5 h-5" /></button>
           <div>
-            <h1 className="text-2xl font-serif font-bold tracking-tight">{client.name}</h1>
-            <p className={`text-sm ${theme.textSub}`}>Project Portal • {client.brand}</p>
+            <h1 className="text-3xl font-black uppercase tracking-tight leading-none mb-1">{client.projectName}</h1>
+            <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${theme.sub}`}>{client.id} • {client.brand}</p>
           </div>
         </div>
-        <button 
-          onClick={handleGenerateReport}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${theme.accentBg} text-white`}
-        >
-          {loadingReport ? <Sparkles className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
-          Share Update
-        </button>
-      </div>
-
-      {/* Tabs */}
-      <div className={`flex gap-4 border-b ${theme.border} mb-6 overflow-x-auto`}>
-        {['timeline', 'deliverables', 'feedback'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab as any)}
-            className={`pb-3 text-sm font-medium uppercase tracking-wider transition-colors relative whitespace-nowrap ${
-              activeTab === tab ? theme.accent : theme.textSub
-            }`}
-          >
-            {tab}
-            {activeTab === tab && (
-              <div className={`absolute bottom-0 left-0 w-full h-0.5 ${theme.accentBg}`} />
-            )}
-          </button>
-        ))}
-        {/* Private Tab */}
-        <button
-            onClick={() => setActiveTab('costing')}
-            className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors relative whitespace-nowrap flex items-center gap-1 ml-auto ${
-              activeTab === 'costing' ? 'text-red-500' : 'text-zinc-600'
-            }`}
-          >
-            <LockKeyhole className="w-3 h-3" />
-            Private Costing
-            {activeTab === 'costing' && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-500" />
-            )}
-        </button>
-      </div>
-
-      {/* Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          
-          {activeTab === 'timeline' && (
-            <div className={`rounded-xl p-6 border ${theme.card}`}>
-              <div className="flex justify-between items-center mb-6">
-                 <h2 className="text-lg font-bold">Event Timeline</h2>
-                 <button onClick={handleAddTimeline} className="text-xs font-bold uppercase tracking-wider hover:underline">+ Add Phase</button>
-              </div>
-              <div className="space-y-8 relative pl-2">
-                {/* Vertical Line */}
-                <div className={`absolute left-[15px] top-2 bottom-2 w-0.5 ${isWedding ? 'bg-zinc-800' : 'bg-slate-200'}`} />
-                
-                {portalData.timeline.length === 0 && <p className={theme.textSub}>No timeline milestones set.</p>}
-
-                {portalData.timeline.map((item) => (
-                  <div key={item.id} className="relative flex items-start gap-4">
-                    <div className={`relative z-10 w-7 h-7 rounded-full flex items-center justify-center border-2 ${
-                      item.status === 'Completed' 
-                        ? (isWedding ? 'bg-yellow-600 border-yellow-600 text-black' : 'bg-blue-500 border-blue-500 text-white')
-                        : (isWedding ? 'bg-black border-zinc-700' : 'bg-white border-slate-300')
-                    }`}>
-                      {item.status === 'Completed' ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
-                    </div>
-                    <div className="flex-1 pt-0.5">
-                      <div className="flex justify-between items-start">
-                        <input 
-                          value={item.title}
-                          onChange={(e) => {
-                             const updated = portalData.timeline.map(t => t.id === item.id ? { ...t, title: e.target.value } : t);
-                             onUpdateClient({...client, portal: {...portalData, timeline: updated}});
-                          }}
-                          className={`font-bold bg-transparent focus:outline-none border-b border-transparent focus:border-zinc-500 ${theme.textMain}`}
-                        />
-                        <select
-                          value={item.status}
-                          onChange={(e) => updateTimelineStatus(item.id, e.target.value as any)}
-                          className={`text-xs p-1 rounded ${isWedding ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-100 text-slate-600'}`}
-                        >
-                          <option value="Pending">Pending</option>
-                          <option value="In Progress">In Progress</option>
-                          <option value="Completed">Completed</option>
-                        </select>
-                      </div>
-                      <input 
-                          value={item.description || ''}
-                          placeholder="Add details..."
-                          onChange={(e) => {
-                             const updated = portalData.timeline.map(t => t.id === item.id ? { ...t, description: e.target.value } : t);
-                             onUpdateClient({...client, portal: {...portalData, timeline: updated}});
-                          }}
-                          className={`w-full text-sm mt-1 bg-transparent focus:outline-none ${theme.textSub}`}
-                        />
-                      <p className="text-xs opacity-50 mt-1">{new Date(item.date).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'deliverables' && (
-            <div className={`rounded-xl p-6 border ${theme.card}`}>
-               <h2 className="text-lg font-bold mb-6">Deliverables & Links</h2>
-               
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                 {portalData.deliverables.map((item) => (
-                   <div key={item.id} className={`p-4 rounded-lg flex items-center gap-3 border ${isWedding ? 'bg-zinc-900/50 border-zinc-800' : 'bg-white border-slate-200'}`}>
-                     <div className={`p-2 rounded ${isWedding ? 'bg-zinc-800' : 'bg-slate-100'}`}>
-                        {item.type === 'Photos' && <Image className="w-5 h-5" />}
-                        {item.type === 'Video' && <Video className="w-5 h-5" />}
-                        {item.type === 'Document' && <FileText className="w-5 h-5" />}
-                        {item.type === 'Other' && <LinkIcon className="w-5 h-5" />}
-                     </div>
-                     <div className="flex-1 overflow-hidden">
-                       <h4 className="font-semibold text-sm truncate">{item.title}</h4>
-                       <a href={item.url} target="_blank" rel="noreferrer" className={`text-xs hover:underline truncate block ${theme.accent}`}>
-                         {item.url}
-                       </a>
-                     </div>
-                   </div>
-                 ))}
-               </div>
-
-               <div className={`p-4 rounded-lg ${isWedding ? 'bg-zinc-900' : 'bg-slate-50'}`}>
-                 <h3 className="text-sm font-bold mb-3">Add New Link</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                   <input 
-                      placeholder="Title (e.g., Pre-wedding Album)"
-                      value={newLink.title}
-                      onChange={(e) => setNewLink({...newLink, title: e.target.value})}
-                      className={`p-2 rounded border text-sm ${isWedding ? 'bg-black border-zinc-700 text-white' : 'bg-white border-slate-300'}`}
-                   />
-                   <input 
-                      placeholder="URL"
-                      value={newLink.url}
-                      onChange={(e) => setNewLink({...newLink, url: e.target.value})}
-                      className={`p-2 rounded border text-sm ${isWedding ? 'bg-black border-zinc-700 text-white' : 'bg-white border-slate-300'}`}
-                   />
-                   <div className="flex gap-2">
-                     <select
-                        value={newLink.type}
-                        onChange={(e) => setNewLink({...newLink, type: e.target.value as any})}
-                        className={`p-2 rounded border text-sm flex-1 ${isWedding ? 'bg-black border-zinc-700 text-white' : 'bg-white border-slate-300'}`}
-                     >
-                       <option value="Photos">Photos</option>
-                       <option value="Video">Video</option>
-                       <option value="Document">Doc</option>
-                       <option value="Other">Link</option>
-                     </select>
-                     <button 
-                        onClick={handleAddDeliverable}
-                        className={`p-2 rounded ${theme.accentBg} text-white`}
-                     >
-                       <Send className="w-4 h-4" />
-                     </button>
-                   </div>
-                 </div>
-               </div>
-            </div>
-          )}
-
-          {activeTab === 'feedback' && (
-            <div className={`rounded-xl p-6 border ${theme.card}`}>
-               <h2 className="text-lg font-bold mb-6">Client Feedback Log</h2>
-               <div className="space-y-4 mb-6 max-h-[400px] overflow-y-auto">
-                 {portalData.feedback.length === 0 && <p className={theme.textSub}>No feedback logged yet.</p>}
-                 {portalData.feedback.map((item) => (
-                   <div key={item.id} className={`flex gap-3 ${item.from === 'Client' ? 'flex-row' : 'flex-row-reverse'}`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${item.from === 'Client' ? 'bg-gray-200 text-black' : (isWedding ? 'bg-yellow-600 text-black' : 'bg-blue-500 text-white')}`}>
-                        {item.from === 'Client' ? 'C' : 'AP'}
-                      </div>
-                      <div className={`p-3 rounded-xl max-w-[80%] text-sm ${
-                        item.from === 'Client' 
-                          ? (isWedding ? 'bg-zinc-800 text-zinc-200' : 'bg-slate-100 text-slate-800')
-                          : (isWedding ? 'bg-yellow-900/30 text-yellow-100 border border-yellow-900' : 'bg-blue-50 text-blue-900 border border-blue-100')
-                      }`}>
-                        <p>{item.text}</p>
-                        <p className="text-[10px] opacity-50 mt-1 text-right">{new Date(item.date).toLocaleDateString()}</p>
-                      </div>
-                   </div>
-                 ))}
-               </div>
-               
-               <div className="flex gap-2">
-                 <input 
-                   placeholder="Log a comment or request..."
-                   value={newFeedback}
-                   onChange={(e) => setNewFeedback(e.target.value)}
-                   className={`flex-1 p-3 rounded-lg border focus:outline-none ${isWedding ? 'bg-black border-zinc-700 text-white' : 'bg-white border-slate-300'}`}
-                   onKeyDown={(e) => e.key === 'Enter' && handleAddFeedback()}
-                 />
-                 <button onClick={handleAddFeedback} className={`px-4 py-2 rounded-lg font-bold ${theme.accentBg} text-white`}>
-                   Log
-                 </button>
-               </div>
-            </div>
-          )}
-
-          {activeTab === 'costing' && (
-            <div className={`rounded-xl p-6 border border-red-900/30 relative overflow-hidden ${isWedding ? 'bg-red-950/10' : 'bg-red-50'}`}>
-                <div className="absolute top-0 right-0 p-2 bg-red-600 text-white text-[10px] uppercase font-bold tracking-wider rounded-bl-lg">Internal Only</div>
-                <h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${isWedding ? 'text-red-400' : 'text-red-700'}`}>
-                    <LockKeyhole className="w-5 h-5" />
-                    Internal Project Costs
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                    {internalExpenses.map(exp => (
-                        <div key={exp.id} className={`p-4 rounded-lg flex justify-between items-center ${isWedding ? 'bg-black/50 border border-red-900/20' : 'bg-white border border-red-100'}`}>
-                             <div>
-                                 <p className="font-bold text-sm">{exp.description}</p>
-                                 <p className="text-xs opacity-60">{exp.category} • {new Date(exp.date).toLocaleDateString()}</p>
-                             </div>
-                             <p className="font-mono font-bold text-red-500">- ₹{exp.amount.toLocaleString('en-IN')}</p>
-                        </div>
-                    ))}
-                    {internalExpenses.length === 0 && <p className="text-sm opacity-50 col-span-2 text-center py-4">No internal expenses logged yet.</p>}
-                </div>
-
-                <div className={`p-4 rounded-lg ${isWedding ? 'bg-black border border-zinc-800' : 'bg-white border border-slate-200'}`}>
-                    <h3 className="text-sm font-bold mb-3">Add Expense (Private)</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <input 
-                            placeholder="Description (e.g. Photographer Payment)" 
-                            value={newCost.description}
-                            onChange={(e) => setNewCost({...newCost, description: e.target.value})}
-                            className={`p-2 rounded border text-sm ${isWedding ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-slate-50 border-slate-300'}`}
-                        />
-                         <input 
-                            type="number"
-                            placeholder="Amount (₹)" 
-                            value={newCost.amount}
-                            onChange={(e) => setNewCost({...newCost, amount: e.target.value})}
-                            className={`p-2 rounded border text-sm ${isWedding ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-slate-50 border-slate-300'}`}
-                        />
-                         <div className="flex gap-2">
-                             <select 
-                               value={newCost.category}
-                               onChange={(e) => setNewCost({...newCost, category: e.target.value})}
-                               className={`p-2 rounded border text-sm flex-1 ${isWedding ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-slate-50 border-slate-300'}`}
-                             >
-                                <option value="Vendor">Vendor</option>
-                                <option value="Labor">Labor</option>
-                                <option value="Travel">Travel</option>
-                                <option value="Other">Other</option>
-                             </select>
-                             <button onClick={handleAddPrivateCost} className="px-4 py-2 bg-red-600 text-white rounded font-bold hover:bg-red-700">Add</button>
-                         </div>
-                    </div>
-                </div>
-
-                <div className="mt-8 pt-4 border-t border-red-900/20 text-right">
-                    <span className="text-sm opacity-60 mr-2">Total Project Expenses:</span>
-                    <span className="text-xl font-bold text-red-500">₹{internalExpenses.reduce((s, e) => s + e.amount, 0).toLocaleString('en-IN')}</span>
-                </div>
-            </div>
-          )}
+        <div className="bg-zinc-900/80 p-1 rounded-[1.25rem] border border-white/5 flex gap-1 w-full md:w-auto overflow-x-auto no-scrollbar">
+           {['timeline', 'deliverables', 'requirements', 'people'].map(t => (
+             <button 
+                key={t} onClick={() => setActiveTab(t as any)} 
+                className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-[1rem] transition-all whitespace-nowrap ${activeTab === t ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+             >
+               {t}
+             </button>
+           ))}
+           <button 
+             onClick={() => setActiveTab('private')}
+             className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-[1rem] flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'private' ? 'bg-red-500 text-white shadow-lg' : 'text-zinc-500 hover:text-red-400'}`}
+           >
+             <LockKeyhole className="w-3.5 h-3.5" /> Internal
+           </button>
         </div>
+      </div>
 
-        {/* Sidebar / Info */}
-        <div className="space-y-6">
-           <div className={`rounded-xl p-6 border ${theme.card}`}>
-             <h3 className="font-bold mb-4">Project Details</h3>
-             <div className="space-y-4 text-sm">
-               <div className="flex justify-between">
-                 <span className={theme.textSub}>Event Date</span>
-                 <span className="font-medium">{new Date(client.weddingDate).toLocaleDateString()}</span>
-               </div>
-               <div className="flex justify-between">
-                 <span className={theme.textSub}>Budget</span>
-                 <span className="font-medium">₹{client.budget.toLocaleString('en-IN')}</span>
-               </div>
-               <div className="flex justify-between">
-                 <span className={theme.textSub}>Contact</span>
-                 <span className="font-medium">{client.phone}</span>
-               </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+           {activeTab === 'timeline' && (
+              <div className="glass-panel p-10 squircle-lg relative overflow-hidden">
+                <div className="flex justify-between items-center mb-10">
+                   <h2 className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
+                     <Clock className="w-5 h-5 text-zinc-500" /> Milestone Plan
+                   </h2>
+                   <button onClick={() => setIsAddingTimeline(true)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all"><Plus className="w-5 h-5" /></button>
+                </div>
+
+                <div className="space-y-8 relative pl-6">
+                   <div className="absolute left-[30px] top-2 bottom-2 w-px bg-white/10" />
+                   {(portal.timeline || []).map(item => (
+                     <div key={item.id} className="relative flex gap-8 group">
+                        <button 
+                          onClick={() => toggleTimelineStatus(item.id)}
+                          className={`z-10 w-4 h-4 rounded-full mt-1.5 border-4 border-black transition-all ${item.status === 'Completed' ? 'bg-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.5)]' : 'bg-zinc-700 hover:bg-zinc-500'}`} 
+                        />
+                        <div>
+                           <h4 className={`font-black text-sm uppercase tracking-wide ${item.status === 'Completed' ? 'text-emerald-400' : 'text-white'}`}>{item.title}</h4>
+                           <p className="text-xs text-zinc-500 mt-1 font-medium">{item.description}</p>
+                           <span className="text-[9px] font-black text-zinc-600 mt-2 block uppercase tracking-widest">{new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+                        </div>
+                     </div>
+                   ))}
+                </div>
+              </div>
+           )}
+
+           {activeTab === 'deliverables' && (
+              <div className="glass-panel p-10 squircle-lg">
+                <div className="flex justify-between items-center mb-10">
+                   <h2 className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
+                     <Share2 className="w-5 h-5 text-zinc-500" /> Asset Links
+                   </h2>
+                   <button onClick={() => setIsAddingDeliverable(true)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all"><Plus className="w-5 h-5" /></button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(portal.deliverables || []).map(d => (
+                    <div key={d.id} className="p-6 rounded-3xl bg-white/5 border border-white/5 flex items-center gap-5 group hover:border-white/20 ios-transition relative overflow-hidden">
+                       <div className={`p-4 rounded-2xl ${d.origin === 'InternalServer' ? 'bg-emerald-900/40 text-emerald-400' : 'bg-blue-900/40 text-blue-400'} group-hover:scale-110 transition-transform`}>
+                          {d.type === 'Video' ? <Video className="w-5 h-5" /> : d.type === 'Photos' ? <Image className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                       </div>
+                       <div className="overflow-hidden flex-1">
+                          <h4 className="font-black text-xs truncate uppercase tracking-widest">{d.title}</h4>
+                          <div className="flex items-center gap-2 mt-1">
+                             <p className="text-[9px] text-zinc-600 truncate font-black uppercase tracking-widest">
+                               {d.assignedTo ? `Private for ${client.people.find(p => p.id === d.assignedTo)?.name}` : 'Shared with All'}
+                             </p>
+                          </div>
+                       </div>
+                       <button onClick={() => onUpdateClient({...client, portal: {...portal, deliverables: portal.deliverables.filter(item => item.id !== d.id)}})} className="opacity-0 group-hover:opacity-100 p-2 text-zinc-800 hover:text-red-500 transition-all">
+                          <Trash2 className="w-4 h-4" />
+                       </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+           )}
+
+           {activeTab === 'people' && (
+             <div className="glass-panel p-10 squircle-lg">
+                <div className="flex items-center justify-between mb-10">
+                   <h2 className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
+                     <Users className="w-5 h-5 text-zinc-500" /> Account Members
+                   </h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   {client.people.map(person => (
+                     <div key={person.id} className="p-8 bg-black/40 border border-white/5 rounded-3xl group relative overflow-hidden">
+                        <div className="flex items-center gap-6 mb-8">
+                           <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center font-black text-white border border-white/10">{person.name.charAt(0)}</div>
+                           <div>
+                              <p className="text-[10px] font-black uppercase text-zinc-600 tracking-widest mb-1">{person.role}</p>
+                              <h4 className="text-xl font-black text-white uppercase tracking-tight">{person.name}</h4>
+                           </div>
+                        </div>
+                        <div className="space-y-4 pt-4 border-t border-white/5">
+                           <div className="flex items-center justify-between text-[10px] font-black uppercase text-zinc-500 tracking-widest">
+                              <span>Login ID</span>
+                              <span className="text-white">{person.loginId}</span>
+                           </div>
+                           <div className="flex items-center justify-between text-[10px] font-black uppercase text-zinc-500 tracking-widest">
+                              <span>Security Key</span>
+                              <span className="text-white">{person.password}</span>
+                           </div>
+                           <div className="flex items-center justify-between text-[10px] font-black uppercase text-zinc-500 tracking-widest">
+                              <span>Unique UID</span>
+                              <span className="text-zinc-700">{person.id}</span>
+                           </div>
+                        </div>
+                     </div>
+                   ))}
+                </div>
              </div>
-           </div>
+           )}
 
-           {/* AI Report Modal */}
-           {report && (
-             <div className={`rounded-xl p-6 border ${theme.card} animate-fade-in`}>
-               <div className="flex justify-between items-center mb-4">
-                 <h3 className={`font-bold ${theme.accent}`}>AI Status Update</h3>
-                 <button onClick={() => setReport(null)} className="text-xs hover:underline">Close</button>
-               </div>
-               <div className={`p-4 rounded text-sm mb-4 whitespace-pre-wrap ${isWedding ? 'bg-black border border-zinc-800' : 'bg-slate-100'}`}>
-                 {report}
-               </div>
-               <button 
-                 onClick={() => navigator.clipboard.writeText(report)}
-                 className={`w-full py-2 rounded font-medium ${theme.button}`}
-               >
-                 Copy to Clipboard
-               </button>
+           {activeTab === 'requirements' && (
+             <div className="glass-panel p-10 squircle-lg">
+                <div className="flex items-center justify-between mb-10">
+                   <h2 className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
+                     <MessageSquare className="w-5 h-5 text-zinc-500" /> Add-on Requirements
+                   </h2>
+                </div>
+                <div className="space-y-4">
+                   {(client.requirements || []).map(req => (
+                     <div key={req.id} className="p-6 bg-white/5 border border-white/5 rounded-3xl flex justify-between items-start group">
+                        <div className="flex gap-4">
+                           <div className={`w-2 h-2 rounded-full mt-1.5 ${req.status === 'Pending' ? 'bg-amber-500 animate-pulse' : req.status === 'Acknowledged' ? 'bg-blue-400' : 'bg-emerald-400'}`} />
+                           <div>
+                              <p className="text-sm font-bold text-white leading-relaxed">{req.text}</p>
+                           </div>
+                        </div>
+                     </div>
+                   ))}
+                </div>
+             </div>
+           )}
+
+           {activeTab === 'private' && (
+             <div className="glass-panel p-10 squircle-lg border-red-500/10 bg-red-950/5 relative overflow-hidden">
+                <div className="flex justify-between items-center mb-10">
+                   <h2 className="text-2xl font-black uppercase tracking-tighter text-red-500 flex items-center gap-3">
+                     <UserCheck className="w-6 h-6" /> Internal Management
+                   </h2>
+                </div>
+                <p className="text-zinc-500 text-xs">Sensitive internal data for {client.projectName}.</p>
              </div>
            )}
         </div>
+
+        <div className="space-y-6">
+           <div className="glass-panel p-8 squircle-lg space-y-6">
+              <h3 className="font-black uppercase tracking-widest text-[10px] mb-2 flex items-center gap-3 text-zinc-500">
+                <FolderOpen className="w-4 h-4" /> Multi-Vault Assignment
+              </h3>
+              <div className="space-y-4">
+                 <div className="p-5 bg-black/40 border border-white/5 rounded-2xl">
+                    <label className="text-[9px] text-zinc-600 uppercase font-black mb-2 block">Storage Account (Vault)</label>
+                    <select 
+                      className="w-full bg-transparent text-xs font-bold text-white outline-none focus:text-blue-400 transition-colors"
+                      value={client.vaultId || ''}
+                      onChange={(e) => onUpdateClient({...client, vaultId: e.target.value})}
+                    >
+                      <option value="" className="bg-zinc-900">Select Account...</option>
+                      {cloudConfig?.vaults.map(v => (
+                         <option key={v.id} value={v.id} className="bg-zinc-900">{v.name} ({v.email})</option>
+                      ))}
+                    </select>
+                 </div>
+                 <div className="p-5 bg-black/40 border border-white/5 rounded-2xl">
+                    <label className="text-[9px] text-zinc-600 uppercase font-black mb-2 block">Project Folder ID</label>
+                    <input 
+                      className="w-full bg-transparent text-xs font-bold text-white outline-none focus:text-blue-400 transition-colors"
+                      placeholder="Paste ID from URL"
+                      value={client.driveFolderId || ''}
+                      onChange={(e) => onUpdateClient({...client, driveFolderId: e.target.value})}
+                    />
+                 </div>
+              </div>
+           </div>
+
+           <div className="glass-panel p-8 squircle-lg">
+              <h3 className="font-black uppercase tracking-widest text-[10px] mb-8 flex items-center gap-3 text-zinc-500">
+                <Key className="w-4 h-4" /> Global Project Keys
+              </h3>
+              <div className="space-y-4">
+                 <div className="p-4 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-between">
+                    <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest">Active Members</span>
+                    <span className="text-xs font-black text-white">{client.people.length} Users</span>
+                 </div>
+                 <button onClick={() => setActiveTab('people')} className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[9px] font-black uppercase text-zinc-400 tracking-widest flex items-center justify-center gap-2">
+                    Manage Individual Credentials
+                 </button>
+              </div>
+           </div>
+        </div>
       </div>
+
+      {/* Deliverable Modal */}
+      {isAddingDeliverable && (
+        <div className="fixed inset-0 bg-black/80 z-[150] flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-zinc-900 border border-white/10 squircle-lg w-full max-w-lg p-10 shadow-2xl animate-ios-slide-up">
+            <div className="flex justify-between items-center mb-10">
+               <h2 className="text-2xl font-black uppercase tracking-widest">Link Assets</h2>
+               <button onClick={() => setIsAddingDeliverable(false)} className="p-2 bg-white/5 rounded-full"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-6">
+               <input className="w-full bg-black border border-white/5 p-4 rounded-2xl text-sm font-bold" value={deliverableForm.title || ''} onChange={e => setDeliverableForm({...deliverableForm, title: e.target.value})} placeholder="Label (e.g. Wedding Teaser)" />
+               <input className="w-full bg-black border border-white/5 p-4 rounded-2xl text-sm font-bold" value={deliverableForm.url || ''} onChange={e => setDeliverableForm({...deliverableForm, url: e.target.value})} placeholder="URL Link" />
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-zinc-600 px-1 tracking-widest">Assign visibility to</label>
+                  <select className="w-full bg-black border border-white/5 p-4 rounded-2xl text-sm font-bold" value={deliverableForm.assignedTo || ''} onChange={e => setDeliverableForm({...deliverableForm, assignedTo: e.target.value})}>
+                     <option value="">Everyone in Project</option>
+                     {client.people.map(p => <option key={p.id} value={p.id}>{p.name} ({p.role})</option>)}
+                  </select>
+               </div>
+               <button onClick={handleAddDeliverable} className="w-full py-4 bg-white text-black font-black rounded-2xl text-xs uppercase tracking-widest mt-4">Publish Link</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAddingTimeline && (
+        <div className="fixed inset-0 bg-black/80 z-[150] flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-zinc-900 border border-white/10 squircle-lg w-full max-w-lg p-10 shadow-2xl animate-ios-slide-up">
+            <div className="flex justify-between items-center mb-10">
+               <h2 className="text-2xl font-black uppercase tracking-widest">New Milestone</h2>
+               <button onClick={() => setIsAddingTimeline(false)} className="p-2 bg-white/5 rounded-full"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-6">
+               <input className="w-full bg-black border border-white/5 p-4 rounded-2xl text-sm font-bold" value={timelineForm.title || ''} onChange={e => setTimelineForm({...timelineForm, title: e.target.value})} placeholder="Phase Name" />
+               <input type="date" className="w-full bg-black border border-white/5 p-4 rounded-2xl text-sm font-bold" value={timelineForm.date || ''} onChange={e => setTimelineForm({...timelineForm, date: e.target.value})} />
+               <button onClick={handleAddTimeline} className="w-full py-4 bg-white text-black font-black rounded-2xl text-xs uppercase tracking-widest">Add Phase</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
