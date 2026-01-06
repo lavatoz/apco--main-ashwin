@@ -209,6 +209,23 @@ export const api = {
     saveDB(db);
   },
 
+  // Expenses
+  getExpenses: async () => { await delay(); return getDB().expenses; },
+  saveExpense: async (expense: Expense) => {
+    await delay();
+    const db = getDB();
+    const idx = db.expenses.findIndex(e => e.id === expense.id);
+    if (idx >= 0) db.expenses[idx] = expense;
+    else db.expenses.push(expense);
+    saveDB(db);
+  },
+  deleteExpense: async (id: string) => {
+    await delay();
+    const db = getDB();
+    db.expenses = db.expenses.filter(e => e.id !== id);
+    saveDB(db);
+  },
+
   // Tasks
   getTasks: async () => { await delay(); return getDB().tasks; },
   saveTask: async (task: Task) => {

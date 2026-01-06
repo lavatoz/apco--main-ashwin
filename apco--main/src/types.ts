@@ -4,7 +4,9 @@ export const BookingStatus = {
   Pending: 'Pending',
   Completed: 'Completed',
   Cancelled: 'Cancelled'
-}
+} as const;
+
+export type BookingStatus = typeof BookingStatus[keyof typeof BookingStatus];
 
 export const InvoiceStatus = {
   Paid: 'Paid',
@@ -12,13 +14,17 @@ export const InvoiceStatus = {
   Overdue: 'Overdue',
   Draft: 'Draft',
   Quotation: 'Quotation'
-}
+} as const;
+
+export type InvoiceStatus = typeof InvoiceStatus[keyof typeof InvoiceStatus];
 
 export const TaskStatus = {
   Todo: 'Todo',
   InProgress: 'In Progress',
   Done: 'Done'
-}
+} as const;
+
+export type TaskStatus = typeof TaskStatus[keyof typeof TaskStatus];
 
 export interface StorageVault {
   id: string;
@@ -150,7 +156,7 @@ export interface Booking {
   clientId: string;
   title: string;
   date: string;
-  status: string;
+  status: BookingStatus;
   type: string;
   brand: string;
 }
@@ -173,7 +179,7 @@ export interface Invoice {
   issueDate: string;
   dueDate: string;
   items: InvoiceItem[];
-  status: string;
+  status: InvoiceStatus;
   notes?: string;
   brand: string;
   isQuotation?: boolean;

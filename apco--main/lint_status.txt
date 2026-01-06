@@ -1,0 +1,68 @@
+
+C:\projects\apco--main ashwin\apco--main\src\App.tsx
+    6:49  error  'X' is defined but never used                     @typescript-eslint/no-unused-vars
+    6:59  error  'MessageSquare' is defined but never used         @typescript-eslint/no-unused-vars
+   49:10  error  'activeStaff' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   72:14  error  'err' is defined but never used                   @typescript-eslint/no-unused-vars
+  112:24  error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  153:74  error  Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+
+C:\projects\apco--main ashwin\apco--main\src\components\AIToolsView.tsx
+  17:23  error  'setSocialTheme' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  18:22  error  'setPromoOffer' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  35:57  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+
+C:\projects\apco--main ashwin\apco--main\src\components\AuditLogsView.tsx
+  20:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\projects\apco--main ashwin\apco--main\src\components\AuditLogsView.tsx:20:7
+  18 |
+  19 |    useEffect(() => {
+> 20 |       fetchLogs();
+     |       ^^^^^^^^^ Avoid calling setState() directly within an effect
+  21 |    }, []);
+  22 |
+  23 |    const filteredLogs = logs.filter(l =>  react-hooks/set-state-in-effect
+
+C:\projects\apco--main ashwin\apco--main\src\components\ClientExperience.tsx
+  36:7  warning  React Hook useEffect has missing dependencies: 'activePerson.id', 'activePerson.name', 'activePerson.role', 'client.id', and 'client.projectName'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\projects\apco--main ashwin\apco--main\src\components\ClientManager.tsx
+   40:32   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  202:227  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\projects\apco--main ashwin\apco--main\src\components\FinanceManager.tsx
+  124:58  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\projects\apco--main ashwin\apco--main\src\components\InvoiceManager.tsx
+  50:11  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\projects\apco--main ashwin\apco--main\src\components\InvoiceManager.tsx:50:11
+  48 |
+  49 |     const newInvoice: Invoice = {
+> 50 |       id: Math.random().toString(36).substr(2, 9).toUpperCase(),
+     |           ^^^^^^^^^^^^^ Cannot call impure function
+  51 |       clientId: selectedClient,
+  52 |       issueDate: new Date().toISOString(),
+  53 |       dueDate: dueDate || new Date().toISOString(),  react-hooks/purity
+
+C:\projects\apco--main ashwin\apco--main\src\components\SettingsView.tsx
+  29:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\projects\apco--main ashwin\apco--main\src\components\Sidebar.tsx
+  20:97   error  'lastSynced' is defined but never used  @typescript-eslint/no-unused-vars
+  20:109  error  'email' is defined but never used       @typescript-eslint/no-unused-vars
+
+C:\projects\apco--main ashwin\apco--main\src\components\TaskManager.tsx
+  169:230  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 19 problems (18 errors, 1 warning)
+

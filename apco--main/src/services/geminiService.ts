@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import type { Client, Invoice, InvoiceItem } from "../types";
+import type { Client, Invoice } from "../types";
 
 export const generateEmailDraft = async (
   type: 'welcome' | 'payment_reminder' | 'thank_you',
@@ -9,11 +9,11 @@ export const generateEmailDraft = async (
 ): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   let prompt = "";
-  const brandName = client.brand; 
+  const brandName = client.brand;
   const currency = "₹";
-  
-  const eventContext = brandName === 'AAHA Kalyanam' 
-    ? "an elegant Indian wedding" 
+
+  const eventContext = brandName === 'AAHA Kalyanam'
+    ? "an elegant Indian wedding"
     : "a joyful child's event";
 
   // Fix: Client interface uses projectName instead of name
@@ -41,14 +41,13 @@ export const generateEmailDraft = async (
 };
 
 export const generateEmotionalGreeting = async (
-  client: Client, 
+  client: Client,
   milestone: 'Birthday' | 'Anniversary'
 ): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const brand = client.brand;
   // Fix: Client interface does not have dateOfBirth; it is on Person. Accessing the first person in project as a fallback.
-  const originalDate = milestone === 'Anniversary' ? client.weddingDate : (client.people[0]?.dateOfBirth || '');
-  
+
   // Fix: Client interface uses projectName instead of name
   const prompt = `Act as a warm relationship manager for Artisans Co. 
   Generate a personalized WhatsApp message for ${client.projectName}. 
@@ -137,7 +136,7 @@ export const generateEventConcept = async (client: Client): Promise<string> => {
   }
 };
 
-export const analyzeBusinessTrends = async (monthlyRevenue: {name: string, value: number}[]): Promise<string> => {
+export const analyzeBusinessTrends = async (monthlyRevenue: { name: string, value: number }[]): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const dataString = JSON.stringify(monthlyRevenue);
   const prompt = `Analyze this monthly revenue data (in INR) for AP Co. (an Indian event company): ${dataString}. Provide a brief 2-sentence summary of the trend and one actionable tip for growth in the Indian wedding/event market.`;

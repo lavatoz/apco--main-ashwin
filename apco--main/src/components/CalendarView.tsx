@@ -32,14 +32,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ bookings, clients, selected
           <p className="text-zinc-500 text-sm">Manage all upcoming and past event dates.</p>
         </div>
         <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 p-3 rounded-2xl">
-           <div className="flex items-center gap-2 pr-4 border-r border-zinc-800">
-             <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-             <span className="text-[10px] font-black uppercase text-zinc-400">Wedding</span>
-           </div>
-           <div className="flex items-center gap-2 pl-4">
-             <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-             <span className="text-[10px] font-black uppercase text-zinc-400">Kids Event</span>
-           </div>
+          <div className="flex items-center gap-2 pr-4 border-r border-zinc-800">
+            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <span className="text-[10px] font-black uppercase text-zinc-400">Wedding</span>
+          </div>
+          <div className="flex items-center gap-2 pl-4">
+            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+            <span className="text-[10px] font-black uppercase text-zinc-400">Kids Event</span>
+          </div>
         </div>
       </div>
 
@@ -53,15 +53,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ bookings, clients, selected
         {sortedBookings.map(booking => {
           const client = clients.find(c => c.id === booking.clientId);
           const dateObj = new Date(booking.date);
-          
+
           return (
             <div key={booking.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-600 transition-all group overflow-hidden relative">
               <div className={`absolute top-0 right-0 w-32 h-32 -mr-12 -mt-12 rounded-full opacity-5 blur-3xl ${booking.brand === 'AAHA Kalyanam' ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
-              
+
               <div className="flex justify-between items-start mb-6">
                 <div className="bg-black/50 p-4 rounded-2xl border border-zinc-800 flex flex-col items-center min-w-[64px]">
-                   <span className="text-[10px] font-black uppercase text-zinc-500">{dateObj.toLocaleString('default', { month: 'short' })}</span>
-                   <span className="text-2xl font-black text-white">{dateObj.getDate()}</span>
+                  <span className="text-[10px] font-black uppercase text-zinc-500">{dateObj.toLocaleString('default', { month: 'short' })}</span>
+                  <span className="text-2xl font-black text-white">{dateObj.getDate()}</span>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusColor(booking.status)}`}>
                   {booking.status}
@@ -69,7 +69,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ bookings, clients, selected
               </div>
 
               <h3 className="text-lg font-black text-white group-hover:text-yellow-500 transition-colors uppercase tracking-tight mb-1">{booking.title}</h3>
-              <p className="text-xs text-zinc-500 font-bold uppercase mb-4">{client?.name || 'TBD Client'}</p>
+              <p className="text-xs text-zinc-500 font-bold uppercase mb-4">{client?.projectName || 'TBD Client'}</p>
 
               <div className="space-y-3 pt-4 border-t border-zinc-800/50">
                 <div className="flex items-center gap-3 text-[10px] font-bold uppercase text-zinc-400 tracking-wider">
