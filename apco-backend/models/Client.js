@@ -6,7 +6,10 @@ const clientSchema = new mongoose.Schema({
     email: { type: String },
     eventDate: { type: Date },
     notes: { type: String },
-    brandId: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'Brand' }
+    eventType: { type: String },
+    status: { type: String, enum: ['pending', 'uploaded', 'selected', 'completed'], default: 'pending' },
+    brandId: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'Brand' },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, {
     timestamps: true
 });

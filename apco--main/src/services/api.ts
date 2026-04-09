@@ -1,14 +1,14 @@
-import { BookingStatus, InvoiceStatus, TaskStatus, type ActivityLog, type Booking, type Client, type CloudConfig, type Company, type Expense, type Invoice, type Staff, type Task } from "../types";
+import { type ActivityLog, type Booking, type Client, type CloudConfig, type Company, type Expense, type Invoice, type Staff, type Task, type Project } from "../types";
 
 
 export const API_URL = "http://localhost:5000/api";
 
 const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
   const token = localStorage.getItem('token');
-  const headers = {
-    'Content-Type': 'application/json',
+  const headers: Record<string, string> = {
+    ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    ...options.headers
+    ...((options.headers as Record<string, string>) || {})
   };
 
   try {
@@ -33,13 +33,13 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
 
 const STORAGE_KEY = 'apco_enterprise_db_v5';
 const STAFF_KEY = 'apco_staff_registry';
-const ACTIVITY_LOGS_KEY = 'apco_activity_logs';
 const CLOUD_CONFIG_KEY = 'apco_cloud_config';
 
 const delay = (ms: number = 400) => new Promise(resolve => setTimeout(resolve, ms));
 
 interface DBStructure {
   clients: Client[];
+  projects: Project[];
   invoices: Invoice[];
   bookings: Booking[];
   expenses: Expense[];
@@ -63,129 +63,19 @@ const getInitialStaff = (): Staff[] => [
       canUseAI: true,
       canManageEcosystem: true
     }
-  },
-  {
-    id: 'STAFF-002',
-    name: 'Priya Verma',
-    email: 'priya@artisans.co',
-    loginId: 'staff_priya',
-    role: 'Account Manager',
-    isActive: true,
-    permissions: {
-      canManageClients: true,
-      canManageFinance: false,
-      canManageTasks: true,
-      canUseAI: true,
-      canManageEcosystem: false
-    }
-  },
-  {
-    id: 'STAFF-003',
-    name: 'Arjun Singh',
-    email: 'arjun@artisans.co',
-    loginId: 'staff_arjun',
-    role: 'Editor',
-    isActive: true,
-    permissions: {
-      canManageClients: false,
-      canManageFinance: false,
-      canManageTasks: true,
-      canUseAI: false,
-      canManageEcosystem: false
-    }
   }
 ];
 
 const getInitialDB = (): DBStructure => ({
   companies: [
-    { id: '1', name: 'AAHA Kalyanam', ownerName: 'Artisan Owner', phone: '9876543210', email: 'wedding@artisans.co', color: '#fbbf24', type: 'Wedding', description: 'Luxury Wedding Production' },
-    { id: '2', name: 'Tiny Toes', ownerName: 'Artisan Owner', phone: '9876543211', email: 'kids@artisans.co', color: '#3b82f6', type: 'Kids', description: 'Premium Child Photography' }
+    { id: '1', name: 'AAHA Kalyanam', ownerName: 'Artisan Owner', phone: '9876543210', email: 'wedding@artisans.co', color: '#fbbf24', type: 'Wedding', description: 'Luxury Wedding Production' }
   ],
-  clients: [
-    {
-      id: 'ART-2025-001',
-      projectName: 'Ananya & Vikram Wedding',
-      weddingDate: '2025-11-20',
-      budget: 1500000,
-      notes: 'Grand destination wedding in Udaipur.',
-      brand: 'AAHA Kalyanam',
-      people: [
-        { id: 'P1', name: 'Ananya Sharma', role: 'Bride', email: 'ananya@example.com', phone: '9000000001', loginId: 'ananya', dateOfBirth: '1995-05-15' },
-        { id: 'P2', name: 'Vikram Singh', role: 'Groom', email: 'vikram@example.com', phone: '9000000002', loginId: 'vikram' }
-      ],
-      portal: {
-        timeline: [
-          { id: 'T1', title: 'Location Scouting', date: '2025-03-10', status: 'Completed', description: 'Udaipur palace visits' },
-          { id: 'T2', title: 'Vendor Finalization', date: '2025-05-15', status: 'In Progress', description: 'Catering and Decor' },
-          { id: 'T3', title: 'Shoot Schedule', date: '2025-11-20', status: 'Pending', description: 'Main Event Coverage' }
-        ],
-        deliverables: [
-          { id: 'D1', title: 'Engagement Highlights', url: 'https://vimeo.com/12345678', type: 'Video', dateAdded: new Date().toISOString(), origin: 'InternalServer', isPublic: true },
-          { id: 'D2', title: 'Pre-Wedding Album', url: 'https://drive.google.com/drive/u/0/folders/example', type: 'Photos', dateAdded: new Date().toISOString(), origin: 'GoogleDrive', isPublic: true }
-        ],
-        internalSpends: []
-      }
-    },
-    {
-      id: 'ART-2025-002',
-      projectName: 'Baby Karan First Year',
-      weddingDate: '2025-08-12',
-      budget: 50000,
-      notes: 'Monthly milestone shoots for Baby Karan.',
-      brand: 'Tiny Toes',
-      people: [
-        { id: 'P3', name: 'Karan Mehra', role: 'Parent', email: 'karan@example.com', phone: '9000000003', loginId: 'karan', dateOfBirth: '2024-08-12' },
-        { id: 'P4', name: 'Sonia Mehra', role: 'Parent', email: 'sonia@example.com', phone: '9000000004', loginId: 'sonia' }
-      ],
-      portal: {
-        timeline: [
-          { id: 'T4', title: '6 Month Shoot', date: '2025-02-12', status: 'Completed', description: 'Studio shoot with props' },
-          { id: 'T5', title: 'First Birthday Bash', date: '2025-08-12', status: 'Pending', description: 'Grand party coverage' }
-        ],
-        deliverables: [
-          { id: 'D3', title: 'Half Birthday Film', url: '#', type: 'Video', dateAdded: new Date().toISOString(), origin: 'InternalServer', isPublic: true }
-        ],
-        internalSpends: []
-      }
-    }
-  ],
-  invoices: [
-    {
-      id: 'INV-1001',
-      clientId: 'ART-2025-001',
-      issueDate: new Date().toISOString(),
-      dueDate: '2025-06-01',
-      brand: 'AAHA Kalyanam',
-      status: InvoiceStatus.Unpaid,
-      items: [
-        { id: 'I1', description: 'Production Retainer', quantity: 1, price: 100000, costPrice: 40000, isOutsourced: false },
-        { id: 'I2', description: 'Outsourced Lighting Gear', quantity: 1, price: 25000, costPrice: 15000, isOutsourced: true, vendorName: 'ProLight Rental' }
-      ]
-    },
-    {
-      id: 'INV-1002',
-      clientId: 'ART-2025-002',
-      issueDate: new Date().toISOString(),
-      dueDate: '2025-03-01',
-      brand: 'Tiny Toes',
-      status: InvoiceStatus.Paid,
-      items: [
-        { id: 'I3', description: 'Package A (12 Months)', quantity: 1, price: 50000, costPrice: 10000, isOutsourced: false }
-      ]
-    }
-  ],
-  bookings: [
-    { id: 'B1', clientId: 'ART-2025-001', title: 'Main Wedding', date: '2025-11-20', status: BookingStatus.Confirmed, type: 'Grand Event', brand: 'AAHA Kalyanam' },
-    { id: 'B2', clientId: 'ART-2025-002', title: 'Cake Smash', date: '2025-08-10', status: BookingStatus.Confirmed, type: 'Studio', brand: 'Tiny Toes' }
-  ],
-  expenses: [
-    { id: 'EXP-001', description: 'Instagram Ads', amount: 5000, date: new Date().toISOString(), category: 'Marketing', brand: 'AAHA Kalyanam' },
-    { id: 'EXP-002', description: 'Office Rent', amount: 30000, date: new Date().toISOString(), category: 'Other', brand: 'AAHA Kalyanam' }
-  ],
-  tasks: [
-    { id: 'TSK-1', title: 'Edit Ananya Teaser', assignee: 'Arjun Singh', dueDate: '2025-04-10', status: TaskStatus.InProgress, brand: 'AAHA Kalyanam', priority: 'High' },
-    { id: 'TSK-2', title: 'Send Payment Reminder to Karan', assignee: 'Priya Verma', dueDate: '2025-04-05', status: TaskStatus.Todo, brand: 'Tiny Toes', priority: 'Medium' }
-  ],
+  clients: [],
+  projects: [],
+  invoices: [],
+  bookings: [],
+  expenses: [],
+  tasks: [],
   lastSynced: new Date().toISOString()
 });
 
@@ -202,24 +92,74 @@ export const api = {
   // Auth
   signup: async (userData: Record<string, unknown>) => fetchApi('/auth/signup', { method: 'POST', body: JSON.stringify(userData) }),
 
+  // Dashboard
+  getDashboard: async () => fetchApi('/dashboard'),
+
   // Clients
   getClients: async () => fetchApi('/clients').catch(() => getDB().clients),
   saveClient: async (client: Client & { _id?: string }) => {
-    if (client._id || (client.id && client.id.length > 10 && !client.id.startsWith('ART'))) {
-      return fetchApi(`/clients/${client._id || client.id}`, { method: 'PUT', body: JSON.stringify(client) });
+    if (client._id) {
+      return fetchApi(`/clients/${client._id}`, { method: 'PUT', body: JSON.stringify(client) });
     }
     return fetchApi('/clients', { method: 'POST', body: JSON.stringify(client) });
+  },
+  getClientById: async (id: string) => fetchApi(`/clients/${id}`),
+
+  // Gallery
+  getGallery: async (clientId: string) => fetchApi(`/gallery/${clientId}`),
+  uploadGalleryImages: async (clientId: string, files: File[]) => {
+    const formData = new FormData();
+    files.forEach(file => formData.append('images', file));
+    return fetchApi(`/gallery/upload/${clientId}`, { 
+      method: 'POST', 
+      body: formData 
+    });
+  },
+  selectGalleryPhotos: async (clientId: string, selectedImages: string[]) => {
+    return fetchApi(`/gallery/select/${clientId}`, { 
+      method: 'POST', 
+      body: JSON.stringify({ selectedImages }) 
+    });
+  },
+
+  // Projects
+  getProjects: async () => fetchApi('/projects').catch(() => getDB().projects),
+  getProjectById: async (id: string) => fetchApi(`/projects/${id}`),
+  saveProject: async (project: any) => {
+      if (project._id) {
+          return fetchApi(`/projects/${project._id}`, { method: 'PUT', body: JSON.stringify(project) });
+      }
+      return fetchApi('/projects', { method: 'POST', body: JSON.stringify(project) });
+  },
+  updateProjectStatus: async (id: string, status: string) => {
+    return fetchApi(`/projects/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) });
+  },
+  uploadImages: async (projectId: string, imageUrls: string[]) => {
+    return fetchApi(`/projects/${projectId}/upload`, { method: 'POST', body: JSON.stringify({ imageUrls }) });
+  },
+  toggleImageSelection: async (projectId: string, imageId: string) => {
+    return fetchApi(`/projects/${projectId}/select`, { method: 'POST', body: JSON.stringify({ imageId }) });
+  },
+
+  // AI-based face recognition search
+  findMyPhotos: async (clientId: string, selfie: File) => {
+    const formData = new FormData();
+    formData.append('selfie', selfie);
+    return fetchApi(`/ai/find-photos/${clientId}`, {
+       method: 'POST',
+       body: formData
+    });
   },
 
   // Invoices
   getInvoices: async () => fetchApi('/finance/invoices').catch(() => getDB().invoices),
-  saveInvoice: async (invoice: Invoice & { _id?: string }) => {
-    if (invoice._id || (invoice.id && invoice.id.length > 10 && !invoice.id.startsWith('INV'))) {
-      return fetchApi(`/finance/invoices/${invoice._id || invoice.id}`, { method: 'PUT', body: JSON.stringify(invoice) });
+  saveInvoice: async (invoice: any) => {
+    if (invoice._id) {
+      return fetchApi(`/finance/invoices/${invoice._id}`, { method: 'PUT', body: JSON.stringify(invoice) });
     }
     return fetchApi('/finance/invoices', { method: 'POST', body: JSON.stringify(invoice) });
   },
-  updateInvoiceStatus: async (id: string, status: InvoiceStatus) => {
+  updateInvoiceStatus: async (id: string, status: string) => {
     return fetchApi(`/finance/invoices/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
   },
 
@@ -235,8 +175,8 @@ export const api = {
   // Expenses
   getExpenses: async () => fetchApi('/finance/expenses').catch(() => getDB().expenses),
   saveExpense: async (expense: Expense & { _id?: string }) => {
-    if (expense._id || (expense.id && expense.id.length > 10 && !expense.id.startsWith('EXP'))) {
-      return fetchApi(`/finance/expenses/${expense._id || expense.id}`, { method: 'PUT', body: JSON.stringify(expense) });
+    if (expense._id) {
+      return fetchApi(`/finance/expenses/${expense._id}`, { method: 'PUT', body: JSON.stringify(expense) });
     }
     return fetchApi('/finance/expenses', { method: 'POST', body: JSON.stringify(expense) });
   },
@@ -287,19 +227,12 @@ export const api = {
 
   // Logs
   getLogs: async (): Promise<ActivityLog[]> => {
-    await delay();
-    const data = localStorage.getItem(ACTIVITY_LOGS_KEY);
-    return data ? JSON.parse(data) : [];
+    return fetchApi('/logs');
   },
   logActivity: async (log: Omit<ActivityLog, 'id' | 'timestamp'>) => {
-    const logs = await api.getLogs();
-    const newLog: ActivityLog = {
-      ...log,
-      id: Math.random().toString(36).substr(2, 9),
-      timestamp: new Date().toISOString()
-    };
-    logs.unshift(newLog);
-    localStorage.setItem(ACTIVITY_LOGS_KEY, JSON.stringify(logs.slice(0, 100))); // Keep last 100 logs
+    // Audit logging is now handled automatically by the backend middleware 
+    // for most actions, but we can keep this for custom frontend events if needed.
+    return fetchApi('/logs', { method: 'POST', body: JSON.stringify(log) }).catch(() => null);
   },
 
   // Cloud Config

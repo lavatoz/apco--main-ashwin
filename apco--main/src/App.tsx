@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, Navigate, NavLink } from 'react-router-dom';
-import type { Client, Invoice, Booking, Company, Task, Staff, Expense, Person } from './types';
+import { Routes, Route, useNavigate, NavLink } from 'react-router-dom';
+import type { Client, Invoice, Company, Task, Staff, Person, Project } from './types';
 import {
   Lock, RefreshCw, Briefcase,
   LayoutDashboard, Heart, Sparkles, Settings,
@@ -14,13 +14,13 @@ import ClientPortal from './components/ClientPortal';
 import AIToolsView from './components/AIToolsView';
 import SettingsView from './components/SettingsView';
 import TaskManager from './components/TaskManager';
-import ClientExperience from './components/ClientExperience';
 import TeamManager from './components/TeamManager';
 import AuditLogsView from './components/AuditLogsView';
 import ProductionHub from './components/ProductionHub';
 import ClientDetails from './components/ClientDetails';
 import Sidebar from './components/Sidebar';
 import AnalyticsPage from './components/AnalyticsPage';
+import FileManager from './components/FileManager';
 
 import { api, API_URL } from './services/api';
 
@@ -34,8 +34,9 @@ const App: React.FC = () => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOTP] = useState('');
+  const [showOTP, setShowOTP] = useState(false);
 
-  // Removed currentView state as we use Router now
   const [selectedBrand, setSelectedBrand] = useState<string>('All');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,11 +48,7 @@ const App: React.FC = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
 
-  const [activeClient, setActiveClient] = useState<Client | null>(null);
-  const [loggedInUserId, setLoggedInUserId] = useState<string>('');
   const [loggedInUserName, setLoggedInUserName] = useState<string>('');
 
   const navigate = useNavigate();
@@ -59,22 +56,18 @@ const App: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [c, i, co, t, s, b, e] = await Promise.all([
+      const [c, i, co, t, s] = await Promise.all([
         api.getClients(),
         api.getInvoices(),
         api.getCompanies(),
         api.getTasks(),
-        api.getStaff(),
-        api.getBookings(),
-        api.getExpenses()
+        api.getStaff()
       ]);
       setClients(c);
       setInvoices(i);
       setCompanies(co);
       setTasks(t);
       setStaff(s);
-      setBookings(b);
-      setExpenses(e);
     } catch {
       setError("Sync Error: Database connection unstable.");
     } finally {
@@ -97,90 +90,181 @@ const App: React.FC = () => {
     setError(null);
     
     try {
+      const role = loginMode.toLowerCase();
+      console.log("Sending login:", { email, role });
+      
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, role })
       });
       
       const data = await response.json().catch(() => ({}));
+      console.log("Login response:", data);
       
       if (response.ok) {
-        console.log("Token:", data.token);
-        localStorage.setItem("token", data.token);
-        setAuthRole('Admin');
-        setLoggedInUserId(data._id || 'ADMIN-01');
-        setLoggedInUserName(data.name || 'System Admin');
-        setShowLogin(false);
-        navigate('/dashboard');
+        if (data.requiresMFA) {
+            setShowOTP(true);
+            setError(null);
+            return;
+        }
+
+        if (data.user) {
+            localStorage.setItem("token", data.token);
+            localStorage.setItem("user", JSON.stringify(data.user));
+            
+            const dbRole = data.user.role;
+            const mappedRole = dbRole === 'admin' ? 'Admin' : (dbRole === 'client' ? 'Client' : 'Staff');
+            setAuthRole(mappedRole);
+            localStorage.setItem("userRole", mappedRole);
+            setLoggedInUserName(data.user.name || 'User');
+            setShowLogin(false);
+            
+            if (dbRole === "admin") navigate("/dashboard");
+            else if (dbRole === "client") navigate("/client-dashboard");
+            else if (dbRole === "staff") navigate("/staff-dashboard");
+            else navigate("/dashboard");
+        }
       } else {
         setError(data.message || 'Authentication failed');
       }
-    } catch {
+    } catch (err) {
+      console.error("Login Error:", err);
       setError('Network error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const performLogin = async (identifier: string, mode: LoginMode) => {
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 800)); // Cinematic delay
-
-    if (mode === 'ADMIN' && identifier === 'admin') {
-      setAuthRole('Admin');
-      setLoggedInUserId('ADMIN-01');
-      setLoggedInUserName('System Admin');
-      api.logActivity({ action: 'System Admin Logged In', type: 'Login', actorId: 'ADMIN-01', actorName: 'Admin', actorRole: 'Admin' });
-    } else if (mode === 'STAFF') {
-      const staffList = await api.getStaff();
-      const found = staffList.find(s => s.loginId.toLowerCase() === identifier);
-      if (found) {
-        setAuthRole('Staff');
-        setLoggedInUserId(found.id);
-        setLoggedInUserName(found.name);
-        api.logActivity({ action: `${found.name} Logged In`, type: 'Login', actorId: found.id, actorName: found.name, actorRole: 'Staff' });
-      } else { setError("Identity not found in staff registry."); }
-    } else if (mode === 'CLIENT') {
-      const clientList = await api.getClients();
-      let foundClient: { client: Client, person: Person } | null = null;
-      for (const c of clientList) {
-        const p = c.people.find((person: Person) => person.loginId.toLowerCase() === identifier);
-        if (p) { foundClient = { client: c, person: p }; break; }
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setIsLoading(true);
+      setError(null);
+      try {
+          const res = await fetch(`${API_URL}/auth/mfa-verify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, otp })
+          });
+          const data = await res.json();
+          if (res.ok && data.token) {
+              localStorage.setItem("token", data.token);
+              localStorage.setItem("user", JSON.stringify(data.user));
+              const mappedRole = data.user.role === 'admin' ? 'Admin' : (data.user.role === 'client' ? 'Client' : 'Staff');
+              setAuthRole(mappedRole);
+              localStorage.setItem("userRole", mappedRole);
+              setLoggedInUserName(data.user.name || 'User');
+              setShowLogin(false);
+              setShowOTP(false);
+              setOTP('');
+              if (data.user.role === "admin") navigate("/dashboard");
+              else if (data.user.role === "client") navigate("/client-dashboard");
+              else if (data.user.role === "staff") navigate("/staff-dashboard");
+          } else {
+              setError(data.message || 'Invalid verification code');
+          }
+      } catch (err) {
+          setError("Verification failed");
+      } finally {
+          setIsLoading(false);
       }
-      if (foundClient) {
-        setAuthRole('Client');
-        setActiveClient(foundClient.client);
-        setLoggedInUserId(foundClient.person.id);
-        setLoggedInUserName(foundClient.person.name);
-        api.logActivity({
-          action: `${foundClient.person.name} Accessed Portal`,
-          type: 'Login',
-          actorId: foundClient.person.id,
-          actorName: foundClient.person.name,
-          actorRole: 'Client',
-          projectId: foundClient.client.id
-        });
-        navigate('/portal');
-      } else { setError("Project ID invalid or restricted."); }
-    } else if (mode === 'ADMIN') {
-      setError("Invalid Administrative Credentials.");
-    }
-    setIsLoading(false);
   };
 
-  const quickLogin = (type: 'owner' | 'staff' | 'client') => {
+  const performLogin = async (identifier: string, mode: LoginMode) => {
+    setIsLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800)); // Cinematic delay
+
+      if (mode === 'ADMIN' && identifier === 'admin') {
+        setAuthRole('Admin');
+        setLoggedInUserName('System Admin');
+        api.logActivity({ action: 'System Admin Logged In', type: 'Login', actorId: 'ADMIN-01', actorName: 'Admin', actorRole: 'Admin' });
+      } else if (mode === 'STAFF') {
+        const staffList = await api.getStaff();
+        const found = staffList.find(s => s.loginId.toLowerCase() === identifier);
+        if (found) {
+          setAuthRole('Staff');
+          setLoggedInUserName(found.name);
+          api.logActivity({ action: `${found.name} Logged In`, type: 'Login', actorId: found.id, actorName: found.name, actorRole: 'Staff' });
+        } else { setError("Identity not found in staff registry."); }
+      } else if (mode === 'CLIENT') {
+        const clientList = await api.getClients();
+        let foundClient: { client: Client, person: Person } | null = null;
+        for (const c of clientList) {
+          const p = c.people.find((person: Person) => person.loginId.toLowerCase() === identifier);
+          if (p) { foundClient = { client: c, person: p }; break; }
+        }
+        if (foundClient) {
+          setAuthRole('Client');
+          setLoggedInUserName(foundClient.person.name);
+          api.logActivity({
+            action: `${foundClient.person.name} Accessed Portal`,
+            type: 'Login',
+            actorId: foundClient.person.id,
+            actorName: foundClient.person.name,
+            actorRole: 'Client',
+            projectId: foundClient.client.id
+          });
+          navigate('/portal');
+        } else { setError("Project ID invalid or restricted."); }
+      } else if (mode === 'ADMIN') {
+        setError("Invalid Administrative Credentials.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const quickLogin = async (type: 'owner' | 'staff' | 'client') => {
+    let email = '';
+    let password = 'password123';
+    let role = '';
+
     if (type === 'owner') {
+      email = 'admin@apco.com';
+      role = 'admin';
       setLoginMode('ADMIN');
-      performLogin('admin', 'ADMIN');
     } else if (type === 'staff') {
+      email = 'staff@test.com';
+      role = 'staff';
       setLoginMode('STAFF');
-      performLogin('staff_rahul', 'STAFF');
     } else if (type === 'client') {
+      email = 'joel@test.com';
+      role = 'client';
       setLoginMode('CLIENT');
-      performLogin('ananya', 'CLIENT');
+    }
+
+    if (email) {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, role })
+        });
+        const data = await response.json();
+        if (response.ok && data.token) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+          const mappedRole = data.user.role === 'admin' ? 'Admin' : (data.user.role === 'client' ? 'Client' : 'Staff');
+          setAuthRole(mappedRole);
+          localStorage.setItem("userRole", mappedRole);
+          setLoggedInUserName(data.user.name || 'User');
+          setShowLogin(false);
+          if (data.user.role === "admin") navigate("/dashboard");
+          else if (data.user.role === "client") navigate("/client-dashboard");
+          else if (data.user.role === "staff") navigate("/staff-dashboard");
+        } else {
+          // Fallback to old behavior if login fails
+          performLogin(type === 'owner' ? 'admin' : (type === 'staff' ? 'staff_rahul' : 'ananya'), type === 'owner' ? 'ADMIN' : (type === 'staff' ? 'STAFF' : 'CLIENT'));
+        }
+      } catch (err) {
+        performLogin(type === 'owner' ? 'admin' : (type === 'staff' ? 'staff_rahul' : 'ananya'), type === 'owner' ? 'ADMIN' : (type === 'staff' ? 'STAFF' : 'CLIENT'));
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -242,25 +326,48 @@ const App: React.FC = () => {
                   </button>
                 </div>
 
-                <form onSubmit={handleLogin} className="px-6 pb-6 space-y-6">
-                  <div className="space-y-3 text-center">
-                    <p className="text-[9px] font-mono uppercase text-zinc-500 tracking-widest">Identity Verification</p>
-                    <input
-                      type="email"
-                      required
-                      className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm"
-                      placeholder="EMAIL ADDRESS"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                    <input
-                      type="password"
-                      required
-                      className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm shadow-inner"
-                      placeholder="PASSWORD"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
+                <form onSubmit={showOTP ? handleVerifyOTP : handleLogin} className="px-6 pb-6 space-y-6">
+                  <div className="space-y-4 text-center">
+                    {!showOTP ? (
+                      <>
+                        <p className="text-[9px] font-mono uppercase text-zinc-500 tracking-widest">Identity Verification</p>
+                        <input
+                          type="email"
+                          required
+                          className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm"
+                          placeholder="EMAIL ADDRESS"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                        />
+                        <input
+                          type="password"
+                          required
+                          className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm shadow-inner"
+                          placeholder="PASSWORD"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[9px] font-mono uppercase text-blue-500 tracking-widest animate-pulse">Dual-Factor Authentication</p>
+                        <div className="space-y-4">
+                          <input
+                            type="text"
+                            required
+                            maxLength={6}
+                            className="w-full bg-black/40 border border-blue-500/30 rounded-2xl p-6 text-white text-center focus:border-blue-500/50 focus:bg-black/60 outline-none text-3xl font-black font-mono placeholder:text-zinc-800 transition-all backdrop-blur-md tracking-[0.5em] shadow-[0_0_30px_rgba(37,99,235,0.1)]"
+                            placeholder="000000"
+                            value={otp}
+                            onChange={(e) => setOTP(e.target.value)}
+                            autoFocus
+                          />
+                          <button type="button" onClick={() => setShowOTP(false)} className="text-[8px] font-black uppercase text-zinc-600 hover:text-white tracking-widest transition-colors flex items-center justify-center gap-2 mx-auto">
+                            <ArrowLeft className="w-3 h-3" /> Change Credentials
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <button
@@ -269,7 +376,7 @@ const App: React.FC = () => {
                     className="w-full bg-white text-black font-black py-4 rounded-2xl flex items-center justify-center gap-3 hover:bg-zinc-200 active:scale-[0.98] transition-all shadow-xl text-[10px] uppercase tracking-[0.2em]"
                   >
                     {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Command className="w-4 h-4" />}
-                    {isLoading ? 'Authenticating...' : 'Authenticate'}
+                    {isLoading ? 'Processing...' : (showOTP ? 'Secure Access' : 'Authenticate')}
                   </button>
 
                   {error && <p className="text-red-500 text-[9px] font-mono uppercase tracking-widest animate-pulse text-center bg-red-500/5 py-2 rounded-lg border border-red-500/10">{error}</p>}
@@ -303,10 +410,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Client Portal Only View
-  if (authRole === 'Client' && activeClient) {
-    return <ClientExperience client={activeClient} loggedInPersonId={loggedInUserId} onLogout={() => { setAuthRole('none'); setShowLogin(false); }} onUpdateClient={async (u) => { await api.saveClient(u); fetchData(); setActiveClient(u); }} />;
-  }
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col overflow-hidden font-sans selection:bg-blue-500 selection:text-white">
@@ -333,6 +436,7 @@ const App: React.FC = () => {
         <Sidebar
           isMobileOpen={isMobileOpen}
           setIsMobileOpen={setIsMobileOpen}
+          userRole={authRole}
         />
 
         <main className="flex-1 overflow-y-auto no-scrollbar pb-safe relative">
@@ -340,20 +444,37 @@ const App: React.FC = () => {
           <div className="fixed inset-0 pointer-events-none bg-noise z-0 opacity-50" />
 
           <div className="max-w-7xl mx-auto p-6 md:p-10 animate-ios-slide-up relative z-10">
+            <div className="flex justify-end mb-8">
+              <div className="flex bg-zinc-900/50 p-1 rounded-[1.2rem] border border-white/5 backdrop-blur-md">
+                {['All', 'AAHA Kalyanam', 'Tiny Toes'].map((brand) => (
+                  <button
+                    key={brand}
+                    onClick={() => setSelectedBrand(brand)}
+                    className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedBrand === brand ? 'bg-white text-black shadow-xl' : 'text-zinc-500 hover:text-white'}`}
+                  >
+                    {brand}
+                  </button>
+                ))}
+              </div>
+            </div>
             <Routes>
-              <Route path="/" element={<Dashboard invoices={invoices} clients={clients} bookings={bookings} companies={companies} tasks={tasks} selectedBrand={selectedBrand} setSelectedBrand={setSelectedBrand} userRole={authRole} />} />
-              <Route path="/dashboard" element={<Navigate to="/" replace />} />
+              <Route path="/" element={<Dashboard clients={clients} invoices={invoices} tasks={tasks} selectedBrand={selectedBrand} userRole={authRole} />} />
+              <Route path="/dashboard" element={<Dashboard clients={clients} invoices={invoices} tasks={tasks} selectedBrand={selectedBrand} userRole={authRole} />} />
+              <Route path="/client-dashboard" element={<Dashboard clients={clients} invoices={invoices} tasks={tasks} selectedBrand={selectedBrand} userRole={authRole} />} />
+              <Route path="/staff-dashboard" element={<Dashboard clients={clients} invoices={invoices} tasks={tasks} selectedBrand={selectedBrand} userRole={authRole} />} />
               <Route path="/analytics/:type" element={<AnalyticsPage />} />
-              <Route path="/clients/:id" element={<ClientDetails />} />
-              <Route path="/tasks" element={<ProductionHub companies={companies} clients={clients} tasks={tasks} bookings={bookings} selectedBrand={selectedBrand} onOpenClient={(c) => { setActiveClient(c); navigate('/portal'); }} />} />
-              <Route path="/directory" element={<ClientManager clients={clients} companies={companies} addClient={async (c) => { await api.saveClient(c); fetchData(); }} selectedBrand={selectedBrand} onOpenPortal={(c) => { setActiveClient(c); navigate('/portal'); }} />} />
-              <Route path="/finance" element={<FinanceManager invoices={invoices} expenses={expenses} clients={clients} companies={companies} addInvoice={async (i) => { await api.saveInvoice(i); fetchData(); }} addExpense={async (e) => { await api.saveExpense(e); fetchData(); }} deleteExpense={async (id) => { await api.deleteExpense(id); fetchData(); }} updateInvoiceStatus={async (id, s) => { await api.updateInvoiceStatus(id, s); fetchData(); }} selectedBrand={selectedBrand} userRole={authRole} />} />
+              <Route path="/client/:id" element={<ClientDetails />} />
+              <Route path="/production" element={<ProductionHub companies={companies} clients={clients} tasks={tasks} selectedBrand={selectedBrand} onOpenClient={(p: Project) => { console.log("ID:", p._id); navigate(`/portal/${p._id}`); }} />} />
+              <Route path="/tasks" element={<ProductionHub companies={companies} clients={clients} tasks={tasks} selectedBrand={selectedBrand} onOpenClient={(p: Project) => { console.log("ID:", p._id); navigate(`/portal/${p._id}`); }} />} />
+              <Route path="/directory" element={<ClientManager clients={clients} companies={companies} addClient={async (c) => { await api.saveClient(c); fetchData(); }} selectedBrand={selectedBrand} onOpenPortal={(c) => { console.log("ID:", c._id); navigate(`/client/${c._id}`); }} />} />
+              <Route path="/finance" element={<FinanceManager invoices={invoices} clients={clients} companies={companies} updateInvoiceStatus={async (id: string, s: string) => { await api.updateInvoiceStatus(id, s); fetchData(); }} selectedBrand={selectedBrand} userRole={authRole} />} />
               <Route path="/copilot" element={<AIToolsView clients={clients} selectedBrand={selectedBrand} />} />
               <Route path="/system" element={<SettingsView companies={companies} addCompany={async (co) => { await api.saveCompany(co); fetchData(); }} onOpenTeam={() => navigate('/team')} isAdmin={authRole === 'Admin'} />} />
-              <Route path="/portal" element={activeClient ? <ClientPortal client={activeClient} onUpdateClient={async (u) => { await api.saveClient(u); setActiveClient(u); fetchData(); }} onBack={() => navigate('/directory')} /> : <Navigate to="/directory" />} />
+              <Route path="/portal/:id" element={<ClientPortal onUpdateClient={async (u) => { await api.saveClient(u); fetchData(); }} onBack={() => navigate('/production')} userRole={authRole} />} />
               <Route path="/team" element={<TeamManager staff={staff} onSaveStaff={async (s) => { await api.saveStaff(s); fetchData(); }} onDeleteStaff={async (id) => { await api.deleteStaff(id); fetchData(); }} />} />
               <Route path="/logs" element={<AuditLogsView />} />
               <Route path="/calendar" element={<TaskManager tasks={tasks} onSaveTask={async (t) => { await api.saveTask(t); fetchData(); }} onDeleteTask={async (id) => { await api.deleteTask(id); fetchData(); }} companies={companies} selectedBrand={selectedBrand} />} />
+              <Route path="/vault" element={<FileManager />} />
             </Routes>
           </div>
         </main>

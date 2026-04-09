@@ -1,0 +1,51 @@
+﻿
+> apco-crm@0.0.0 lint
+> eslint .
+
+
+C:\Users\JOEL\Downloads\apco--main-ashwin-main.zip 1\apco--main-ashwin-main\apco--main\src\components\ClientDetails.tsx
+  9:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\JOEL\Downloads\apco--main-ashwin-main.zip 1\apco--main-ashwin-main\apco--main\src\components\ClientManager.tsx
+  11:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  12:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  13:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  14:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  18:56  error  'onOpenPortal' is defined but never used  @typescript-eslint/no-unused-vars
+  20:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  49:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  50:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\JOEL\Downloads\apco--main-ashwin-main.zip 1\apco--main-ashwin-main\apco--main\src\components\FinanceManager.tsx
+  22:3   error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/ban-ts-comment
+  23:13  error  'mockInvoices' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+  26:44  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  38:24  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  38:49  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  60:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\JOEL\Downloads\apco--main-ashwin-main.zip 1\apco--main-ashwin-main\apco--main\src\components\FinanceManager.tsx:60:7
+  58 |   useEffect(() => {
+  59 |     if (selectedBrandId) {
+> 60 |       fetchInvoices();
+     |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  61 |     }
+  62 |   }, [selectedBrandId, fetchInvoices]);
+  63 |  react-hooks/set-state-in-effect
+
+C:\Users\JOEL\Downloads\apco--main-ashwin-main.zip 1\apco--main-ashwin-main\apco--main\src\components\ProductionHub.tsx
+  18:67  error  'clients' is defined but never used       @typescript-eslint/no-unused-vars
+  20:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  23:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\JOEL\Downloads\apco--main-ashwin-main.zip 1\apco--main-ashwin-main\apco--main\src\components\TaskManager.tsx
+  166:68  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Γ£û 19 problems (19 errors, 0 warnings)
+

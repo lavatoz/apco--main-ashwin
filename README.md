@@ -43,80 +43,33 @@ APCO is a business management dashboard for event planning brands, built with Re
 ## License
 MIT
 
----
+## Development Progress & Milestones
 
-*Below is the original Vite+React template info:*
+Based on recent development phases, we have built out the **APCO ERP** system into a feature-rich, full-stack application with a cinematic dark design system.
 
-# React + TypeScript + Vite
+### 🏢 APCO ERP Core Development
+1. **Authentication & Security**
+   - Implemented a robust **Role-Based Authentication Flow**, ensuring separate and secure access for `staff` and `client` roles.
+   - Built a **Multi-Factor Authentication (MFA)** login flow to enhance platform security.
+   - Fixed several login state edge-cases preventing UI freezes and role-mismatches.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+2. **Project & Workflow Management**
+   - Deployed an interactive **Project Board**, featuring a drag-and-drop Kanban interface for tracking tasks and status.
+   - Developed a **Secure Document Vault** for safely storing, retrieving, and managing both client and internal documents.
 
-Currently, two official plugins are available:
+3. **Finance & Ledger System**
+   - Built a **Real-Time Ledger System** that handles invoices and quotations.
+   - Resolved UI filtering so "All", "Unpaid", "Paid", and "Quotations" tabs accurately reflect creation and payment workflows dynamically.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+4. **Photography Workflow Integration**
+   - Setup a heavy-duty backend for **Photography Asset Management**, allowing client selection and status tracking.
+   - Synchronized the React **Gallery component** with the backend for image coordination and client approval workflows.
+   - Integrated AI-based **Face Recognition** (via a specialized Python service `face_match.py`) to potentially enrich media workflows.
 
-## React Compiler
+5. **Codebase Health & Refactoring**
+   - Squashed numerous React/TypeScript warnings and runtime errors across critical components like `ClientManager.tsx` and `App.tsx` (e.g., resolving unused variable checks, dependency mismatches, and build errors).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### 🛠️ Standalone Technical Projects
+Outside of the main ERP components, development has included highly specialized tasks:
+- **Cybersecurity / Reverse Engineering:** Analyzed outputs from a custom "Military-grade Random Number Generator" to predict numbers and solve a CTF-style challenge.
+- **Digital Forensics:** Built a recursive Python forensic tool for retail data breaches (extracting MAC times, hashing files, and flagging out-of-hours anomalies).

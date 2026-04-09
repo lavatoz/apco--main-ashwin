@@ -1,218 +1,177 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-  CalendarCheck, IndianRupee, Briefcase,
-  ArrowUpRight, Sparkles, MessageSquare, Database, ChevronRight, Heart, Gift, Layers, CheckSquare
+  Briefcase,
+  ArrowUpRight, Sparkles, Database, Layers, CheckSquare, Clock, ArrowLeft, TrendingUp, AlertCircle,
+  Image as ImageIcon
 } from 'lucide-react';
-import { BookingStatus, type Booking, type Client, type CloudConfig, type Company, type Invoice, type Task } from '../types';
+import { type Client, type CloudConfig, type Task, type Invoice } from '../types';
 import { api } from '../services/api';
-
+import { 
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
+} from 'recharts';
 
 interface DashboardProps {
-  invoices: Invoice[];
   clients: Client[];
-  bookings: Booking[];
-  companies: Company[];
+  invoices: Invoice[];
   tasks: Task[];
-  selectedBrand: string | 'All';
-  setSelectedBrand: (brand: string | 'All') => void;
+  selectedBrand: string;
   userRole: 'Admin' | 'Staff' | 'Client' | 'none';
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ clients = [], bookings = [], companies = [], tasks = [], selectedBrand, setSelectedBrand, userRole }) => {
-  const navigate = useNavigate();
+type DashboardView = 'dashboard' | 'revenue' | 'unpaid' | 'projects' | 'tasks';
+
+const Dashboard: React.FC<DashboardProps> = ({ clients = [], invoices = [], tasks = [], selectedBrand, userRole }) => {
+  const [selectedView, setSelectedView] = useState<DashboardView>('dashboard');
   const [cloudConfig, setCloudConfig] = useState<CloudConfig | null>(null);
+  const [dashboardData, setDashboardData] = useState<{ totalRevenue: number, unpaid: number }>({ totalRevenue: 0, unpaid: 0 });
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [totalRevenue, setTotalRevenue] = useState<number>(0);
-  const [totalExpenses, setTotalExpenses] = useState<number>(0);
-  const [profit, setProfit] = useState<number>(0);
-  const [financeLoading, setFinanceLoading] = useState<boolean>(false);
-  const [financeError, setFinanceError] = useState<string | null>(null);
-
-  const [brands, setBrands] = useState<(Company & { _id: string })[]>([]);
-  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  // Detailed Data States
+  const [detailedInvoices, setDetailedInvoices] = useState<Invoice[]>([]);
+  const [detailedProjects, setDetailedProjects] = useState<any[]>([]);
+  const [detailedTasks, setDetailedTasks] = useState<Task[]>([]);
 
   useEffect(() => {
     api.getCloudConfig().then(setCloudConfig);
+    fetchDashboardSummary();
+  }, [selectedBrand]);
 
-    const fetchBrands = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const response = await fetch("http://localhost:5000/api/brands", {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setBrands(data);
-          if (data.length > 0) {
-            setSelectedBrandId(data[0]._id);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load brands:", err);
-      }
-    };
-    
-    if (userRole === 'Admin') {
-      fetchBrands();
-    }
-  }, [userRole]);
-
-  useEffect(() => {
-    const fetchFinance = async () => {
-      if (!selectedBrandId) return;
-      
-      setFinanceLoading(true);
-      setFinanceError(null);
-      try {
-        const token = localStorage.getItem("token");
-        const response = await fetch(`http://localhost:5000/api/finance/summary?brandId=${selectedBrandId}`, {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error("Failed connecting to finance service");
-        }
-        
-        const data = await response.json();
-        setTotalRevenue(data.totalRevenue || 0);
-        setTotalExpenses(data.totalExpenses || 0);
-        setProfit(data.profit || 0);
-      } catch (err) {
-        setFinanceError(err instanceof Error ? err.message : 'Network check failed');
-      } finally {
-        setFinanceLoading(false);
-      }
-    };
-    
-    if (userRole === 'Admin') {
-      fetchFinance();
-    }
-  }, [userRole, selectedBrandId]);
-
-
-  const filteredBookings = selectedBrand === 'All' ? bookings : bookings.filter(b => b.brand === selectedBrand);
-
-  const upcomingBookings = filteredBookings.filter(b => b.status === BookingStatus.Confirmed && new Date(b.date) >= new Date());
-
-
-
-  // Operational Metrics for Staff
-  const myTasksCount = tasks.filter(t => t.status !== 'Done').length; // Assuming simpler count for now
-  const activeProjectsCount = clients.length;
-
-  const getCelebrations = () => {
-    if (!Array.isArray(clients)) return [];
-
-    const today = new Date();
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 14);
-
-    const events: { client: Client, type: 'Birthday' | 'Anniversary', date: Date }[] = [];
-
-    (clients || []).forEach(c => {
-      // Use weddingDate (old schema) or eventDate (new schema) mapped properly
-      const notableDate = c.weddingDate || c.eventDate;
-      if (notableDate) {
-        const anniv = new Date(notableDate);
-        anniv.setFullYear(today.getFullYear());
-        if (anniv >= today && anniv <= nextWeek) events.push({ client: c, type: 'Anniversary', date: anniv });
-      }
-      // For any clients using the legacy people[] mock schema array
-      (c.people || []).forEach(p => {
-        if (p.dateOfBirth) {
-          const bday = new Date(p.dateOfBirth);
-          bday.setFullYear(today.getFullYear());
-          if (bday >= today && bday <= nextWeek) {
-            events.push({ client: c, type: 'Birthday', date: bday });
-          }
-        }
+  const fetchDashboardSummary = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`http://localhost:5000/api/dashboard${selectedBrand !== 'All' ? `?brand=${selectedBrand}` : ''}`, {
+        headers: { "Authorization": `Bearer ${token}` }
       });
-    });
-
-    return events.sort((a, b) => a.date.getTime() - b.date.getTime());
+      if (!response.ok) throw new Error("Failed to load dashboard data");
+      const data = await response.json();
+      setDashboardData(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Dashboard sync failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const upcomingCelebrations = getCelebrations();
+  const fetchDetailedData = async (view: DashboardView) => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const headers = { "Authorization": `Bearer ${token}` };
+      
+      if (view === 'revenue' || view === 'unpaid') {
+        const invRes = await fetch(`http://localhost:5000/api/finance/invoices`, { headers });
+        if (invRes.ok) {
+          const data = await invRes.json();
+          setDetailedInvoices(data);
+        }
+      } else if (view === 'projects') {
+        const projRes = await fetch(`http://localhost:5000/api/projects`, { headers });
+        if (projRes.ok) {
+          const data = await projRes.json();
+          setDetailedProjects(data);
+        }
+      } else if (view === 'tasks') {
+      await fetch(`http://localhost:5000/api/finance/tasks`, { headers }).catch(() => null);
+      // Fallback to tasks prop if API fails or isn't perfect
+      setDetailedTasks(tasks);
+      }
+    } catch (err) {
+      console.error("Failed to fetch detailed data", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Define metrics based on role
-  let metrics = [];
+  useEffect(() => {
+    if (selectedView !== 'dashboard') {
+      fetchDetailedData(selectedView);
+    }
+  }, [selectedView, selectedBrand]);
+
+  const chartData = React.useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentYearInvoices = (invoices || []).filter(inv => {
+      const date = new Date(inv.createdAt);
+      return date.getFullYear() === new Date().getFullYear();
+    });
+
+    return months.map(month => {
+      const monthInvoices = currentYearInvoices.filter(inv => {
+        const date = new Date(inv.createdAt);
+        return date.toLocaleString('default', { month: 'short' }) === month;
+      });
+
+      const profit = monthInvoices
+        .filter(inv => inv.status === 'paid')
+        .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+      
+      const loss = monthInvoices
+        .filter(inv => inv.status === 'unpaid')
+        .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+
+      return { month, profit, loss };
+    }).filter(d => d.profit > 0 || d.loss > 0).slice(-6); // Last 6 months with data
+  }, [invoices]);
 
   const formatCurrency = (amount: number) => {
-    if (financeLoading) return '...';
-    if (financeError) return 'ERR';
     if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
     if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
     return `₹${amount}`;
   };
 
-  if (userRole === 'Staff') {
-    metrics = [
-      { id: 1, label: 'My Tasks', value: myTasksCount, hex: '#FFFFFF', icon: CheckSquare, bg: 'bg-zinc-900' },
-      { id: 2, label: 'Active Jobs', value: activeProjectsCount, hex: '#10b981', icon: Layers, bg: 'bg-emerald-950/10' },
-      { id: 3, label: 'Alerts', value: clients.reduce((s, c) => s + (c.requirements?.filter(r => r.status === 'Pending').length || 0), 0), hex: '#f59e0b', icon: MessageSquare, bg: 'bg-amber-950/10' },
-      { id: 4, label: 'Events', value: upcomingBookings.length, hex: '#3b82f6', icon: CalendarCheck, bg: 'bg-blue-950/10' },
-    ];
-  } else {
-    // Admin View
-    metrics = [
-      { id: 1, label: 'Revenue', value: formatCurrency(totalRevenue), hex: '#FFFFFF', icon: Briefcase, bg: 'bg-zinc-900', path: '/analytics/revenue' },
-      { id: 2, label: 'Profit', value: formatCurrency(profit), hex: '#10b981', icon: IndianRupee, bg: 'bg-emerald-950/10', path: '/analytics/profit' },
-      { id: 3, label: 'Expenses', value: formatCurrency(totalExpenses), hex: '#f43f5e', icon: Layers, bg: 'bg-rose-950/10', path: '/analytics/expenses' },
-      { id: 4, label: 'Events', value: upcomingBookings.length, hex: '#3b82f6', icon: CalendarCheck, bg: 'bg-blue-950/10' },
-    ];
-  }
+  const filteredClientsCount = clients.filter(c => selectedBrand === 'All' || c.brand === selectedBrand || (c as any).brandId?.name === selectedBrand).length;
+  const filteredTasksCount = tasks.filter(t => (selectedBrand === 'All' || t.brand === selectedBrand) && t.status !== 'Done').length;
 
-  return (
+  const getMetrics = () => {
+    if (userRole === 'Client') {
+      const myProjects = detailedProjects;
+      // We'll estimate photos from the project if gallery isn't fully synced to dashboard yet
+      // but we'll prioritize showing the status correctly
+      const totalImages = myProjects.reduce((sum, p) => sum + (p.images?.length || 0), 0);
+      const selectedImages = myProjects.reduce((sum, p) => sum + (p.images?.filter((img: any) => img.isSelected).length || 0), 0);
+      
+      return [
+        { id: 'projects', label: 'My Projects', value: myProjects.length, icon: Layers, bg: 'bg-zinc-900', color: '#FFFFFF' },
+        { id: 'gallery', label: 'Asset Pool', value: totalImages || '-', icon: ImageIcon, bg: 'bg-blue-950/10', color: '#3b82f6' },
+        { id: 'selection', label: 'My Selection', value: selectedImages || '-', icon: CheckSquare, bg: 'bg-emerald-950/10', color: '#10b981' },
+        { id: 'projects', label: 'Current Phase', value: myProjects[0]?.status || 'Pending', icon: Clock, bg: 'bg-amber-950/10', color: '#f59e0b' },
+      ];
+    }
+    
+    if (userRole === 'Staff') {
+       const myAssignments = detailedProjects.filter(p => (p as any).assignedTo === (JSON.parse(localStorage.getItem('user') || '{}')._id));
+       return [
+        { id: 'projects', label: 'My Assignments', value: myAssignments.length, icon: Layers, bg: 'bg-zinc-900', color: '#FFFFFF' },
+        { id: 'tasks', label: 'Assigned Tasks', value: filteredTasksCount, icon: CheckSquare, bg: 'bg-emerald-950/10', color: '#10b981' },
+       ];
+    }
+
+    return [
+      { id: 'revenue', label: 'Total Revenue', value: formatCurrency(dashboardData.totalRevenue), icon: Briefcase, bg: 'bg-zinc-900', color: '#FFFFFF' },
+      { id: 'unpaid', label: 'Unpaid Amount', value: formatCurrency(dashboardData.unpaid), icon: Clock, bg: 'bg-amber-950/10', color: '#f59e0b' },
+      { id: 'projects', label: 'Active Projects', value: filteredClientsCount, icon: Layers, bg: 'bg-emerald-950/10', color: '#10b981' },
+      { id: 'tasks', label: 'Pending Tasks', value: filteredTasksCount, icon: CheckSquare, bg: 'bg-blue-950/10', color: '#3b82f6' },
+    ];
+  };
+
+  const metrics = getMetrics();
+
+  // Render Views
+  const renderDashboard = () => (
     <div className="space-y-8 animate-ios-slide-up">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">Command Center</h1>
-          {userRole === 'Admin' && brands.length > 0 && (
-            <select
-              value={selectedBrandId || ''}
-              onChange={(e) => setSelectedBrandId(e.target.value)}
-              className="bg-zinc-900 border border-white/10 text-white rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest outline-none focus:border-white/30 transition-all cursor-pointer shadow-lg max-w-[150px] md:max-w-xs"
-            >
-              {brands.map(b => (
-                <option key={b._id} value={b._id}>{b.name}</option>
-              ))}
-            </select>
-          )}
-        </div>
-        <div className="bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5 flex gap-1 overflow-x-auto no-scrollbar max-w-max">
-          <button
-            onClick={() => setSelectedBrand('All')}
-            className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${selectedBrand === 'All' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}
-          >
-            Global
-          </button>
-          {companies.map(co => (
-            <button
-              key={co.id}
-              onClick={() => setSelectedBrand(co.name)}
-              className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${selectedBrand === co.name ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}
-            >
-              {co.name.split(' ')[0]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {financeError && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-mono uppercase tracking-widest p-4 rounded-2xl mb-4 text-center animate-pulse">
-          Connection Error: {financeError}
-        </div>
-      )}
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {metrics.map((m) => {
           const Icon = m.icon;
           return (
-            <div key={m.id} onClick={() => m.path && navigate(m.path)} className={`${m.bg} border border-white/5 p-6 squircle-md flex flex-col justify-between h-40 group cursor-pointer active:scale-95 ios-transition`}>
+            <div 
+              key={m.id} 
+              onClick={() => setSelectedView(m.id as DashboardView)}
+              className={`${m.bg} border border-white/5 p-6 squircle-md flex flex-col justify-between h-40 group cursor-pointer active:scale-95 ios-transition hover:border-white/10`}
+            >
               <div className="flex justify-between items-start">
                 <div className="p-3 rounded-2xl bg-white/5 text-white shadow-xl group-hover:bg-white group-hover:text-black transition-all">
                   <Icon className="w-5 h-5" />
@@ -229,43 +188,21 @@ const Dashboard: React.FC<DashboardProps> = ({ clients = [], bookings = [], comp
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Celebration Radar - CRM Focus */}
-        <div className="lg:col-span-2 bg-pink-500/5 border border-pink-500/10 p-10 squircle-lg space-y-8">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
-              <Heart className="w-5 h-5 text-pink-500 fill-pink-500/20" /> Relationship Nurture
-            </h3>
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-pink-500" />
-              <span className="text-[8px] font-black uppercase text-pink-500 bg-pink-500/10 px-2 py-1 rounded-md">AI Insights</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {upcomingCelebrations.slice(0, 4).map((celebration, idx) => (
-              <div key={idx} className="p-6 bg-white/5 rounded-3xl border border-white/5 flex items-center justify-between group hover:bg-white/10 ios-transition cursor-pointer">
-                <div className="flex items-center gap-4 overflow-hidden">
-                  <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center ${celebration.type === 'Birthday' ? 'bg-blue-500/20 text-blue-400' : 'bg-pink-500/20 text-pink-400'}`}>
-                    {celebration.type === 'Birthday' ? <Gift className="w-6 h-6" /> : <Heart className="w-6 h-6" />}
-                  </div>
-                  <div className="overflow-hidden">
-                    <p className="text-xs font-black text-white uppercase tracking-tight truncate">{celebration.client.projectName}</p>
-                    <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest mt-1">{celebration.type} • {celebration.date.toLocaleDateString([], { day: 'numeric', month: 'short' })}</p>
-                  </div>
+        <div className="lg:col-span-2 bg-zinc-900/10 border border-white/5 p-10 squircle-lg min-h-[400px] flex flex-col items-center justify-center relative overflow-hidden">
+             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
+             <div className="text-center space-y-4 relative z-10">
+                <div className="w-20 h-20 bg-white/5 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 border border-white/10 shadow-2xl">
+                    <Sparkles className="w-10 h-10 text-white/20" />
                 </div>
-                <ChevronRight className="w-4 h-4 text-zinc-800 group-hover:text-white group-hover:translate-x-1 ios-transition" />
-              </div>
-            ))}
-            {upcomingCelebrations.length === 0 && (
-              <p className="col-span-full text-center py-10 text-[10px] font-black uppercase text-zinc-700 tracking-widest">No life milestones detected this cycle</p>
-            )}
-          </div>
+                <h3 className="text-2xl font-black text-white uppercase tracking-tighter">System Health Optimal</h3>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">All Modules Synchronized across Enterprise Network</p>
+             </div>
         </div>
 
-        {/* Multi-Vault Monitor */}
-        <div className="bg-zinc-900/30 p-10 squircle-lg border border-blue-500/10 space-y-8 flex flex-col justify-center">
+        <div className="bg-zinc-900/30 p-10 squircle-lg border border-blue-500/10 space-y-8 flex flex-col justify-center min-h-[400px]">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
-              <Database className="w-5 h-5 text-blue-500" /> Storage Ecosystem
+              <Database className="w-5 h-5 text-blue-500" /> Infrastructure
             </h3>
           </div>
           <div className="space-y-6">
@@ -273,16 +210,190 @@ const Dashboard: React.FC<DashboardProps> = ({ clients = [], bookings = [], comp
               <div key={v.id} className="space-y-3">
                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
                   <span className="text-zinc-500">{v.name}</span>
-                  <span className={`${v.usagePercent > 85 ? 'text-red-500 animate-pulse' : 'text-zinc-600'}`}>{v.usagePercent}% Cap</span>
+                  <span className={`${v.usagePercent > 85 ? 'text-red-500' : 'text-zinc-600'}`}>{v.usagePercent}%</span>
                 </div>
                 <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className={`h-full ios-transition ${v.usagePercent > 85 ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-blue-500'}`} style={{ width: `${v.usagePercent}%` }} />
+                  <div className={`h-full ios-transition bg-blue-500`} style={{ width: `${v.usagePercent}%` }} />
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
+    </div>
+  );
+
+  const renderRevenueView = () => {
+    return (
+      <div className="space-y-8 animate-ios-slide-up">
+        <div className="glass-panel p-10 squircle-lg border border-white/5">
+          <div className="flex justify-between items-center mb-10">
+            <div>
+                <h3 className="text-2xl font-black text-white uppercase tracking-tight">Revenue Analytics</h3>
+                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Profit vs Operational Loss</p>
+            </div>
+            <TrendingUp className="w-8 h-8 text-emerald-500 opacity-50" />
+          </div>
+          
+          <div className="h-[400px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#18181b" vertical={false} />
+                <XAxis dataKey="month" stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val/1000}k`} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '12px' }}
+                  itemStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
+                <Bar dataKey="profit" fill="#10b981" radius={[4, 4, 0, 0]} name="Net Profit" />
+                <Bar dataKey="loss" fill="#ef4444" radius={[4, 4, 0, 0]} name="Operational Loss" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderUnpaidView = () => {
+    const unpaid = detailedInvoices.filter(i => (i.status || '').toLowerCase() === 'unpaid' && (i.type === 'invoice'));
+    const paid = detailedInvoices.filter(i => (i.status || '').toLowerCase() === 'paid' && (i.type === 'invoice'));
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-ios-slide-up">
+        <div className="space-y-6">
+          <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.3em] flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" /> Unpaid Invoices
+          </h3>
+          <div className="space-y-4">
+            {unpaid.length > 0 ? unpaid.map(inv => (
+              <div key={inv._id} className="glass-panel p-6 border border-amber-500/10 flex justify-between items-center group hover:bg-amber-500/5 transition-all">
+                <div>
+                  <p className="text-sm font-black text-white uppercase">{inv.client?.name || 'Unknown Client'}</p>
+                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Ref: {inv._id.slice(-6)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-black text-white font-mono">₹{inv.amount?.toLocaleString('en-IN')}</p>
+                  <span className="text-[8px] font-black text-amber-500 uppercase bg-amber-500/10 px-2 py-0.5 rounded">Pending</span>
+                </div>
+              </div>
+            )) : <p className="text-zinc-600 text-[10px] font-black uppercase py-10 text-center border border-dashed border-zinc-800 rounded-2xl">No unpaid invoices</p>}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <h3 className="text-[11px] font-black text-emerald-500 uppercase tracking-[0.3em] flex items-center gap-2">
+            <CheckSquare className="w-4 h-4" /> Paid Ledger
+          </h3>
+          <div className="space-y-4">
+            {paid.length > 0 ? paid.map(inv => (
+              <div key={inv._id} className="glass-panel p-6 border border-emerald-500/10 flex justify-between items-center group hover:bg-emerald-500/5 transition-all">
+                <div>
+                  <p className="text-sm font-black text-white uppercase">{inv.client?.name || 'Unknown Client'}</p>
+                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Ref: {inv._id.slice(-6)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-black text-white font-mono">₹{inv.amount?.toLocaleString('en-IN')}</p>
+                  <span className="text-[8px] font-black text-emerald-500 uppercase bg-emerald-500/10 px-2 py-0.5 rounded">Settled</span>
+                </div>
+              </div>
+            )) : <p className="text-zinc-600 text-[10px] font-black uppercase py-10 text-center border border-dashed border-zinc-800 rounded-2xl">No paid invoices</p>}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderProjectsView = () => {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-ios-slide-up">
+        {detailedProjects.length > 0 ? detailedProjects.map(p => (
+          <div key={p._id} className="glass-panel p-8 border border-white/5 hover:bg-white/5 transition-all space-y-6">
+            <div className="flex justify-between items-start">
+                <h4 className="text-xl font-black text-white uppercase tracking-tight leading-none">{p.name}</h4>
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500"><Layers className="w-4 h-4" /></div>
+            </div>
+            <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Client</span>
+                    <span className="text-[10px] font-black text-white uppercase">{(p.client as any)?.name || 'Internal'}</span>
+                </div>
+                <div className="space-y-2">
+                    <div className="flex justify-between text-[8px] font-black uppercase tracking-widest">
+                        <span className="text-zinc-600">Production Status</span>
+                        <span className="text-blue-500">{p.status || 'Active'}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className={`h-full ${p.status === 'completed' ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: p.status === 'completed' ? '100%' : p.status === 'selected' ? '75%' : p.status === 'uploaded' ? '50%' : '25%' }} />
+                    </div>
+                </div>
+            </div>
+          </div>
+        )) : <div className="col-span-full py-20 text-center uppercase font-black text-zinc-600 tracking-widest border border-dashed border-zinc-800 rounded-[2rem]">No active projects found</div>}
+      </div>
+    );
+  };
+
+  const renderTasksView = () => {
+    const pending = detailedTasks.filter(t => t.status !== 'Done');
+    return (
+      <div className="space-y-4 animate-ios-slide-up max-w-3xl mx-auto">
+        {pending.length > 0 ? pending.map(t => (
+          <div key={t.id} className="glass-panel p-6 border border-white/5 flex items-center gap-6 group hover:bg-white/5 transition-all">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${t.status === 'Priority' ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-blue-500/10 border-blue-500/20 text-blue-500'}`}>
+                <CheckSquare className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+                <p className="text-sm font-black text-white uppercase tracking-tight">{t.title}</p>
+                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">{t.status} • {t.dueDate}</p>
+            </div>
+            <ArrowUpRight className="w-4 h-4 text-zinc-800 group-hover:text-white transition-colors" />
+          </div>
+        )) : <div className="py-20 text-center uppercase font-black text-zinc-600 tracking-widest">All tasks completed</div>}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-8 pb-20">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="space-y-4">
+          <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">
+            {selectedView === 'dashboard' ? 'Command Center' : `${selectedView} overview`}
+          </h1>
+          {selectedView !== 'dashboard' && (
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">In-depth analytics and tracking</p>
+          )}
+        </div>
+        
+        {selectedView !== 'dashboard' && (
+          <button 
+            onClick={() => setSelectedView('dashboard')}
+            className="flex items-center gap-2 px-6 py-3 bg-white text-black squircle-sm text-[10px] font-black uppercase tracking-widest transition-all hover:bg-zinc-200 active:scale-95 shadow-xl"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+          </button>
+        )}
+      </div>
+
+      {loading && !dashboardData.totalRevenue ? (
+         <div className="p-20 text-center uppercase font-black tracking-widest text-zinc-500 animate-pulse">Initializing System...</div>
+      ) : (
+        <>
+          {selectedView === 'dashboard' && renderDashboard()}
+          {selectedView === 'revenue' && renderRevenueView()}
+          {selectedView === 'unpaid' && renderUnpaidView()}
+          {selectedView === 'projects' && renderProjectsView()}
+          {selectedView === 'tasks' && renderTasksView()}
+        </>
+      )}
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-mono uppercase tracking-widest p-4 rounded-2xl mb-4 text-center">
+          {error}
+        </div>
+      )}
     </div>
   );
 };

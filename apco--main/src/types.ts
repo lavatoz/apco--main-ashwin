@@ -44,7 +44,7 @@ export interface ActivityLog {
   id: string;
   timestamp: string;
   action: string;
-  type: 'Login' | 'AssetView' | 'RequirementAdded' | 'SystemUpdate' | 'FinanceUpdate' | 'TaskUpdate' | 'ClientUpdate';
+  type: 'Login' | 'AssetView' | 'RequirementAdded' | 'SystemUpdate' | 'FinanceUpdate' | 'TaskUpdate' | 'ClientUpdate' | 'Update';
   actorId: string;
   actorName: string;
   actorRole: 'Admin' | 'Staff' | 'Client';
@@ -134,7 +134,9 @@ export interface Person {
 
 export interface Client {
   id: string;
+  _id: string;
   projectName: string;
+  name?: string;
   address?: string;
   mapLocation?: string;
   weddingDate?: string;
@@ -142,6 +144,7 @@ export interface Client {
   budget?: number;
   notes: string;
   brand: string;
+  brandId?: any;
   vaultId?: string;
   driveFolderId?: string;
   people: Person[];
@@ -151,6 +154,43 @@ export interface Client {
     deliverables: Deliverable[];
     internalSpends: InternalSpend[];
   };
+  allowedClients?: any[];
+  eventType?: string;
+  status: 'pending' | 'uploaded' | 'selected' | 'completed';
+}
+
+export interface GalleryImage {
+  _id?: string;
+  path: string;
+  name?: string;
+  uploadedAt: string;
+}
+
+export interface Gallery {
+  _id: string;
+  clientId: string;
+  images: GalleryImage[];
+  selectedImages: string[];
+  status: 'pending' | 'uploaded' | 'selected' | 'completed';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Project {
+  _id: string;
+  name: string;
+  client: string | Client;
+  description?: string;
+  status: 'booked' | 'event_completed' | 'photo_selection' | 'post_production' | 'album_printing';
+  brandId: string;
+  allowedClients?: any[];
+  images: {
+    _id: string;
+    url: string;
+    isSelected: boolean;
+    uploadedAt: string;
+  }[];
+  assignedTo?: string;
 }
 
 export interface Booking {
@@ -168,23 +208,18 @@ export interface InvoiceItem {
   description: string;
   quantity: number;
   price: number;
-  costPrice: number;
-  isOutsourced?: boolean;
-  vendorName?: string;
-  vendorPhone?: string;
-  isCostFinalized?: boolean;
 }
 
 export interface Invoice {
-  id: string;
-  clientId: string;
-  issueDate: string;
-  dueDate: string;
-  items: InvoiceItem[];
-  status: InvoiceStatus;
-  notes?: string;
-  brand: string;
-  isQuotation?: boolean;
+  _id: string;
+  id?: string;
+  client: any;
+  project: any;
+  amount: number;
+  status: 'unpaid' | 'paid';
+  type: 'invoice' | 'quotation';
+  brandId: string;
+  createdAt: string;
 }
 
 export interface Expense {

@@ -4,7 +4,18 @@ const Brand = require('../models/Brand');
 
 const getInvoices = async (req, res) => {
     try {
-        const invoices = await Invoice.find({ brandId: req.query.brandId }).populate('clientId', 'name');
+        const brands = await Brand.find({ owner: req.user._id });
+        const brandIds = brands.map(b => b._id);
+        
+        const filter = { brandId: { $in: brandIds } };
+        if (req.query.brandId) {
+            filter.brandId = req.query.brandId;
+        }
+
+        const invoices = await Invoice.find(filter)
+            .populate('client', 'name')
+            .populate('project', 'name')
+            .populate('brandId', 'name');
         res.status(200).json(invoices);
     } catch (error) {
         res.status(400).json({ message: error.message });
@@ -13,11 +24,11 @@ const getInvoices = async (req, res) => {
 
 const createInvoice = async (req, res) => {
     try {
-        const { amount, status, clientId, brandId } = req.body;
+        const { amount, status, client, project, type, brandId } = req.body;
         const brand = await Brand.findById(brandId);
         if(!brand || brand.owner.toString() !== req.user.id) throw new Error('Not authorized');
 
-        const invoice = await Invoice.create({ amount, status, clientId, brandId });
+        const invoice = await Invoice.create({ amount, status, client, project, type, brandId });
         res.status(201).json(invoice);
     } catch (error) {
         res.status(400).json({ message: error.message });

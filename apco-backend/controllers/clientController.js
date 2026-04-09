@@ -1,5 +1,6 @@
 const Client = require('../models/Client');
 const Brand = require('../models/Brand');
+const Project = require('../models/Project');
 
 const getClients = async (req, res) => {
     try {
@@ -37,6 +38,16 @@ const createClient = async (req, res) => {
 
         const client = await Client.create({
             name, phone, email, eventDate, notes, brandId
+        });
+
+        // Initialize corresponding project for Pixsoffice workflow
+        await Project.create({
+            name: `${name}'s Event`,
+            client: client._id,
+            description: notes || `Production timeline for ${name}`,
+            brandId: brandId,
+            status: 'pending',
+            allowedClients: [client._id]
         });
 
         res.status(201).json(client);
@@ -87,4 +98,24 @@ const deleteClient = async (req, res) => {
     }
 };
 
-module.exports = { getClients, createClient, updateClient, deleteClient };
+const getClientById = async (req, res) => {
+    try {
+        const client = await Client.findById(req.params.id).populate('brandId', 'name');
+        if (!client) {
+            res.status(404);
+            throw new Error('Client not found');
+        }
+
+        const brand = await Brand.findById(client.brandId);
+        if (!brand || brand.owner.toString() !== req.user.id) {
+            res.status(401);
+            throw new Error('Not authorized to view this client');
+        }
+
+        res.status(200).json(client);
+    } catch (error) {
+        res.status(res.statusCode === 200 ? 500 : res.statusCode).json({ message: error.message });
+    }
+};
+
+module.exports = { getClients, createClient, updateClient, deleteClient, getClientById };

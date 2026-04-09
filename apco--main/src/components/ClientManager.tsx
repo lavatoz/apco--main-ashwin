@@ -15,7 +15,7 @@ interface ClientManagerProps {
   selectedBrand?: string | 'All';
 }
 
-const ClientManager: React.FC<ClientManagerProps> = ({ onOpenPortal }) => {
+const ClientManager: React.FC<ClientManagerProps> = () => {
   const navigate = useNavigate();
   const [clients, setClients] = useState<any[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -34,6 +34,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ onOpenPortal }) => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [eventDate, setEventDate] = useState('');
+  const [eventType, setEventType] = useState('Wedding');
 
   useEffect(() => {
     const fetchBrands = async () => {
@@ -42,32 +43,52 @@ const ClientManager: React.FC<ClientManagerProps> = ({ onOpenPortal }) => {
         const res = await fetch("http://localhost:5000/api/brands", {
           headers: { "Authorization": `Bearer ${token}` }
         });
+        
+        let finalData: Brand[] = [];
+        
         if (res.ok) {
-          const data = await res.json();
-          let finalData = [...data];
-          
-          const hasAaha = data.some((b: any) => b.name === 'AAHA Kalyanam');
-          const hasTiny = data.some((b: any) => b.name === 'Tiny Toes');
+           finalData = await res.json();
+           console.log("Brands from DB:", finalData);
+        }
 
-          if (!hasAaha || !hasTiny) {
-             if (!hasAaha) await fetch("http://localhost:5000/api/brands", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify({ name: "AAHA Kalyanam" }) });
-             if (!hasTiny) await fetch("http://localhost:5000/api/brands", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify({ name: "Tiny Toes" }) });
-             
-             const freshRes = await fetch("http://localhost:5000/api/brands", { headers: { "Authorization": `Bearer ${token}` } });
-             if (freshRes.ok) finalData = await freshRes.json();
-          }
+        // AUTO-SEED / ADD IF MISSING
+        const hasAaha = finalData.some((b: any) => b.name === 'AAHA Kalyanam');
+        const hasTiny = finalData.some((b: any) => b.name === 'Tiny Toes');
 
-          setBrands(finalData);
-          if (finalData.length > 0) {
-            setSelectedBrandId(finalData[0]._id);
-          } else {
-            setLoading(false);
-          }
-        } else {
-          setLoading(false);
+        if (!hasAaha || !hasTiny) {
+            if (token) {
+                if (!hasAaha) {
+                   const r = await fetch("http://localhost:5000/api/brands", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify({ name: "AAHA Kalyanam" }) });
+                   if (r.ok) finalData.push(await r.json());
+                }
+                if (!hasTiny) {
+                   const r = await fetch("http://localhost:5000/api/brands", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify({ name: "Tiny Toes" }) });
+                   if (r.ok) finalData.push(await r.json());
+                }
+            }
+        }
+        
+        // Final fallback if still empty or if API failed completely
+        if (finalData.length === 0) {
+            finalData = [
+                { _id: 'fallback-1', name: 'AAHA Kalyanam' },
+                { _id: 'fallback-2', name: 'Tiny Toes' }
+            ];
+        }
+
+        setBrands(finalData);
+        if (finalData.length > 0) {
+           setSelectedBrandId(finalData[0]._id);
         }
       } catch (err) {
         console.error("Failed to fetch brands", err);
+        // Emergency fallback
+        setBrands([
+          { _id: 'fallback-1', name: 'AAHA Kalyanam' },
+          { _id: 'fallback-2', name: 'Tiny Toes' }
+        ]);
+        setSelectedBrandId('fallback-1');
+      } finally {
         setLoading(false);
       }
     };
@@ -120,6 +141,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ onOpenPortal }) => {
       email,
       phone,
       eventDate,
+      eventType,
       brandId: selectedBrandId
     };
 
@@ -226,7 +248,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ onOpenPortal }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredClients.map(client => (
-          <div key={client._id} className="glass-panel p-10 squircle-lg ios-transition hover:scale-[1.02] active:scale-[0.98] group relative flex flex-col h-full border border-white/5 cursor-pointer" onClick={() => navigate(`/clients/${client._id}`)}>
+          <div key={client._id} className="glass-panel p-10 squircle-lg ios-transition hover:scale-[1.02] active:scale-[0.98] group relative flex flex-col h-full border border-white/5 cursor-pointer" onClick={() => navigate(`/client/${client._id}`)}>
             <div className="flex justify-between items-start mb-8">
               <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/10 text-[9px] font-black text-zinc-500 tracking-widest uppercase font-mono truncate max-w-[120px]">
                 {client._id}
@@ -299,6 +321,16 @@ const ClientManager: React.FC<ClientManagerProps> = ({ onOpenPortal }) => {
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Email <span className="opacity-50">(Optional)</span></label>
                 <input type="email" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. hello@example.com" value={email} onChange={e => setEmail(e.target.value)} disabled={isSubmitting} />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Assignment Type *</label>
+                <select className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={eventType} onChange={e => setEventType(e.target.value)} disabled={isSubmitting}>
+                  <option value="Wedding" className="bg-zinc-900">Luxury Wedding</option>
+                  <option value="Kids" className="bg-zinc-900">Kids & Maternity</option>
+                  <option value="Corporate" className="bg-zinc-900">Corporate Production</option>
+                  <option value="Fashion" className="bg-zinc-900">Fashion Editorial</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

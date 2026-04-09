@@ -99,7 +99,7 @@ const ClientExperience: React.FC<ClientExperienceProps> = ({ client, loggedInPer
                   <div className="flex flex-wrap gap-4">
                      <div className={`px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-3 ${accentBg}`}>
                         <Calendar className={`w-4 h-4 ${accentColor}`} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">{new Date(client.weddingDate).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest">{client.weddingDate ? new Date(client.weddingDate).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) : "TBD"}</span>
                      </div>
                      {client.driveFolderId && (
                         <a
