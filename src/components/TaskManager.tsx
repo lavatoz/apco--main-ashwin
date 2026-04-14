@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, CheckCircle2, Clock, User, Trash2, CheckSquare, PlayCircle, Layers } from 'lucide-react';
+import { Plus, Clock, Trash2, CheckSquare, Layers } from 'lucide-react';
 import { type Task, type Company } from '../types';
 
 interface CoordinationTask extends Task {

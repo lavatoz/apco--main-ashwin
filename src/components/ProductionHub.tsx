@@ -32,33 +32,26 @@ interface ProductionHubProps {
 
 const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, clients: allClients }) => {
   const location = useLocation();
-  const [isCreating, setIsCreating] = useState(false);
+  const locationState = location.state as { prefillClient?: string; brand?: string } | null;
+
+  const [isCreating, setIsCreating] = useState(!!locationState?.prefillClient);
   const [showNewClientInput, setShowNewClientInput] = useState(false);
-  const [isPrefilled, setIsPrefilled] = useState(false);
+  const isPrefilled = !!locationState?.prefillClient;
   const [newProject, setNewProject] = useState({ 
-    title: '', 
-    client: '', 
-    brand: selectedBrand !== 'All' ? selectedBrand : 'AAHA Kalyanam', 
+    title: locationState?.prefillClient ? `${locationState.prefillClient} Project` : '', 
+    client: locationState?.prefillClient || '', 
+    brand: locationState?.brand || (selectedBrand !== 'All' ? selectedBrand : 'AAHA Kalyanam'), 
     eventDate: '', 
     stage: 'BOOKED' as const,
     totalAmount: 0
   });
 
   useEffect(() => {
-    const state = location.state as { prefillClient?: string; brand?: string };
-    if (state?.prefillClient) {
-       setNewProject(prev => ({ 
-          ...prev, 
-          client: state.prefillClient!, 
-          brand: state.brand || prev.brand,
-          title: `${state.prefillClient} Project` 
-       }));
-       setIsPrefilled(true);
-       setIsCreating(true);
+    if (locationState?.prefillClient) {
        // Clear state to prevent re-opening on manual refreshes
        window.history.replaceState({}, document.title);
     }
-  }, [location]);
+  }, [locationState]);
 
   // Persistent Project Store
   const [projectRegistry, setProjectRegistry] = useState<OperationalProject[]>(() => {

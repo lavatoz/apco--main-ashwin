@@ -11,21 +11,29 @@ import { api } from '../services/api';
 interface SidebarProps {
   isMobileOpen: boolean;
   setIsMobileOpen: (isOpen: boolean) => void;
+  onLogout: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogout }) => {
   const [isSyncing, setIsSyncing] = useState(false);
 
+  const userStr = localStorage.getItem('auth_user');
+  const user = userStr ? JSON.parse(userStr) : null;
+
   const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/directory', label: 'Directory', icon: Users },
-    { path: '/calendar', label: 'Coordination', icon: Calendar },
-    { path: '/tasks', label: 'Operations', icon: CheckSquare },
-    { path: '/workflow', label: 'Workflow', icon: Activity },
-    { path: '/ledger', label: 'Ledger', icon: Wallet },
-    { path: '/copilot', label: 'Copilot', icon: Sparkles },
-    { path: '/system', label: 'Ecosystem', icon: Settings },
-  ];
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard' },
+    { path: '/directory', label: 'Directory', icon: Users, permission: 'clients' },
+    { path: '/calendar', label: 'Coordination', icon: Calendar, permission: 'tasks' },
+    { path: '/tasks', label: 'Operations', icon: CheckSquare, permission: 'tasks' },
+    { path: '/workflow', label: 'Workflow', icon: Activity, permission: 'workflow' },
+    { path: '/ledger', label: 'Ledger', icon: Wallet, permission: 'finance' },
+    { path: '/copilot', label: 'Copilot', icon: Sparkles, permission: 'ai' },
+    { path: '/system', label: 'Ecosystem', icon: Settings, permission: 'system' },
+  ].filter(item => {
+    if (!user) return false;
+    if (user.role === 'Admin') return true;
+    return user.permissions && user.permissions.includes(item.permission);
+  });
 
   const handleManualSync = async () => {
     setIsSyncing(true);
@@ -102,7 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen }) => {
         </div>
 
         <button
-          onClick={() => window.location.reload()}
+          onClick={onLogout}
           className="flex items-center justify-center lg:justify-start gap-4 px-4 py-4 w-full text-zinc-500 hover:text-red-400 transition-all font-semibold rounded-2xl hover:bg-red-500/5 group border border-transparent hover:border-red-500/10"
         >
           <LogOut className="w-5 h-5 shrink-0" />

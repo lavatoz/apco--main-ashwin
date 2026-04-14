@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, Navigate, NavLink } from 'react-router-dom';
-import type { Client, Invoice, Booking, Company, Task, Staff, Expense, Person } from './types';
+import type { Client, Invoice, Booking, Division, Company, Task, Expense } from './types';
 import {
-  Lock, RefreshCw, Briefcase,
-  LayoutDashboard, Heart, Sparkles, Settings,
-  Terminal, ShieldCheck, Package, Wallet, Plus, Users, Command, ArrowLeft
+  Lock,
+  LayoutDashboard, Sparkles, Settings,
+  Package, Wallet, Plus, Users, Command
 } from 'lucide-react';
 import LandingPage from './components/LandingPage';
 import Dashboard from './components/Dashboard';
@@ -15,28 +15,27 @@ import AIToolsView from './components/AIToolsView';
 import SettingsView from './components/SettingsView';
 import TaskManager from './components/TaskManager';
 import ClientExperience from './components/ClientExperience';
-import TeamManager from './components/TeamManager';
 import AuditLogsView from './components/AuditLogsView';
 import ProductionHub from './components/ProductionHub';
 import Sidebar from './components/Sidebar';
 import Breadcrumb from './components/Breadcrumb';
 import PhotographyWorkflow from './components/PhotographyWorkflow';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
+import PackagesPage from './pages/PackagesPage';
+import LoginPage from './pages/LoginPage';
+import InvitePage from './pages/InvitePage';
+import TeamPage from './pages/TeamPage';
+import ClientDetailsPage from './pages/ClientDetailsPage';
+import CreateProjectPage from './pages/CreateProjectPage';
+import DivisionDashboard from './pages/DivisionDashboard';
+import type { UserPermission } from './types';
 
 import { api } from './services/api';
 
 type AuthRole = 'none' | 'Admin' | 'Staff' | 'Client';
-type LoginMode = 'ADMIN' | 'STAFF' | 'CLIENT';
 
 const App: React.FC = () => {
   const [authRole, setAuthRole] = useState<AuthRole>('none');
-  const [showLogin, setShowLogin] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-
-  // Removed currentView state as we use Router now
   const [selectedBrand, setSelectedBrand] = useState<string>('All');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,35 +46,36 @@ const App: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [staff, setStaff] = useState<Staff[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [divisions, setDivisions] = useState<Division[]>([]);
 
   const [activeClient, setActiveClient] = useState<Client | null>(null);
   const [loggedInUserId, setLoggedInUserId] = useState<string>('');
   const [loggedInUserName, setLoggedInUserName] = useState<string>('');
+  const [currentUserDivisionIds, setCurrentUserDivisionIds] = useState<string[]>([]);
 
   const navigate = useNavigate();
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [c, i, co, t, s, b, e] = await Promise.all([
+      const [c, i, co, t, b, e, d] = await Promise.all([
         api.getClients(),
         api.getInvoices(),
         api.getCompanies(),
         api.getTasks(),
-        api.getStaff(),
         api.getBookings(),
-        api.getExpenses()
+        api.getExpenses(),
+        api.getDivisions()
       ]);
       setClients(c);
       setInvoices(i);
       setCompanies(co);
       setTasks(t);
-      setStaff(s);
       setBookings(b);
       setExpenses(e);
+      setDivisions(d);
     } catch {
       setError("Sync Error: Database connection unstable.");
     } finally {
@@ -87,59 +87,66 @@ const App: React.FC = () => {
     if (authRole !== 'none') fetchData();
   }, [authRole]);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    await new Promise(resolve => setTimeout(resolve, 800)); // Cinematic delay
-
-    try {
-      const storedUsers = localStorage.getItem('users');
-      const users: any[] = storedUsers ? JSON.parse(storedUsers) : [];
-
-      if (!Array.isArray(users)) {
-        throw new Error("Invalid users structure in localStorage");
-      }
-
-      if (isRegistering) {
-        const exists = users.find((u) => u.email === email);
-        if (exists) {
-          setError('User with this email already exists.');
-        } else {
-          const newUser = {
-            id: Date.now().toString(),
-            name,
-            email,
-            password,
-            role: 'owner',
-          };
-          users.push(newUser);
-          localStorage.setItem('users', JSON.stringify(users));
-          localStorage.setItem('currentUser', JSON.stringify(newUser));
-          
-          setAuthRole('Admin');
-          setLoggedInUserId(newUser.id);
-          setLoggedInUserName(newUser.name);
-          navigate('/dashboard');
-        }
-      } else {
-        const user = users.find((u) => u.email === email && u.password === password);
-        if (user) {
-          localStorage.setItem('currentUser', JSON.stringify(user));
-          setAuthRole('Admin');
-          setLoggedInUserId(user.id);
-          setLoggedInUserName(user.name);
-          navigate('/dashboard');
-        } else {
-          setError('Invalid login credentials.');
-        }
-      }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
+  // Seed Default Admin if missing
+  useEffect(() => {
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const adminExists = users.some((u: any) => u.id === 'admin_root' || u.email === 'admin@artisans.os');
+    
+    if (!adminExists) {
+      const defaultAdmin = {
+        id: 'admin_root',
+        email: 'admin@artisans.os',
+        password: 'admin',
+        role: 'Admin',
+        permissions: ['dashboard', 'clients', 'tasks', 'finance', 'ai', 'analytics', 'system', 'workflow'],
+        isActive: true,
+        name: 'System Admin'
+      };
+      const updatedUsers = [...users, defaultAdmin];
+      localStorage.setItem('users', JSON.stringify(updatedUsers));
+      console.log('Infrastructure check: Root admin deployed.');
     }
+  }, []);
+
+
+  useEffect(() => {
+    const userStr = localStorage.getItem('auth_user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setLoggedInUserId(user.id);
+        setLoggedInUserName(user.name || user.email.split('@')[0]);
+        setAuthRole(user.role);
+        setCurrentUserDivisionIds(user.divisionIds || []);
+      } catch (e) {
+        localStorage.removeItem('auth_user');
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_user');
+    setAuthRole('none');
+    navigate('/login');
+  };
+
+  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+    const user = localStorage.getItem('auth_user');
+    if (!user) {
+      return <Navigate to="/login" replace />; 
+    }
+    return <>{children}</>;
+  };
+
+  const PermissionRoute = ({ permission, children }: { permission: UserPermission, children: React.ReactNode }) => {
+    const userStr = localStorage.getItem('auth_user');
+    if (!userStr) return <Navigate to="/login" replace />;
+    
+    const user = JSON.parse(userStr);
+    if (user.role === 'Admin' || (user.permissions && user.permissions.includes(permission))) {
+      return <>{children}</>;
+    }
+    return <Navigate to="/unauthorized" replace />;
   };
 
   const NavItem = ({ to, icon: Icon, label }: { to: string, icon: React.ElementType, label: string }) => {
@@ -160,102 +167,37 @@ const App: React.FC = () => {
     );
   };
 
+  const hasPermission = (permission: UserPermission) => {
+    const userStr = localStorage.getItem('auth_user');
+    if (!userStr) return false;
+    const user = JSON.parse(userStr);
+    return user.role === 'Admin' || (user.permissions && user.permissions.includes(permission));
+  };
+
   // Auth Handling Wrapper
   if (authRole === 'none') {
     return (
       <>
-        {/* Public Landing Page */}
-        <LandingPage onLogin={() => setShowLogin(true)} />
-
-        {/* Login Modal Overlay */}
-        {showLogin && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-white overflow-hidden animate-ios-slide-up">
-            {/* Background Noise for Matte Effect */}
-            <div className="absolute inset-0 bg-noise pointer-events-none z-0" />
-
-            <button onClick={() => setShowLogin(false)} className="absolute top-6 left-6 p-3 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 transition-all text-white flex items-center gap-2 z-20">
-              <ArrowLeft className="w-4 h-4" /> <span className="text-[10px] font-black uppercase tracking-widest">Back to Website</span>
-            </button>
-
-            <div className="w-full max-w-sm relative z-10 flex flex-col items-center">
-
-              {/* Brand Identity */}
-              <div className="mb-12 text-center">
-                <div className="w-16 h-16 mx-auto bg-white/90 backdrop-blur-md text-black squircle-sm flex items-center justify-center font-serif text-4xl font-black shadow-[0_0_50px_rgba(255,255,255,0.2)] mb-6 border border-white/20">A</div>
-                <h1 className="text-2xl font-black uppercase tracking-[0.2em] mb-2">Artisans<span className="text-zinc-600">OS</span></h1>
-                <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">Enterprise Resource Planning v5.5</p>
-              </div>
-
-              {/* Matte Glass Login Panel */}
-              <div className="w-full glass-panel rounded-[2.5rem] p-2 shadow-2xl overflow-hidden relative">
-                <div className="bg-black/40 p-1.5 rounded-[2rem] border border-white/5 flex gap-1 mb-8 backdrop-blur-md">
-                  <button type="button" onClick={() => { setIsRegistering(false); setError(null); }} className={`flex-1 py-3 rounded-[1.8rem] text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${!isRegistering ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>
-                    Login
-                  </button>
-                  <button type="button" onClick={() => { setIsRegistering(true); setError(null); }} className={`flex-1 py-3 rounded-[1.8rem] text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isRegistering ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>
-                    Register
-                  </button>
-                </div>
-
-                <form onSubmit={handleLogin} className="px-6 pb-6 space-y-4">
-                  <div className="space-y-4 text-center">
-                    <p className="text-[9px] font-mono uppercase text-zinc-500 tracking-widest mb-3">
-                      {isRegistering ? 'Create New Identity' : 'Identity Verification'}
-                    </p>
-                    
-                    {isRegistering && (
-                      <input
-                        required
-                        className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm"
-                        placeholder="FULL NAME"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                      />
-                    )}
-                    
-                    <input
-                      required
-                      type="email"
-                      className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm"
-                      placeholder="EMAIL ADDRESS"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                    
-                    <input
-                      required
-                      type="password"
-                      className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm"
-                      placeholder="PASSWORD"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full bg-white text-black font-black py-4 rounded-2xl flex items-center justify-center gap-3 hover:bg-zinc-200 active:scale-[0.98] transition-all shadow-xl text-[10px] uppercase tracking-[0.2em]"
-                    >
-                      {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Command className="w-4 h-4" />}
-                      {isRegistering ? 'Create Account' : 'Authenticate'}
-                    </button>
-                  </div>
-
-                  {error && <p className="text-red-500 text-[9px] font-mono uppercase tracking-widest animate-pulse text-center bg-red-500/5 py-2 rounded-lg border border-red-500/10 mt-4">{error}</p>}
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
+        <Routes>
+          <Route path="/" element={<LandingPage onLogin={() => navigate('/login')} />} />
+          <Route path="/packages" element={<PackagesPage onLogin={() => navigate('/login')} />} />
+          <Route path="/invite/:token" element={<InvitePage />} />
+          <Route path="/login" element={<LoginPage onLogin={(user) => {
+            setAuthRole(user.role as AuthRole);
+            setLoggedInUserId(user.id);
+            setLoggedInUserName(user.name || user.email.split('@')[0]);
+            setCurrentUserDivisionIds(user.divisionIds || []);
+          }} />} />
+          <Route path="/unauthorized" element={<div className="min-h-screen bg-black flex flex-col items-center justify-center p-10"><h1 className="text-4xl font-black text-white mb-4">RESTRICTED ACCESS</h1><p className="text-zinc-500 font-mono text-xs mb-8">Permission Profile Conflict Detected</p><button onClick={() => navigate('/')} className="px-6 py-2 bg-white text-black text-[10px] font-black uppercase rounded-full">Return Base</button></div>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </>
     );
   }
 
   // Client Portal Only View
   if (authRole === 'Client' && activeClient) {
-    return <ClientExperience client={activeClient} loggedInPersonId={loggedInUserId} onLogout={() => { setAuthRole('none'); setShowLogin(false); }} onUpdateClient={async (u) => { await api.saveClient(u); fetchData(); setActiveClient(u); }} />;
+    return <ClientExperience client={activeClient} loggedInPersonId={loggedInUserId} onLogout={handleLogout} onUpdateClient={async (u) => { await api.saveClient(u); fetchData(); setActiveClient(u); }} />;
   }
 
   return (
@@ -271,7 +213,7 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
-        <button onClick={() => { setAuthRole('none'); setShowLogin(false); }} className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-zinc-400 hover:text-white hover:bg-red-500/10 hover:border-red-500/20 active:scale-95 transition-all">
+        <button onClick={handleLogout} className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-zinc-400 hover:text-white hover:bg-red-500/10 hover:border-red-500/20 active:scale-95 transition-all">
           <Lock className="w-4 h-4" />
         </button>
       </header>
@@ -283,6 +225,7 @@ const App: React.FC = () => {
         <Sidebar
           isMobileOpen={isMobileOpen}
           setIsMobileOpen={setIsMobileOpen}
+          onLogout={handleLogout}
         />
 
         <main className="flex-1 overflow-y-auto no-scrollbar pb-safe relative">
@@ -290,22 +233,44 @@ const App: React.FC = () => {
           <div className="fixed inset-0 pointer-events-none bg-noise z-0 opacity-50" />
 
           <div className="max-w-7xl mx-auto p-6 md:p-10 animate-ios-slide-up relative z-10">
+            {isLoading && (
+              <div className="fixed top-20 right-10 z-[100] flex items-center gap-2 bg-white/5 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-[9px] font-black uppercase tracking-widest text-zinc-400">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                Syncing Systems...
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-[9px] font-black uppercase tracking-widest flex items-center justify-between">
+                <span>{error}</span>
+                <button onClick={() => setError(null)} className="hover:text-white transition-colors">Dismiss</button>
+              </div>
+            )}
+
             <Breadcrumb />
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard invoices={invoices} clients={clients} bookings={bookings} tasks={tasks} selectedBrand={selectedBrand} setSelectedBrand={setSelectedBrand} userRole={authRole} />} />
-              <Route path="/tasks" element={<ProductionHub clients={clients} tasks={tasks} bookings={bookings} selectedBrand={selectedBrand} />} />
-              <Route path="/workflow" element={<PhotographyWorkflow />} />
-              <Route path="/analytics" element={<AnalyticsDashboard />} />
-              <Route path="/directory" element={<ClientManager clients={clients} companies={companies} addClient={async (c) => { await api.saveClient(c); fetchData(); }} selectedBrand={selectedBrand} onOpenPortal={(c) => { setActiveClient(c); navigate('/portal'); }} />} />
-              <Route path="/ledger" element={<FinanceManager invoices={invoices} expenses={expenses} clients={clients} companies={companies} addInvoice={async (i) => { await api.saveInvoice(i); fetchData(); }} addExpense={async (e) => { await api.saveExpense(e); fetchData(); }} deleteExpense={async (id) => { await api.deleteExpense(id); fetchData(); }} updateInvoiceStatus={async (id, s) => { await api.updateInvoiceStatus(id, s); fetchData(); }} selectedBrand={selectedBrand} userRole={authRole} />} />
-              <Route path="/revenue" element={<FinanceManager invoices={invoices} expenses={expenses} clients={clients} companies={companies} addInvoice={async (i) => { await api.saveInvoice(i); fetchData(); }} addExpense={async (e) => { await api.saveExpense(e); fetchData(); }} deleteExpense={async (id) => { await api.deleteExpense(id); fetchData(); }} updateInvoiceStatus={async (id, s) => { await api.updateInvoiceStatus(id, s); fetchData(); }} selectedBrand={selectedBrand} userRole={authRole} />} />
-              <Route path="/copilot" element={<AIToolsView clients={clients} selectedBrand={selectedBrand} />} />
-              <Route path="/system" element={<SettingsView companies={companies} addCompany={async (co) => { await api.saveCompany(co); fetchData(); }} onOpenTeam={() => navigate('/team')} isAdmin={authRole === 'Admin'} />} />
-              <Route path="/portal" element={activeClient ? <ClientPortal client={activeClient} onUpdateClient={async (u) => { await api.saveClient(u); setActiveClient(u); fetchData(); }} onBack={() => navigate('/directory')} /> : <Navigate to="/directory" />} />
-              <Route path="/team" element={<TeamManager staff={staff} onSaveStaff={async (s) => { await api.saveStaff(s); fetchData(); }} onDeleteStaff={async (id) => { await api.deleteStaff(id); fetchData(); }} />} />
-              <Route path="/logs" element={<AuditLogsView />} />
-              <Route path="/calendar" element={<TaskManager tasks={tasks} onSaveTask={async (t) => { await api.saveTask(t); fetchData(); }} onDeleteTask={async (id) => { await api.deleteTask(id); fetchData(); }} companies={companies} selectedBrand={selectedBrand} />} />
+              <Route path="/login" element={<Navigate to="/" replace />} />
+              
+              <Route path="/dashboard" element={<ProtectedRoute><PermissionRoute permission="dashboard"><Dashboard invoices={invoices} clients={clients} bookings={bookings} tasks={tasks} selectedBrand={selectedBrand} setSelectedBrand={setSelectedBrand} userRole={authRole} /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/staff-dashboard" element={<ProtectedRoute><PermissionRoute permission="dashboard"><Dashboard invoices={invoices} clients={clients} bookings={bookings} tasks={tasks} selectedBrand={selectedBrand} setSelectedBrand={setSelectedBrand} userRole={authRole} /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/client-dashboard" element={<ProtectedRoute><PermissionRoute permission="dashboard"><ClientPortal client={clients[0] || {} as Client} onUpdateClient={() => {}} onBack={() => navigate('/')} userRole={authRole} /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/tasks" element={<ProtectedRoute><PermissionRoute permission="tasks"><ProductionHub clients={clients} tasks={tasks} selectedBrand={selectedBrand} /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/workflow" element={<ProtectedRoute><PermissionRoute permission="workflow"><PhotographyWorkflow /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/analytics" element={<ProtectedRoute><PermissionRoute permission="analytics"><AnalyticsDashboard /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/directory" element={<ProtectedRoute><PermissionRoute permission="clients"><ClientManager clients={clients} divisions={divisions} addClient={async (c) => { await api.saveClient(c); fetchData(); }} selectedDivisionId={selectedBrand} userDivisionIds={currentUserDivisionIds} onOpenPortal={(c) => navigate(`/create-project/${c.id}`)} /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/ledger" element={<ProtectedRoute><PermissionRoute permission="finance"><FinanceManager invoices={invoices} expenses={expenses} clients={clients} companies={companies} addInvoice={async (i) => { await api.saveInvoice(i); fetchData(); }} addExpense={async (e) => { await api.saveExpense(e); fetchData(); }} deleteExpense={async (id) => { await api.deleteExpense(id); fetchData(); }} updateInvoiceStatus={async (id, s) => { await api.updateInvoiceStatus(id, s); fetchData(); }} selectedBrand={selectedBrand} userRole={authRole} /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/revenue" element={<ProtectedRoute><PermissionRoute permission="finance"><FinanceManager invoices={invoices} expenses={expenses} clients={clients} companies={companies} addInvoice={async (i) => { await api.saveInvoice(i); fetchData(); }} addExpense={async (e) => { await api.saveExpense(e); fetchData(); }} deleteExpense={async (id) => { await api.deleteExpense(id); fetchData(); }} updateInvoiceStatus={async (id, s) => { await api.updateInvoiceStatus(id, s); fetchData(); }} selectedBrand={selectedBrand} userRole={authRole} /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/copilot" element={<ProtectedRoute><PermissionRoute permission="ai"><AIToolsView clients={clients} selectedBrand={selectedBrand} /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/create-project/:clientId" element={<ProtectedRoute><PermissionRoute permission="clients"><CreateProjectPage /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/division/:divisionId" element={<ProtectedRoute><PermissionRoute permission="system"><DivisionDashboard /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/client/:id" element={<ProtectedRoute><PermissionRoute permission="clients"><ClientDetailsPage /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/system" element={<ProtectedRoute><PermissionRoute permission="system"><SettingsView divisions={divisions} addDivision={async (d) => { await api.saveDivision(d); fetchData(); }} onOpenTeam={() => navigate('/team')} isAdmin={authRole === 'Admin'} /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/portal/:clientId" element={<ProtectedRoute><PermissionRoute permission="clients"><ClientPortal client={{} as Client} onUpdateClient={() => {}} onBack={() => navigate('/directory')} userRole={authRole} /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/team" element={<ProtectedRoute><PermissionRoute permission="system"><TeamPage /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/logs" element={<ProtectedRoute><PermissionRoute permission="system"><AuditLogsView /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/calendar" element={<ProtectedRoute><PermissionRoute permission="tasks"><TaskManager tasks={tasks} onSaveTask={async (t) => { await api.saveTask(t); fetchData(); }} onDeleteTask={async (id) => { await api.deleteTask(id); fetchData(); }} companies={companies} selectedBrand={selectedBrand} /></PermissionRoute></ProtectedRoute>} />
+              <Route path="/unauthorized" element={<div className="min-h-screen bg-black flex flex-col items-center justify-center p-10"><h1 className="text-4xl font-black text-white mb-4">RESTRICTED ACCESS</h1><p className="text-zinc-500 font-mono text-xs mb-8">Permission Profile Conflict Detected</p><button onClick={() => navigate('/')} className="px-6 py-2 bg-white text-black text-[10px] font-black uppercase rounded-full">Return Base</button></div>} />
             </Routes>
           </div>
         </main>
@@ -317,22 +282,30 @@ const App: React.FC = () => {
           {/* ... existing FAB code ... */}
           {/* (Keeping existing FAB code, essentially unchanged but wrapped in context) */}
           <div className="w-full max-w-sm grid grid-cols-2 gap-4">
-            <button onClick={() => { navigate('/copilot'); setIsFABOpen(false); }} className="glass-panel p-6 squircle-lg flex flex-col items-center gap-3 group border border-white/10 hover:border-white/20 hover:bg-white/10">
-              <div className="p-4 bg-blue-600 rounded-2xl group-active:scale-90 transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]"><Sparkles className="w-6 h-6 text-white" /></div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-300">CoPilot AI</span>
-            </button>
-            <button onClick={() => { navigate('/directory'); setIsFABOpen(false); }} className="glass-panel p-6 squircle-lg flex flex-col items-center gap-3 group border border-white/10 hover:border-white/20 hover:bg-white/10">
-              <div className="p-4 bg-emerald-600 rounded-2xl group-active:scale-90 transition-all shadow-[0_0_20px_rgba(5,150,105,0.3)]"><Users className="w-6 h-6 text-white" /></div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-300">New Project</span>
-            </button>
-            <button onClick={() => { navigate('/tasks'); setIsFABOpen(false); }} className="glass-panel p-6 squircle-lg flex flex-col items-center gap-3 group border border-white/10 hover:border-white/20 hover:bg-white/10">
-              <div className="p-4 bg-amber-600 rounded-2xl group-active:scale-90 transition-all shadow-[0_0_20px_rgba(217,119,6,0.3)]"><Package className="w-6 h-6 text-white" /></div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-300">Ops Log</span>
-            </button>
-            <button onClick={() => { navigate('/finance'); setIsFABOpen(false); }} className="glass-panel p-6 squircle-lg flex flex-col items-center gap-3 group border border-white/10 hover:border-white/20 hover:bg-white/10">
-              <div className="p-4 bg-red-600 rounded-2xl group-active:scale-90 transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)]"><Wallet className="w-6 h-6 text-white" /></div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-300">Invoice</span>
-            </button>
+            {hasPermission('ai') && (
+              <button onClick={() => { navigate('/copilot'); setIsFABOpen(false); }} className="glass-panel p-6 squircle-lg flex flex-col items-center gap-3 group border border-white/10 hover:border-white/20 hover:bg-white/10">
+                <div className="p-4 bg-blue-600 rounded-2xl group-active:scale-90 transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]"><Sparkles className="w-6 h-6 text-white" /></div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-300">CoPilot AI</span>
+              </button>
+            )}
+            {hasPermission('clients') && (
+              <button onClick={() => { navigate('/directory'); setIsFABOpen(false); }} className="glass-panel p-6 squircle-lg flex flex-col items-center gap-3 group border border-white/10 hover:border-white/20 hover:bg-white/10">
+                <div className="p-4 bg-emerald-600 rounded-2xl group-active:scale-90 transition-all shadow-[0_0_20px_rgba(5,150,105,0.3)]"><Users className="w-6 h-6 text-white" /></div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-300">New Project</span>
+              </button>
+            )}
+            {hasPermission('tasks') && (
+              <button onClick={() => { navigate('/tasks'); setIsFABOpen(false); }} className="glass-panel p-6 squircle-lg flex flex-col items-center gap-3 group border border-white/10 hover:border-white/20 hover:bg-white/10">
+                <div className="p-4 bg-amber-600 rounded-2xl group-active:scale-90 transition-all shadow-[0_0_20px_rgba(217,119,6,0.3)]"><Package className="w-6 h-6 text-white" /></div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-300">Ops Log</span>
+              </button>
+            )}
+            {hasPermission('finance') && (
+              <button onClick={() => { navigate('/revenue'); setIsFABOpen(false); }} className="glass-panel p-6 squircle-lg flex flex-col items-center gap-3 group border border-white/10 hover:border-white/20 hover:bg-white/10">
+                <div className="p-4 bg-red-600 rounded-2xl group-active:scale-90 transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)]"><Wallet className="w-6 h-6 text-white" /></div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-300">Invoice</span>
+              </button>
+            )}
           </div>
           <div className="mt-8 flex items-center gap-3 opacity-50">
             <Command className="w-4 h-4 text-white" />
@@ -343,8 +316,8 @@ const App: React.FC = () => {
 
       {/* Mobile Nav */}
       <nav className="fixed bottom-0 left-0 right-0 glass-panel-dark border-t border-white/5 px-6 pb-6 pt-3 z-[70] flex items-center justify-between lg:hidden">
-        <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
-        <NavItem to="/tasks" icon={Package} label="Ops" />
+        {hasPermission('dashboard') && <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />}
+        {hasPermission('tasks') && <NavItem to="/tasks" icon={Package} label="Ops" />}
         <div className="flex flex-col items-center -mt-10 flex-1 relative z-50">
           <button
             onClick={() => setIsFABOpen(!isFABOpen)}
@@ -353,8 +326,8 @@ const App: React.FC = () => {
             <Plus className={`w-7 h-7 ${isFABOpen ? 'text-white' : 'text-black'}`} />
           </button>
         </div>
-        <NavItem to="/ledger" icon={Wallet} label="Ledger" />
-        <NavItem to="/system" icon={Settings} label="System" />
+        {hasPermission('finance') && <NavItem to="/ledger" icon={Wallet} label="Ledger" />}
+        {hasPermission('system') && <NavItem to="/system" icon={Settings} label="System" />}
       </nav>
     </div>
   );

@@ -30,7 +30,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [newInvoice, setNewInvoice] = useState<{ isQuotation: boolean }>({ isQuotation: false });
-  const [newExpense, setNewExpense] = useState<any>({ category: 'Production', amount: 0, description: '', client: 'General' });
+  const [newExpense, setNewExpense] = useState<{ category: string; amount: number; description: string; client: string; brand?: string }>({ category: 'Production', amount: 0, description: '', client: 'General' });
   const [customCategory, setCustomCategory] = useState<string>('');
   const [items, setItems] = useState<InvoiceItem[]>([{ id: '1', description: '', quantity: 1, price: 0 }]);
   const [localEntries, setLocalEntries] = useState<any[]>([]);
@@ -167,7 +167,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
     const totalAmount = items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.price)), 0);
 
-    const client: any = clients.find(c => String(c.id) === String(selectedClientId));
+    const client = clients.find(c => String(c.id) === String(selectedClientId));
 
     const newEntry = {
       id: Date.now(),
@@ -262,7 +262,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
     addExpense(expenseToSave);
 
     setIsExpenseModalOpen(false);
-    setNewExpense({ category: 'Production', amount: 0, description: '' });
+    setNewExpense({ category: 'Production', amount: 0, description: '', client: 'General' });
     setCustomCategory('');
     setEditExpenseId(null);
     showToast(editExpenseId ? "Expense updated successfully" : "Expense saved successfully");
@@ -392,8 +392,9 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
                     {isQuote && (
                       <button
-                        onClick={() => {
-                          if (record.source === 'api_inv') { showToast('Not active on API currently'); /* Needs API support */ }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (record.source === 'api_inv') { showToast('Not active on API currently'); }
                           else if (record.source === 'local_entry') {
                              const updated = localEntries.map(e => String(e.id) === record.id ? { ...e, type: 'invoice', status: 'unpaid' } : e);
                              setLocalEntries(updated);
@@ -632,7 +633,9 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
                         }
                         try {
                            deleteExpense(deleteModal.id!);
-                        } catch (err) {}
+                        } catch {
+                           // Silently fail if handle fails
+                        }
                       } catch (e) {
                         console.warn("Could not target expenses localStorage", e);
                       }

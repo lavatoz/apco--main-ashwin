@@ -6,16 +6,16 @@ import { api } from '../services/api';
 import Gallery from './Gallery';
 
 interface ClientPortalProps {
+  client: Client;
   onUpdateClient: (updatedClient: Client) => void;
   onBack: () => void;
   userRole: 'Admin' | 'Staff' | 'Client' | 'none';
 }
 
 const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, userRole }) => {
-  const { id } = useParams<{ id: string }>();
-  console.log("PROJECT ID:", id);
-
-  const [project, setProject] = useState<any | null>(null);
+  const { clientId } = useParams<{ clientId: string }>();
+  const [projects, setProjects] = useState<any[]>([]);
+  const [activeProject, setActiveProject] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'timeline' | 'deliverables' | 'gallery' | 'requirements' | 'people' | 'private'>('timeline');
   const [isAddingTimeline, setIsAddingTimeline] = useState(false);
@@ -29,30 +29,25 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
   const [deliverableForm, setDeliverableForm] = useState<Partial<Deliverable>>({ type: 'Photos', origin: 'GoogleDrive', isPublic: true });
 
   useEffect(() => {
-    const fetchProject = async () => {
-      if (!id) return;
+    const fetchProjects = async () => {
       setLoading(true);
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`http://localhost:5000/api/projects/${id}`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          console.log("Fetched project:", data);
-          setProject(data);
-        } else {
-          console.error("Failed to fetch project");
-        }
+        const storedProjects = localStorage.getItem('projects');
+        const allProjs = storedProjects ? JSON.parse(storedProjects) : [];
+        const filtered = allProjs.filter((p: any) => p.clientId === clientId);
+        setProjects(filtered);
+        
+        // If only one project, auto-select it? Or let user choose.
+        // For now, let user choose from cards.
       } catch (err) {
-        console.error("Error fetching project:", err);
+        console.error("Registry Sync Failure:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProject();
-  }, [id]);
+    fetchProjects();
+  }, [clientId]);
 
   useEffect(() => {
     api.getCloudConfig().then(setCloudConfig);
@@ -65,10 +60,71 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
     }
   }, [userRole]);
 
-  if (loading) return <p className="text-white p-10 font-black uppercase tracking-widest text-[10px]">Loading...</p>;
-  if (!project) return <p className="text-white p-10 font-black uppercase tracking-widest text-[10px]">No project found</p>;
+  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center"><div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>;
 
-  const isWedding = project.brand === 'AAHA Kalyanam';
+  if (projects.length === 0) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
+         <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-8 border border-white/10">
+            <LayoutDashboard className="w-8 h-8 text-zinc-600" />
+         </div>
+         <h1 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">No Projects Found</h1>
+         <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.2em] mb-10">This client directory has no active production records</p>
+         <button 
+           onClick={() => window.location.href = `/create-project/${clientId}`}
+           className="px-10 py-5 bg-white text-black font-black uppercase text-[11px] rounded-2xl tracking-widest active:scale-95 transition-all shadow-2xl"
+         >
+           + Create First Project
+         </button>
+      </div>
+    );
+  }
+
+  // If we haven't selected a project yet, show the list
+  if (!activeProject) {
+    return (
+      <div className="min-h-screen bg-black p-10 space-y-12 animate-ios-slide-up">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-4xl font-black text-white uppercase tracking-tight leading-none">Management Portal</h1>
+            <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em] mt-2">Active Production Ledger</p>
+          </div>
+          <button 
+             onClick={() => window.location.href = `/create-project/${clientId}`}
+             className="bg-white/5 text-white border border-white/10 px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-white/10"
+          >
+            New Project
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {projects.map(p => (
+            <button 
+              key={p.id} 
+              onClick={() => setActiveProject(p)}
+              className="glass-panel p-10 squircle-lg border border-white/5 text-left group hover:scale-[1.02] transition-all relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-1 h-full bg-white/10 group-hover:bg-blue-500 transition-colors" />
+              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 mb-8">{new Date(p.date).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</p>
+              <h3 className="text-2xl font-black text-white uppercase tracking-tighter leading-none mb-1 group-hover:text-blue-500 transition-colors">{p.name}</h3>
+              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-10">{p.type}</p>
+              
+              <div className={`inline-block px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${
+                p.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 
+                p.status === 'Ongoing' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' : 
+                'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+              }`}>
+                {p.status}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const project = activeProject;
+  const isWedding = project.brand === 'AAHA Kalyanam' || project.type === 'Wedding';
   const theme = {
     bg: isWedding ? 'bg-black' : 'bg-slate-900',
     card: 'glass-panel',

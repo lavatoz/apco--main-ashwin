@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Instagram, Mail, Camera, Film, ArrowUpRight, Sparkles, MapPin, Clapperboard } from 'lucide-react';
+import Packages from './Packages';
 
 interface LandingPageProps {
    onLogin: () => void;
@@ -69,10 +70,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
             </div>
 
             <div className="flex items-center gap-10">
-               <div className="hidden md:flex items-center gap-8 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400">
+               <div className="hidden md:flex items-center gap-8 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 font-sans">
                   <a href="#work" className="hover:text-white hover:scale-105 transition-all duration-300">Portfolio</a>
                   <a href="#divisions" className="hover:text-white hover:scale-105 transition-all duration-300">Divisions</a>
                   <a href="#philosophy" className="hover:text-white hover:scale-105 transition-all duration-300">Studio</a>
+                  <a href="#packages" className="hover:text-white hover:scale-105 transition-all duration-300 relative group">
+                    PACKAGES
+                    <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-white scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
+                  </a>
                </div>
                <button
                   onClick={onLogin}
@@ -325,6 +330,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                   </div>
                </div>
             </div>
+         </section>
+
+         <section id="packages" className="relative z-10 scroll-mt-24">
+            <Packages />
          </section>
 
          {/* Footer - Minimal */}

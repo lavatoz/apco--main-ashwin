@@ -1,4 +1,4 @@
-import { type ActivityLog, type Booking, type Client, type CloudConfig, type Company, type Expense, type Invoice, type Staff, type Task, type Project } from "../types";
+import { type ActivityLog, type Booking, type Client, type CloudConfig, type Division, type Company, type Expense, type Invoice, type Staff, type Task, type Project } from "../types";
 
 
 export const API_URL = "http://localhost:5000/api";
@@ -101,11 +101,11 @@ export const api = {
     const data = localStorage.getItem("clients");
     return data ? JSON.parse(data) : [];
   },
-  saveClient: async (client: any) => {
+  saveClient: async (client: Client) => {
     await delay(100);
     const clients = JSON.parse(localStorage.getItem("clients") || "[]");
     const newClient = { ...client, _id: client._id || `client-${Date.now()}` };
-    const idx = clients.findIndex((c: any) => c._id === newClient._id);
+    const idx = clients.findIndex((c: Client) => c._id === newClient._id);
     if (idx >= 0) {
       clients[idx] = newClient;
     } else {
@@ -116,7 +116,7 @@ export const api = {
   },
   getClientById: async (id: string) => {
     const clients = JSON.parse(localStorage.getItem("clients") || "[]");
-    return clients.find((c: any) => c._id === id);
+    return clients.find((c: Client) => c._id === id);
   },
 
   // Gallery
@@ -139,7 +139,7 @@ export const api = {
   // Projects
   getProjects: async () => fetchApi('/projects').catch(() => getDB().projects),
   getProjectById: async (id: string) => fetchApi(`/projects/${id}`),
-  saveProject: async (project: any) => {
+  saveProject: async (project: Project) => {
       if (project._id) {
           return fetchApi(`/projects/${project._id}`, { method: 'PUT', body: JSON.stringify(project) });
       }
@@ -171,11 +171,11 @@ export const api = {
     const data = localStorage.getItem("ledger");
     return data ? JSON.parse(data) : getDB().invoices;
   },
-  saveInvoice: async (invoice: any) => {
+  saveInvoice: async (invoice: Invoice) => {
     await delay(100);
     const ledger = JSON.parse(localStorage.getItem("ledger") || "[]");
     const newInvoice = { ...invoice, _id: invoice._id || `inv-${Date.now()}` };
-    const idx = ledger.findIndex((i: any) => i._id === newInvoice._id);
+    const idx = ledger.findIndex((i: Invoice) => i._id === newInvoice._id);
     if (idx >= 0) {
       ledger[idx] = newInvoice;
     } else {
@@ -188,14 +188,26 @@ export const api = {
     return fetchApi(`/finance/invoices/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
   },
 
-  // Companies (Brands)
-  getCompanies: async () => fetchApi('/brands').catch(() => getDB().companies),
-  saveCompany: async (company: Company & { _id?: string }) => {
-    if (company._id || (company.id && company.id.length > 5)) {
-      return fetchApi(`/brands/${company._id || company.id}`, { method: 'PUT', body: JSON.stringify(company) });
-    }
-    return fetchApi('/brands', { method: 'POST', body: JSON.stringify(company) });
+  // Divisions (Enterprise Units)
+  getDivisions: async (): Promise<Division[]> => {
+    await delay(100);
+    const data = localStorage.getItem("divisions");
+    return data ? JSON.parse(data) : [
+      { id: 'div_wedding', name: 'AAHA KALYANAM', type: 'Wedding', createdAt: new Date().toISOString() }
+    ];
   },
+  saveDivision: async (division: Division) => {
+    await delay(200);
+    const divisions = await api.getDivisions();
+    const idx = divisions.findIndex(d => d.id === division.id);
+    if (idx >= 0) divisions[idx] = division;
+    else divisions.push(division);
+    localStorage.setItem("divisions", JSON.stringify(divisions));
+    return division;
+  },
+
+  // Companies (Legacy Ref)
+  getCompanies: async () => fetchApi('/brands').catch(() => getDB().companies),
 
   // Expenses
   getExpenses: async () => fetchApi('/finance/expenses').catch(() => getDB().expenses),

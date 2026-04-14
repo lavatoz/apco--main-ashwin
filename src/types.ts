@@ -67,19 +67,23 @@ export interface Task {
   dueDate: string;
   status: string;
   brand: string;
+  divisionId?: string;
   priority: string;
 }
 
-export interface Company {
+export interface Division {
   id: string;
-  _id?: string;
   name: string;
-  ownerName: string;
-  phone: string;
-  email: string;
-  color: string;
-  type: 'Wedding' | 'Kids' | 'General';
+  type: 'Wedding' | 'Kids' | 'Corporate' | 'Events' | 'General';
+  createdAt: string;
   description?: string;
+  color?: string;
+}
+
+export interface Company extends Division {
+  ownerName?: string;
+  phone?: string;
+  email?: string;
 }
 
 export interface TimelineItem {
@@ -132,6 +136,29 @@ export interface Person {
   dateOfBirth?: string;
 }
 
+export type UserRole = 'Admin' | 'Staff' | 'Client';
+
+export type UserPermission = 'dashboard' | 'clients' | 'tasks' | 'finance' | 'ai' | 'analytics' | 'system' | 'workflow';
+
+export interface User {
+  id: string;
+  email: string;
+  password?: string;
+  role: UserRole;
+  permissions: UserPermission[];
+  divisionIds?: string[];
+  isActive: boolean;
+  name?: string;
+}
+
+export interface Invite {
+  token: string;
+  email: string;
+  role: UserRole;
+  permissions: UserPermission[];
+  createdAt: string;
+}
+
 export interface Client {
   id: string;
   _id: string;
@@ -144,7 +171,11 @@ export interface Client {
   budget?: number;
   notes: string;
   brand: string;
-  brandId?: any;
+  brandId?: string;
+  divisionId?: string;
+  email?: string;
+  phone?: string;
+  projectType?: string;
   vaultId?: string;
   driveFolderId?: string;
   people: Person[];
@@ -183,6 +214,7 @@ export interface Project {
   description?: string;
   status: 'booked' | 'event_completed' | 'photo_selection' | 'post_production' | 'album_printing';
   brandId: string;
+  divisionId?: string;
   allowedClients?: any[];
   images: {
     _id: string;
@@ -201,6 +233,7 @@ export interface Booking {
   status: BookingStatus;
   type: string;
   brand: string;
+  divisionId?: string;
 }
 
 export interface InvoiceItem {
@@ -208,24 +241,26 @@ export interface InvoiceItem {
   description: string;
   quantity: number;
   price: number;
+  costPrice?: number;
 }
 
 export interface Invoice {
   _id?: string;
-  id?: string;
-  clientId?: string;
+  id: string;
+  clientId: string;
   client?: any;
   project?: any;
   amount?: number;
-  status: string;
+  status: InvoiceStatus;
   type?: 'invoice' | 'quotation';
   isQuotation?: boolean;
-  items?: InvoiceItem[];
+  items: InvoiceItem[];
   brand?: string;
   brandId?: string;
+  divisionId?: string;
   createdAt?: string;
   issueDate?: string;
-  dueDate?: string;
+  dueDate: string;
 }
 
 export interface Expense {
@@ -237,6 +272,7 @@ export interface Expense {
   clientId?: string;
   client?: string;
   brand: string;
+  divisionId?: string;
 }
 
 export interface CloudConfig {

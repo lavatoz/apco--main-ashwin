@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   Image as ImageIcon, 
   CheckCircle2, 
@@ -29,18 +29,18 @@ const Gallery: React.FC<GalleryProps> = ({ clientId, userRole, onUpdate }) => {
   const isAdmin = userRole === 'Admin' || userRole === 'Staff';
   const isClient = userRole === 'Client';
 
-  const fetchGallery = async () => {
+  const fetchGallery = useCallback(async () => {
     try {
       const data = await api.getGallery(clientId);
       setGallery(data);
     } catch (err) {
       console.error("Failed to fetch gallery", err);
     }
-  };
+  }, [clientId]);
 
   React.useEffect(() => {
     fetchGallery();
-  }, [clientId]);
+  }, [fetchGallery]);
 
   const handleToggleSelect = async (imagePath: string) => {
     if (!isClient || !gallery) return;
@@ -110,9 +110,10 @@ const Gallery: React.FC<GalleryProps> = ({ clientId, userRole, onUpdate }) => {
         } else {
           setMatchedPaths([]);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("AI Search failed", err);
-        alert(err.message || "Face recognition failed. Please ensure the Python service is configured correctly.");
+        const errorMessage = err instanceof Error ? err.message : "Face recognition failed. Please ensure the Python service is configured correctly.";
+        alert(errorMessage);
       } finally {
         setIsSearching(false);
       }

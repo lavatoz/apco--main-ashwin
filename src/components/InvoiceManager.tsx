@@ -17,9 +17,9 @@ interface InvoiceManagerProps {
 
 const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addInvoice, updateInvoiceStatus, selectedBrand }) => {
   const [isCreating, setIsCreating] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<string>('');
-  const [items, setItems] = useState<InvoiceItem[]>([{ id: '1', description: '', quantity: 1, price: 0, costPrice: 0 }]);
-  const [dueDate, setDueDate] = useState('');
+  const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [items, setItems] = useState<InvoiceItem[]>([{ id: '1', description: '', quantity: 1, price: 0 }]);
+  const [dueDate, setDueDate] = useState<string>('');
 
   const [aiDraft, setAiDraft] = useState<{ id: string, text: string } | null>(null);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
@@ -63,12 +63,13 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
   };
 
   const resetForm = () => {
-    setSelectedClient('');
-    setItems([{ id: '1', description: '', quantity: 1, price: 0, costPrice: 0 }]);
+    setSelectedClient(null);
+    setItems([{ id: '1', description: '', quantity: 1, price: 0 }]);
     setDueDate('');
   };
 
   const handleGenerateReminder = async (invoice: Invoice) => {
+    if (!invoice.id) return;
     setGeneratingFor(invoice.id);
     const client = clients.find(c => c.id === invoice.clientId);
     if (client) {
@@ -115,7 +116,7 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
                   <select
                     required
                     className="w-full border border-slate-300 rounded-lg p-2.5 bg-white"
-                    value={selectedClient}
+                    value={selectedClient || ""}
                     onChange={(e) => setSelectedClient(e.target.value)}
                   >
                     <option value="">Select Client</option>
@@ -228,8 +229,8 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
           <tbody className={`divide-y ${borderColor}`}>
             {filteredInvoices.map((inv) => {
               const client = clients.find(c => c.id === inv.clientId);
-              const total = calculateTotal(inv.items);
-              const isOverdue = inv.status !== InvoiceStatus.Paid && new Date(inv.dueDate) < new Date();
+              const total = calculateTotal(inv.items || []);
+              const isOverdue = inv.status !== InvoiceStatus.Paid && inv.dueDate && new Date(inv.dueDate) < new Date();
 
               return (
                 <React.Fragment key={inv.id}>
@@ -259,7 +260,11 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
                         </button>
                       )}
                       <button
-                        onClick={() => updateInvoiceStatus(inv.id, inv.status === InvoiceStatus.Paid ? InvoiceStatus.Unpaid : InvoiceStatus.Paid)}
+                        onClick={() => {
+                          if (inv.id) {
+                            updateInvoiceStatus(inv.id, inv.status === InvoiceStatus.Paid ? InvoiceStatus.Unpaid : InvoiceStatus.Paid);
+                          }
+                        }}
                         className={`p-2 rounded-lg ${inv.status === InvoiceStatus.Paid ? (isBaby ? 'text-amber-600 bg-amber-50' : 'text-yellow-500 bg-yellow-900/20') : (isBaby ? 'text-emerald-600 bg-emerald-50' : 'text-emerald-400 bg-emerald-900/20')}`}
                       >
                         <CheckCircle2 className="w-4 h-4" />

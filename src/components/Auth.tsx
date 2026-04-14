@@ -46,14 +46,14 @@ const Auth: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           localStorage.setItem('users', JSON.stringify(users));
           
           // Auto-login after successful registration
-          localStorage.setItem('currentUser', JSON.stringify(newUser));
+          localStorage.setItem('auth_user', JSON.stringify(newUser));
           navigate('/dashboard');
         }
       } else {
         // Login Logic
         const user = users.find((u) => u.email === email && u.password === password);
         if (user) {
-          localStorage.setItem('currentUser', JSON.stringify(user));
+          localStorage.setItem('auth_user', JSON.stringify(user));
           navigate('/dashboard');
         } else {
           setError('Invalid login credentials.');
