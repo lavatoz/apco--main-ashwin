@@ -11,9 +11,11 @@ export type BookingStatus = typeof BookingStatus[keyof typeof BookingStatus];
 export const InvoiceStatus = {
   Paid: 'Paid',
   Unpaid: 'Unpaid',
+  Partial: 'Partial',
   Overdue: 'Overdue',
   Draft: 'Draft',
-  Quotation: 'Quotation'
+  Quotation: 'Quotation',
+  Approved: 'Approved'
 } as const;
 
 export type InvoiceStatus = typeof InvoiceStatus[keyof typeof InvoiceStatus];
@@ -138,17 +140,23 @@ export interface Person {
 
 export type UserRole = 'Admin' | 'Staff' | 'Client';
 
-export type UserPermission = 'dashboard' | 'clients' | 'tasks' | 'finance' | 'ai' | 'analytics' | 'system' | 'workflow';
+export type StaffRole = 'photographer' | 'videographer' | 'editor' | 'assistant';
+
+export type UserPermission = 'dashboard' | 'clients' | 'tasks' | 'finance' | 'ai' | 'analytics' | 'system' | 'workflow' | 'operations' | 'files';
 
 export interface User {
   id: string;
   email: string;
   password?: string;
   role: UserRole;
+  staffRole?: StaffRole;
   permissions: UserPermission[];
   divisionIds?: string[];
   isActive: boolean;
   name?: string;
+  createdAt?: string;
+  inviteToken?: string;
+  inviteLink?: string;
 }
 
 export interface Invite {
@@ -157,6 +165,25 @@ export interface Invite {
   role: UserRole;
   permissions: UserPermission[];
   createdAt: string;
+}
+
+export interface ActiveAgreementSnapshot {
+  templateId: string;
+  version: number;
+  title: string;
+  body: string;
+  assignedAt: string;
+  status: 'pending' | 'accepted' | 'revoked';
+  acceptedAt?: string;
+}
+
+export interface AgreementTemplate {
+  id: string;
+  version: number;
+  title: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Client {
@@ -188,6 +215,7 @@ export interface Client {
   allowedClients?: any[];
   eventType?: string;
   status: 'pending' | 'uploaded' | 'selected' | 'completed';
+  activeAgreement?: ActiveAgreementSnapshot;
 }
 
 export interface GalleryImage {
@@ -195,6 +223,23 @@ export interface GalleryImage {
   path: string;
   name?: string;
   uploadedAt: string;
+}
+
+export interface ClientAgreement {
+  clientId: string;
+  version: number;
+  status: "pending" | "accepted" | "expired" | "revoked";
+  acceptedAt?: string;
+  expiresAt?: string;
+  termsText?: string;
+  title?: string;
+}
+
+export interface IdDocument {
+  clientId: string;
+  type: "id_proof";
+  fileName: string;
+  fileUrl: string;
 }
 
 export interface Gallery {
@@ -207,22 +252,56 @@ export interface Gallery {
   updatedAt: string;
 }
 
-export interface Project {
-  _id: string;
+export type ProjectStatus = 'pending' | 'confirmed';
+export type ProjectStage = 'booked' | 'event_done' | 'selection' | 'editing' | 'delivery';
+
+export interface StaffAssignment {
+  id?: string;
   name: string;
-  client: string | Client;
+  type: 'internal' | 'external';
+  payment?: number;
+  assigned_dates?: string[];
+}
+
+export interface ProjectTeam {
+  photographer?: StaffAssignment;
+  videographer?: StaffAssignment;
+  editor?: StaffAssignment;
+  assistant?: StaffAssignment;
+  photographers?: StaffAssignment[];
+  videographers?: StaffAssignment[];
+  editors?: StaffAssignment[];
+  assistants?: StaffAssignment[];
+}
+
+export interface SubTask {
+  id: string;
+  label: string;
+  isCompleted: boolean;
+}
+
+export interface Project {
+  id: string;
+  _id?: string;
+  name: string;
+  clientId: string;
+  divisionId: string;
+  brand: string;
+  type: string;
+  date: string;
+  status: ProjectStatus;
+  stage: ProjectStage;
+  totalAmount?: number;
+  team?: ProjectTeam;
+  createdAt: string;
   description?: string;
-  status: 'booked' | 'event_completed' | 'photo_selection' | 'post_production' | 'album_printing';
-  brandId: string;
-  divisionId?: string;
-  allowedClients?: any[];
-  images: {
+  images?: {
     _id: string;
     url: string;
     isSelected: boolean;
     uploadedAt: string;
   }[];
-  assignedTo?: string;
+  subTasks?: { [key in ProjectStage]?: SubTask[] };
 }
 
 export interface Booking {
@@ -244,6 +323,12 @@ export interface InvoiceItem {
   costPrice?: number;
 }
 
+export interface PaymentRecord {
+  id: string;
+  amount: number;
+  date: string;
+}
+
 export interface Invoice {
   _id?: string;
   id: string;
@@ -251,6 +336,9 @@ export interface Invoice {
   client?: any;
   project?: any;
   amount?: number;
+  totalAmount?: number;
+  paidAmount?: number;
+  paymentHistory?: PaymentRecord[];
   status: InvoiceStatus;
   type?: 'invoice' | 'quotation';
   isQuotation?: boolean;
@@ -261,6 +349,21 @@ export interface Invoice {
   createdAt?: string;
   issueDate?: string;
   dueDate: string;
+  companyLogoUrl?: string;
+  paymentTerms?: string;
+  taxPercent?: number;
+  discountValue?: number;
+  discountType?: 'flat' | 'percent';
+  shippingCost?: number;
+  notes?: string;
+  termsSummary?: string;
+  agreementAgreed?: boolean;
+  agreementAccepted?: boolean;
+  agreementDate?: string;
+  approvalTimestamp?: string;
+  idProofName?: string;
+  convertedFrom?: string;
+  total?: number;
 }
 
 export interface Expense {
@@ -283,3 +386,40 @@ export interface CloudConfig {
 }
 
 export type ViewState = 'DASHBOARD' | 'CLIENTS' | 'CALENDAR' | 'FINANCE' | 'AI_TOOLS' | 'CLIENT_PORTAL' | 'SETTINGS' | 'TASKS' | 'TEAM' | 'LOGS' | 'PRODUCTION';
+
+export interface CompanyProfile {
+  id: string;
+  companyName: string;
+  tagline: string;
+  projectType: string; // The link to Client.brand or Client.projectType
+  logo: string; // base64
+  email: string;
+  phone: string;
+  address: string;
+  gstin: string;
+  pan: string;
+  website: string;
+  invoicePrefix: string;
+  upiId: string;
+  bankDetails: {
+    accountName: string;
+    accountNumber: string;
+    ifsc: string;
+    bankName: string;
+  };
+  paymentTerms: string;
+  invoiceNotes: string;
+  primaryColor: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export interface GlobalSettings {
+  pdfOwnerPassword?: string;
+  pdfWatermarkEnabled?: boolean;
+  pdfQrEnabled?: boolean;
+  pdfHashEnabled?: boolean;
+  pdfSecureRenderEnabled?: boolean;
+  pdfSecretSalt?: string;
+  // future global settings here
+}

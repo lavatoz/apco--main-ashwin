@@ -3,7 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Command, Layout, CheckCircle } from 'lucide-react';
 import type { Invite, User } from '../types';
 
-const InvitePage: React.FC = () => {
+interface InvitePageProps {
+  onLogin: (user: any) => void;
+}
+
+const InvitePage: React.FC<InvitePageProps> = ({ onLogin }) => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const [invite, setInvite] = useState<Invite | null>(null);
@@ -14,6 +18,9 @@ const InvitePage: React.FC = () => {
   const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
+    // Clear existing session for security
+    localStorage.removeItem('auth_user');
+    
     const invites: Invite[] = JSON.parse(localStorage.getItem('invites') || '[]');
     const found = invites.find(i => i.token === token);
     if (!found) {
@@ -48,7 +55,8 @@ const InvitePage: React.FC = () => {
         role: invite!.role,
         permissions: invite!.permissions,
         isActive: true,
-        name: invite!.email.split('@')[0]
+        name: invite!.email.split('@')[0],
+        createdAt: new Date().toISOString()
       };
 
       users.push(newUser);
@@ -57,8 +65,24 @@ const InvitePage: React.FC = () => {
       localStorage.setItem('users', JSON.stringify(users));
       localStorage.setItem('invites', JSON.stringify(remainingInvites));
       
+      // Auto-Login
+      const sessionUser = {
+        id: newUser.id,
+        email: newUser.email,
+        role: newUser.role,
+        permissions: newUser.permissions || []
+      };
+      localStorage.setItem('auth_user', JSON.stringify(sessionUser));
+      onLogin(sessionUser);
+
       setIsSuccess(true);
-      setTimeout(() => navigate('/login'), 3000);
+      
+      // Role-based redirection
+      setTimeout(() => {
+        if (newUser.role === 'Admin') navigate('/dashboard');
+        else if (newUser.role === 'Staff') navigate('/staff-dashboard');
+        else navigate('/client-dashboard');
+      }, 2000);
     } catch (err) {
       setError('Onboarding failed. Please contact admin.');
     } finally {

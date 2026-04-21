@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import UserAccessManager from '../components/UserAccessManager';
 
 export default function TeamPage() {

@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Users, Briefcase, ArrowLeft } from 'lucide-react';
-import type { Division, Client } from '../types';
+import { Users, Briefcase, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import type { Division, Client, Project } from '../types';
 
 const DivisionDashboard: React.FC = () => {
     const { divisionId } = useParams<{ divisionId: string }>();
     const navigate = useNavigate();
     const [division, setDivision] = useState<Division | null>(null);
     const [clients, setClients] = useState<Client[]>([]);
-    const [projects, setProjects] = useState<any[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        setLoading(true);
+    const refreshData = () => {
         const storedDivs = localStorage.getItem('divisions');
         const divs: Division[] = storedDivs ? JSON.parse(storedDivs) : [];
         const foundDiv = divs.find(d => d.id === divisionId);
@@ -25,17 +24,35 @@ const DivisionDashboard: React.FC = () => {
             setClients(allClients.filter(c => c.divisionId === divisionId));
 
             const storedProjects = localStorage.getItem('projects');
-            const allProjects = storedProjects ? JSON.parse(storedProjects) : [];
-            setProjects(allProjects.filter((p: any) => p.divisionId === divisionId));
+            const allProjects: Project[] = storedProjects ? JSON.parse(storedProjects) : [];
+            setProjects(allProjects.filter((p: Project) => p.divisionId === divisionId));
         }
+    };
+
+    useEffect(() => {
+        setLoading(true);
+        refreshData();
         setLoading(false);
     }, [divisionId]);
+
+    const handleConfirmProject = (projectId: string) => {
+        const stored = localStorage.getItem('projects');
+        if (!stored) return;
+        const allProjects: Project[] = JSON.parse(stored);
+        const updated = allProjects.map(p => 
+            p.id === projectId 
+            ? { ...p, status: 'confirmed' as const, stage: 'booked' as const } 
+            : p
+        );
+        localStorage.setItem('projects', JSON.stringify(updated));
+        refreshData();
+    };
 
     if (loading) return <div className="min-h-screen bg-black flex items-center justify-center font-black uppercase tracking-widest text-[10px] text-white">Initializing Unit...</div>;
 
     if (!division) return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
-            <h1 className="text-3xl font-black text-white uppercase tracking-tighter">Division Not Found</h1>
+            <h1 className="text-3xl font-black text-white uppercase tracking-tighter">Project Hub Not Found</h1>
             <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.2em] mt-2 mb-10">Operational Unit mapping failed for ID: {divisionId}</p>
             <button onClick={() => navigate('/system')} className="px-8 py-4 bg-white text-black font-black uppercase text-[10px] rounded-xl">Return to Enterprise</button>
         </div>
@@ -49,7 +66,7 @@ const DivisionDashboard: React.FC = () => {
                 </button>
                 <div>
                     <h1 className="text-4xl font-black text-white tracking-tight uppercase leading-none">{division.name}</h1>
-                    <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em] mt-2 italic">{division.type} Operational Hub</p>
+                    <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em] mt-2 italic">{division.type} Operational Project Hub</p>
                 </div>
             </div>
 
@@ -101,13 +118,28 @@ const DivisionDashboard: React.FC = () => {
                     <h3 className="text-[11px] font-black uppercase text-zinc-600 tracking-widest px-2">Production Status (Projects)</h3>
                     <div className="space-y-3">
                         {projects.map(p => (
-                            <button key={p.id} onClick={() => navigate(`/portal/${p.clientId}`)} className="w-full text-left p-6 bg-white/5 border border-white/5 rounded-2xl flex justify-between items-center group hover:bg-white/10 transition-all">
-                                <div>
+                            <div key={p.id} className="w-full p-6 bg-white/5 border border-white/5 rounded-2xl flex justify-between items-center group hover:bg-white/10 transition-all">
+                                <button onClick={() => navigate(`/portal/${p.clientId}`)} className="flex-1 text-left">
                                     <h4 className="text-sm font-black text-white uppercase">{p.name}</h4>
-                                    <p className="text-[9px] font-bold text-zinc-600 uppercase mt-0.5">{p.status} • {p.date}</p>
+                                    <div className="flex items-center gap-3 mt-1">
+                                        <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${p.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                                            {p.status === 'confirmed' ? 'Authorization Confirmed' : 'Pending Auth'}
+                                        </span>
+                                        <p className="text-[9px] font-bold text-zinc-600 uppercase">Stage: {p.stage} • {p.date}</p>
+                                    </div>
+                                </button>
+                                <div className="flex items-center gap-3">
+                                    {p.status === 'pending' && (
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleConfirmProject(p.id); }}
+                                            className="px-4 py-2 bg-emerald-500 text-black font-black uppercase text-[9px] rounded-lg tracking-widest hover:bg-emerald-400 active:scale-95 transition-all flex items-center gap-2"
+                                        >
+                                            <CheckCircle2 className="w-3 h-3" /> Confirm
+                                        </button>
+                                    )}
+                                    <button onClick={() => navigate(`/portal/${p.clientId}`)} className="text-[8px] font-black px-2 py-1 bg-white/5 text-zinc-500 rounded border border-white/5 group-hover:text-blue-500 uppercase transition-all">Navigate</button>
                                 </div>
-                                <span className="text-[8px] font-black px-2 py-1 bg-white/5 text-zinc-500 rounded border border-white/5 group-hover:text-blue-500 uppercase transition-all">Navigate</span>
-                            </button>
+                            </div>
                         ))}
                         {projects.length === 0 && <p className="text-[10px] text-zinc-700 italic px-2">Operations ledger is empty.</p>}
                     </div>

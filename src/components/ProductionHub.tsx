@@ -3,26 +3,8 @@ import { useLocation } from 'react-router-dom';
 import {
   CheckCircle2, Package, Plus, X, Layers
 } from 'lucide-react';
-import { type Client, type Task, TaskStatus } from '../types';
+import { type Client, type Task, TaskStatus, type Project, type ProjectStage } from '../types';
 import ProjectBoard from './ProjectBoard';
-
-interface OperationalProject {
-  id: string;
-  title: string;
-  client: string;
-  brand: string;
-  stage: 'BOOKED' | 'EVENT_DONE' | 'SELECTION' | 'EDITING';
-  eventDate: string;
-  steps: {
-    clientInfo: boolean;
-    teamAssigned: boolean;
-    shootDone: boolean;
-    selection: boolean;
-    editing: boolean;
-    delivery: boolean;
-  };
-  totalAmount?: number;
-}
 
 interface ProductionHubProps {
   clients: Client[];
@@ -42,7 +24,7 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
     client: locationState?.prefillClient || '', 
     brand: locationState?.brand || (selectedBrand !== 'All' ? selectedBrand : 'AAHA Kalyanam'), 
     eventDate: '', 
-    stage: 'BOOKED' as const,
+    stage: 'booked' as ProjectStage,
     totalAmount: 0
   });
 
@@ -53,41 +35,43 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
     }
   }, [locationState]);
 
-  // Persistent Project Store
-  const [projectRegistry, setProjectRegistry] = useState<OperationalProject[]>(() => {
+  // Unified Project Store
+  const [projectRegistry, setProjectRegistry] = useState<Project[]>(() => {
     try {
-      const stored = localStorage.getItem('apco_operations');
-      return stored ? JSON.parse(stored) : [];
+      const stored = localStorage.getItem('projects');
+      const allProjects: Project[] = stored ? JSON.parse(stored) : [];
+      // Only show confirmed projects in Operations
+      return allProjects.filter(p => p.status === 'confirmed');
     } catch {
       return [];
     }
   });
 
-  useEffect(() => {
-    localStorage.setItem('apco_operations', JSON.stringify(projectRegistry));
-  }, [projectRegistry]);
-
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
-    const project: OperationalProject = {
+    const project: Project = {
        id: `PRJ-${Date.now().toString().slice(-6)}`,
-       title: newProject.title,
-       client: newProject.client,
+       name: newProject.title,
+       clientId: newProject.client, // This will be the name in this case
        brand: newProject.brand,
-       eventDate: newProject.eventDate,
-       stage: 'BOOKED',
-       steps: {
-         clientInfo: true,
-         teamAssigned: false,
-         shootDone: false,
-         selection: false,
-         editing: false,
-         delivery: false
-       },
-       totalAmount: newProject.totalAmount
+       divisionId: (allClients.find(c => c.name === newProject.client)?.divisionId) || 'dev_01',
+       type: 'General',
+       date: newProject.eventDate,
+       status: 'confirmed', // Requirement 6
+       stage: 'booked',
+       totalAmount: newProject.totalAmount,
+       createdAt: new Date().toISOString()
     };
     
-    setProjectRegistry([...projectRegistry, project]);
+    // Add to main projects store
+    const stored = localStorage.getItem('projects');
+    const allProjects = stored ? JSON.parse(stored) : [];
+    const updatedAll = [...allProjects, project];
+    localStorage.setItem('projects', JSON.stringify(updatedAll));
+    
+    // Update local registry (filtered confirmed)
+    setProjectRegistry(updatedAll.filter(p => p.status === 'confirmed'));
+    
     setIsCreating(false);
     setShowNewClientInput(false);
     setNewProject({ 
@@ -95,19 +79,25 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
         client: '', 
         brand: selectedBrand !== 'All' ? selectedBrand : 'AAHA Kalyanam', 
         eventDate: '', 
-        stage: 'BOOKED',
+        stage: 'booked' as any,
         totalAmount: 0
     });
   };
 
-  const updateProjectStage = (id: string, stage: OperationalProject['stage']) => {
-    setProjectRegistry(prev => prev.map(p => p.id === id ? { ...p, stage } : p));
+  const updateProjectStage = (id: string, stage: ProjectStage) => {
+    const stored = localStorage.getItem('projects');
+    const allProjects: Project[] = stored ? JSON.parse(stored) : [];
+    const updated = allProjects.map(p => p.id === id ? { ...p, stage } : p);
+    localStorage.setItem('projects', JSON.stringify(updated));
+    setProjectRegistry(updated.filter(p => p.status === 'confirmed'));
   };
 
-
-
   const deleteProject = (id: string) => {
-    setProjectRegistry(prev => prev.filter(p => p.id !== id));
+    const stored = localStorage.getItem('projects');
+    const allProjects: Project[] = stored ? JSON.parse(stored) : [];
+    const updated = allProjects.filter(p => p.id !== id);
+    localStorage.setItem('projects', JSON.stringify(updated));
+    setProjectRegistry(updated.filter(p => p.status === 'confirmed'));
   };
 
   const filteredTasks = tasks.filter(t => (selectedBrand === 'All' || t.brand === selectedBrand) && t.status !== TaskStatus.Done);

@@ -68,7 +68,10 @@ const getInitialStaff = (): Staff[] => [
 
 const getInitialDB = (): DBStructure => ({
   companies: [
-    { id: '1', name: 'AAHA Kalyanam', ownerName: 'Artisan Owner', phone: '9876543210', email: 'wedding@artisans.co', color: '#fbbf24', type: 'Wedding', description: 'Luxury Wedding Production' }
+    {
+      id: '1', name: 'AAHA Kalyanam', ownerName: 'Artisan Owner', phone: '9876543210', email: 'wedding@artisans.co', color: '#fbbf24', type: 'Wedding', description: 'Luxury Wedding Production',
+      createdAt: ""
+    }
   ],
   clients: [],
   projects: [],
@@ -88,6 +91,20 @@ const saveDB = (db: DBStructure) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...db, lastSynced: new Date().toISOString() }));
 };
 
+const checkClientBlock = (action: string) => {
+  const userStr = localStorage.getItem('auth_user');
+  if (userStr) {
+    try {
+      const userResult = JSON.parse(userStr);
+      if (userResult.role === 'Client') {
+        throw new Error(`Permission Denied: Client role cannot perform action: ${action}`);
+      }
+    } catch (e) {
+      console.error("Auth Parsing Failure", e);
+    }
+  }
+};
+
 export const api = {
   // Auth
   signup: async (userData: Record<string, unknown>) => fetchApi('/auth/signup', { method: 'POST', body: JSON.stringify(userData) }),
@@ -102,6 +119,7 @@ export const api = {
     return data ? JSON.parse(data) : [];
   },
   saveClient: async (client: Client) => {
+    checkClientBlock("Manage Clients");
     await delay(100);
     const clients = JSON.parse(localStorage.getItem("clients") || "[]");
     const newClient = { ...client, _id: client._id || `client-${Date.now()}` };
@@ -116,7 +134,14 @@ export const api = {
   },
   getClientById: async (id: string) => {
     const clients = JSON.parse(localStorage.getItem("clients") || "[]");
-    return clients.find((c: Client) => c._id === id);
+    return clients.find((c: Client) => c._id === id || c.id === id);
+  },
+  deleteClient: async (id: string) => {
+    checkClientBlock("Delete Client");
+    await delay(100);
+    const clients = JSON.parse(localStorage.getItem("clients") || "[]");
+    const filtered = clients.filter((c: any) => c.id !== id && c._id !== id);
+    localStorage.setItem("clients", JSON.stringify(filtered));
   },
 
   // Gallery
@@ -140,12 +165,14 @@ export const api = {
   getProjects: async () => fetchApi('/projects').catch(() => getDB().projects),
   getProjectById: async (id: string) => fetchApi(`/projects/${id}`),
   saveProject: async (project: Project) => {
+      checkClientBlock("Manage Projects");
       if (project._id) {
           return fetchApi(`/projects/${project._id}`, { method: 'PUT', body: JSON.stringify(project) });
       }
       return fetchApi('/projects', { method: 'POST', body: JSON.stringify(project) });
   },
   updateProjectStatus: async (id: string, status: string) => {
+    checkClientBlock("Update Project Status");
     return fetchApi(`/projects/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) });
   },
   uploadImages: async (projectId: string, imageUrls: string[]) => {
@@ -172,6 +199,7 @@ export const api = {
     return data ? JSON.parse(data) : getDB().invoices;
   },
   saveInvoice: async (invoice: Invoice) => {
+    checkClientBlock("Create/Edit Invoice");
     await delay(100);
     const ledger = JSON.parse(localStorage.getItem("ledger") || "[]");
     const newInvoice = { ...invoice, _id: invoice._id || `inv-${Date.now()}` };
@@ -185,7 +213,50 @@ export const api = {
     return newInvoice;
   },
   updateInvoiceStatus: async (id: string, status: string) => {
+    checkClientBlock("Update Invoice Status");
     return fetchApi(`/finance/invoices/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
+  },
+
+  // Quotes
+  getQuoteById: async (id: string) => {
+    // Attempt real backend call first
+    try {
+      return await fetchApi(`/quotes/${id}`);
+    } catch (err) {
+      // Fallback to localStorage if backend is not implemented/available
+      console.warn("Backend /quotes/:id not found, falling back to ledger", err);
+      const ledger = JSON.parse(localStorage.getItem("ledger") || "[]");
+      const found = ledger.find((i: Invoice) => (String(i.id) === id || String(i._id) === id) && i.isQuotation);
+      if (!found) {
+        throw new Error("404: Quotation not found in ledger cluster.");
+      }
+      return found;
+    }
+  },
+
+  saveQuote: async (quote: Invoice) => {
+    checkClientBlock("Create/Edit Quote");
+    // Ensure it's marked as a quotation
+    const quoteData = { ...quote, isQuotation: true, type: 'quotation' as const };
+    
+    try {
+      // Try real backend
+      return await fetchApi('/quotes', { method: 'POST', body: JSON.stringify(quoteData) });
+    } catch (err) {
+      console.warn("Backend /quotes not found, saving to local ledger", err);
+      // Fallback to local storage (existing logic)
+      await delay(100);
+      const ledger = JSON.parse(localStorage.getItem("ledger") || "[]");
+      const newQuote = { ...quoteData, _id: quoteData._id || `quote-${Date.now()}` };
+      const idx = ledger.findIndex((i: Invoice) => i._id === newQuote._id);
+      if (idx >= 0) {
+        ledger[idx] = newQuote;
+      } else {
+        ledger.push(newQuote);
+      }
+      localStorage.setItem("ledger", JSON.stringify(ledger));
+      return newQuote;
+    }
   },
 
   // Divisions (Enterprise Units)
@@ -197,6 +268,7 @@ export const api = {
     ];
   },
   saveDivision: async (division: Division) => {
+    checkClientBlock("Manage Divisions");
     await delay(200);
     const divisions = await api.getDivisions();
     const idx = divisions.findIndex(d => d.id === division.id);
@@ -205,6 +277,13 @@ export const api = {
     localStorage.setItem("divisions", JSON.stringify(divisions));
     return division;
   },
+  deleteDivision: async (id: string) => {
+    checkClientBlock("Manage Divisions");
+    await delay(200);
+    const divisions = await api.getDivisions();
+    const filtered = divisions.filter(d => d.id !== id);
+    localStorage.setItem("divisions", JSON.stringify(filtered));
+  },
 
   // Companies (Legacy Ref)
   getCompanies: async () => fetchApi('/brands').catch(() => getDB().companies),
@@ -212,18 +291,21 @@ export const api = {
   // Expenses
   getExpenses: async () => fetchApi('/finance/expenses').catch(() => getDB().expenses),
   saveExpense: async (expense: Expense & { _id?: string }) => {
+    checkClientBlock("Manage Expenses");
     if (expense._id) {
       return fetchApi(`/finance/expenses/${expense._id}`, { method: 'PUT', body: JSON.stringify(expense) });
     }
     return fetchApi('/finance/expenses', { method: 'POST', body: JSON.stringify(expense) });
   },
   deleteExpense: async (id: string) => {
+    checkClientBlock("Delete Expense");
     return fetchApi(`/finance/expenses/${id}`, { method: 'DELETE' });
   },
 
   // Tasks
   getTasks: async () => { await delay(); return getDB().tasks; },
   saveTask: async (task: Task) => {
+    checkClientBlock("Manage Tasks");
     await delay();
     const db = getDB();
     const idx = db.tasks.findIndex(t => t.id === task.id);
@@ -232,6 +314,7 @@ export const api = {
     saveDB(db);
   },
   deleteTask: async (id: string) => {
+    checkClientBlock("Delete Task");
     await delay();
     const db = getDB();
     db.tasks = db.tasks.filter(t => t.id !== id);
@@ -245,6 +328,7 @@ export const api = {
     return data ? JSON.parse(data) : getInitialStaff();
   },
   saveStaff: async (staff: Staff) => {
+    checkClientBlock("Manage Staff");
     await delay();
     const current = await api.getStaff();
     const idx = current.findIndex(s => s.id === staff.id);
@@ -253,6 +337,7 @@ export const api = {
     localStorage.setItem(STAFF_KEY, JSON.stringify(current));
   },
   deleteStaff: async (id: string) => {
+    checkClientBlock("Delete Staff");
     await delay();
     const current = await api.getStaff();
     const filtered = current.filter(s => s.id !== id);

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Calendar, UserPlus, X, Mail, Phone, User, Trash2 } from 'lucide-react';
+import { Search, Calendar, UserPlus, X, Mail, Phone, User, Trash2, Edit2, ChevronDown, Briefcase, LayoutGrid } from 'lucide-react';
 
 import { type Client, type Division } from '../types';
 
@@ -8,17 +7,23 @@ interface ClientManagerProps {
   clients: Client[];
   divisions: Division[];
   addClient: (client: Client) => Promise<void>;
+  deleteClient: (id: string) => Promise<void>;
   selectedDivisionId: string | 'All';
   userDivisionIds?: string[];
   onOpenPortal: (client: Client) => void;
+  userRole?: string;
+  userId?: string;
 }
 
-const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divisions, addClient, selectedDivisionId: preselectedId, userDivisionIds, onOpenPortal }) => {
-  const navigate = useNavigate();
+const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divisions, addClient, deleteClient, selectedDivisionId: preselectedId, userDivisionIds, onOpenPortal, userRole, userId }) => {
   const [selectedDivId, setSelectedDivId] = useState<string>('All');
   
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Editing State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   // Form State
   const [isAdding, setIsAdding] = useState(false);
@@ -28,19 +33,22 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-
-  const handleDelete = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (window.confirm('Are you sure you want to absolute delete this client record? This action is irreversible.')) {
-      const currentClients = JSON.parse(localStorage.getItem('clients') || '[]');
-      const updated = currentClients.filter((c: any) => c.id !== id);
-      localStorage.setItem('clients', JSON.stringify(updated));
-      // Force UI update by reloading from storage or using any provided refresh mechanism
-      window.location.reload(); 
-    }
-  };
   const [eventDate, setEventDate] = useState('');
   const [projectType, setProjectType] = useState('Wedding');
+
+  const [isDivDropdownOpen, setIsDivDropdownOpen] = useState(false);
+  const [divSearch, setDivSearch] = useState('');
+  const divRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (divRef.current && !divRef.current.contains(event.target as Node)) {
+        setIsDivDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (preselectedId) setSelectedDivId(preselectedId);
@@ -48,12 +56,23 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
     setLoading(false);
   }, [divisions, preselectedId]);
 
-  // Clients are now handled via allClients prop filtered by selectedBrandId if needed
+  const handleStartEdit = (e: React.MouseEvent, client: Client) => {
+    e.stopPropagation();
+    setEditingClient(client);
+    setName(client.name || '');
+    setEmail(client.email || '');
+    setPhone(client.phone || '');
+    setEventDate(client.eventDate || '');
+    setProjectType(client.projectType || 'Wedding');
+    setSelectedDivId(client.divisionId || 'All');
+    setIsEditing(true);
+    setIsAdding(true);
+  };
 
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDivId || selectedDivId === 'All') {
-      setFormError("Please select a specific Operational Division");
+      setFormError("Please select a specific Project Registry");
       return;
     }
     if (!name) {
@@ -66,9 +85,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
 
     const targetDiv = divisions.find(d => d.id === selectedDivId);
 
-    const newClient: Client = {
-      id: String(Date.now()),
-      _id: `client-${Date.now()}`,
+    const clientData: Client = {
+      id: isEditing && editingClient ? editingClient.id : String(Date.now()),
+      _id: isEditing && editingClient ? editingClient._id : `client-${Date.now()}`,
       projectName: name,
       name,
       email,
@@ -77,13 +96,13 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
       projectType,
       brand: targetDiv?.name || 'Unknown',
       divisionId: selectedDivId,
-      notes: '',
-      people: [],
-      status: 'pending'
+      notes: editingClient?.notes || '',
+      people: editingClient?.people || [],
+      status: editingClient?.status || 'pending'
     };
 
     try {
-      await addClient(newClient);
+      await addClient(clientData);
 
       // Clear form and close modal
       setName('');
@@ -92,6 +111,8 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
       setEventDate('');
       setProjectType('Wedding');
       setIsAdding(false);
+      setIsEditing(false);
+      setEditingClient(null);
     } catch (err) {
       setFormError("Failed to save data. Insufficient storage or permission issues.");
     } finally {
@@ -99,16 +120,23 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
     }
   };
 
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to absolute delete this client record? This action is irreversible.')) {
+      await deleteClient(id);
+    }
+  };
+
   const filteredClients = allClients.filter(c => {
-    // 1. Division Access Control (Prop based)
+    // SECURITY: If user is a Client, they can ONLY see their own card
+    if (userRole === 'Client') {
+      return String(c.id) === String(userId) || c.people?.some((p: any) => String(p.id) === String(userId));
+    }
+
     if (userDivisionIds && userDivisionIds.length > 0) {
       if (!userDivisionIds.includes(c.divisionId || '')) return false;
     }
-
-    // 2. Local Filtering (Dropdown based)
     if (selectedDivId !== 'All' && c.divisionId !== selectedDivId && c.brandId !== selectedDivId) return false;
-
-    // 3. Search Term
     return (
       (c.projectName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
       (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -126,42 +154,107 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
         </div>
 
         <div className="flex items-center gap-4">
-          {divisions.length > 0 && (
-            <select
-              value={selectedDivId}
-              onChange={(e) => setSelectedDivId(e.target.value)}
-              className="bg-zinc-900 border border-white/10 text-white rounded-xl px-4 py-3.5 text-[10px] font-black uppercase tracking-widest outline-none shadow-lg"
-            >
-              <option value="All">All Restricted Divisions</option>
-              {divisions.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+          {userRole !== 'Client' && divisions.length > 0 && (
+            <div className="relative" ref={divRef}>
+              <button
+                onMouseDown={(e) => { e.preventDefault(); setIsDivDropdownOpen(!isDivDropdownOpen); }}
+                className="bg-zinc-900 border border-white/10 text-white rounded-xl px-5 py-3.5 text-[10px] font-black uppercase tracking-widest outline-none shadow-lg flex items-center gap-3 hover:bg-zinc-800 transition-all min-w-[200px]"
+              >
+                <Briefcase className="w-3 h-3 text-zinc-500" />
+                <span className="flex-1 text-left">
+                  {selectedDivId === 'All' ? 'All Projects' : (divisions.find(d => d.id === selectedDivId)?.name || 'Select Project')}
+                </span>
+                <ChevronDown className={`w-3 h-3 text-zinc-500 transition-transform duration-300 ${isDivDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isDivDropdownOpen && (
+                <div className="absolute top-full mt-2 right-0 md:left-0 w-64 bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl z-[9999] overflow-hidden animate-ios-fade-in backdrop-blur-xl">
+                   <div className="p-3 border-b border-white/5 bg-white/2">
+                      <div className="relative">
+                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
+                          <input 
+                            type="text"
+                            autoFocus
+                            placeholder="Search registry..." 
+                            className="w-full bg-black/50 border border-white/5 rounded-lg py-2 pl-9 pr-3 text-[10px] font-bold text-white outline-none focus:border-white/20"
+                            value={divSearch}
+                            onChange={(e) => setDivSearch(e.target.value)}
+                          />
+                      </div>
+                   </div>
+                   
+                   <div className="max-h-60 overflow-y-auto p-1 no-scrollbar">
+                      <div className="px-3 py-2 text-[8px] font-black text-zinc-600 uppercase tracking-[0.2em]">Operational Projects</div>
+                      
+                      <button
+                        onMouseDown={(e) => { e.preventDefault(); setSelectedDivId('All'); setIsDivDropdownOpen(false); setDivSearch(''); }}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${selectedDivId === 'All' ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-stone-400 hover:bg-white/5 hover:text-white'}`}
+                      >
+                        <LayoutGrid className="w-3.5 h-3.5" />
+                        All Projects
+                      </button>
+                      
+                      <div className="h-px bg-white/5 my-1 mx-2" />
+                      
+                      {divisions
+                        .filter(d => d.name.toLowerCase().includes(divSearch.toLowerCase()))
+                        .map(d => (
+                          <button
+                            key={d.id}
+                            onMouseDown={(e) => { e.preventDefault(); setSelectedDivId(d.id); setIsDivDropdownOpen(false); setDivSearch(''); }}
+                            className={`w-full text-left px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${selectedDivId === d.id ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-stone-400 hover:bg-white/5 hover:text-white'}`}
+                          >
+                            <div className={`w-2 h-2 rounded-full ${selectedDivId === d.id ? 'bg-black' : 'bg-emerald-500'} opacity-50 shrink-0`} />
+                            {d.name}
+                          </button>
+                        ))}
+
+                      {divisions.filter(d => d.name.toLowerCase().includes(divSearch.toLowerCase())).length === 0 && (
+                         <div className="p-4 text-center">
+                            <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">No Matches</p>
+                         </div>
+                      )}
+                   </div>
+                </div>
+              )}
+            </div>
           )}
 
-          <button
-            onClick={() => {
-               setFormError(null);
-               setIsAdding(true);
-            }}
-            className="bg-white text-black px-8 py-3.5 rounded-2xl flex items-center gap-3 font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 ios-transition shadow-lg active:scale-95"
-          >
-            <UserPlus className="w-5 h-5" />
-            Create Client
-          </button>
+          {userRole !== 'Client' && (
+            <button
+              onMouseDown={(e) => {
+                 e.preventDefault();
+                 setFormError(null);
+                 setIsEditing(false);
+                 setEditingClient(null);
+                 setName('');
+                 setEmail('');
+                 setPhone('');
+                 setEventDate('');
+                 setProjectType('Wedding');
+                 setIsAdding(true);
+              }}
+              className="bg-white text-black px-8 py-3.5 rounded-2xl flex items-center gap-3 font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 ios-transition shadow-lg active:scale-95"
+            >
+              <UserPlus className="w-5 h-5" />
+              Create Client
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="relative group">
-        <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-600 w-5 h-5 group-focus-within:text-white ios-transition" />
-        <input
-          type="text"
-          placeholder="Search by name, email or phone..."
-          className="w-full pl-16 pr-6 py-5 bg-zinc-900/80 border border-white/5 squircle-lg text-sm font-bold text-white focus:bg-zinc-900 outline-none ios-transition"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
+      {userRole !== 'Client' && (
+        <div className="relative group">
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-600 w-5 h-5 group-focus-within:text-white ios-transition" />
+          <input
+            type="text"
+            placeholder="SEARCH CLIENTS, PROJECTS, OR IDS..."
+            className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl py-4 pl-14 pr-6 text-sm font-bold text-white focus:outline-none focus:border-white/10 transition-all placeholder:text-zinc-600 focus:bg-zinc-900 group-hover:border-white/10"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      )}
 
       {loading && (
         <div className="text-zinc-400 text-center py-20 font-mono tracking-widest uppercase text-xs">
@@ -169,55 +262,72 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
         </div>
       )}
 
-
       {!loading && filteredClients.length === 0 && (
         <div className="text-zinc-500 text-center py-20 font-mono tracking-widest uppercase text-xs">
-          Registry Empty • No Clients Mapping to Current Division
+          Registry Empty • No Clients Mapping to Current Project
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredClients.map(client => (
-          <div key={client.id} className="glass-panel p-10 squircle-lg ios-transition hover:scale-[1.02] active:scale-[0.98] group relative flex flex-col h-full border border-white/5 cursor-pointer" onClick={() => navigate(`/client/${client.id}`)}>
+          <div key={client.id} className="glass-panel p-10 squircle-lg ios-transition hover:scale-[1.02] active:scale-[0.98] group relative flex flex-col h-full border border-white/5 cursor-pointer" onMouseDown={() => onOpenPortal(client)}>
             <div className="flex justify-between items-start mb-8">
-              <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/10 text-[9px] font-black text-zinc-500 tracking-widest uppercase font-mono truncate max-w-[120px]">
+              <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/10 text-xs font-black text-zinc-500 tracking-widest uppercase font-mono truncate max-w-[120px]">
                 {client.id}
               </div>
-              <button 
-                onClick={(e) => handleDelete(e, client.id)}
-                className="p-2.5 bg-white/5 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-xl border border-white/5 transition-all opacity-0 group-hover:opacity-100"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {userRole !== 'Client' && (
+                <div className="flex gap-2">
+                  <button 
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleStartEdit(e, client);
+                     }}
+                    className="p-2.5 bg-white/5 text-zinc-700 hover:text-white hover:bg-white/10 rounded-xl border border-white/5 transition-all opacity-0 group-hover:opacity-100"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDelete(e, client.id);
+                     }}
+                    className="p-2.5 bg-white/5 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-xl border border-white/5 transition-all opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
 
-            <h3 className="font-black text-2xl text-white tracking-tight mb-2 uppercase leading-none truncate flex items-center gap-3">
+            <h3 className="font-bold text-2xl text-white tracking-tight mb-2 uppercase leading-none truncate flex items-center gap-3">
               <User className="w-5 h-5 text-zinc-600" />
               {client.projectName || client.name}
             </h3>
 
             {client.brand && (
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 mb-8 border-l-2 border-blue-600 pl-3">{client.brand}</p>
+              <p className="text-sm font-semibold uppercase tracking-wider text-zinc-600 mb-8 border-l-2 border-blue-600 pl-3">{client.brand}</p>
             )}
 
             <div className="space-y-4 mb-8">
-              <div className="flex items-center gap-3 text-sm text-zinc-400 font-medium truncate">
+              <div className="flex items-center gap-3 text-base text-gray-300 font-medium truncate">
                 <Mail className="w-4 h-4 text-zinc-600 flex-shrink-0" />
                 <span className="truncate">{client.email || 'N/A'}</span>
               </div>
-              <div className="flex items-center gap-3 text-sm text-zinc-400 font-medium truncate">
+              <div className="flex items-center gap-3 text-base text-gray-300 font-medium truncate">
                 <Phone className="w-4 h-4 text-zinc-600 flex-shrink-0" />
                 <span>{client.phone || 'N/A'}</span>
               </div>
             </div>
 
             <div className="space-y-4 pt-6 border-t border-white/5 mt-auto">
-              <div className="flex items-center justify-between text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-6">
+              <div className="flex items-center justify-between text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">
                 <span className="flex items-center gap-3">
                   <Calendar className="w-4 h-4" /> 
                   {client.eventDate ? new Date(client.eventDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : 'No Event Date'}
                 </span>
-                <span className="text-white">{client.projectType}</span>
+                <span className="text-white font-semibold uppercase tracking-wider">{client.projectType}</span>
               </div>
               
               <button
@@ -225,9 +335,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
                   e.stopPropagation();
                   onOpenPortal(client);
                 }}
-                className="w-full py-3 bg-white/5 hover:bg-white text-zinc-400 hover:text-black rounded-xl border border-white/5 text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
+                className="w-full py-3 bg-white/5 hover:bg-white text-zinc-400 hover:text-black rounded-xl border border-white/5 text-sm font-medium uppercase tracking-widest transition-all active:scale-95"
               >
-                + Create Project
+                {userRole === 'Client' ? 'Open Workspace' : '+ Create Project'}
               </button>
             </div>
           </div>
@@ -239,10 +349,14 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
           <div className="bg-zinc-900 border border-white/10 squircle-lg w-full max-w-xl p-10 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto no-scrollbar">
             <div className="flex justify-between items-center mb-10">
               <div>
-                <h2 className="text-3xl font-black text-white tracking-tight uppercase">New Project</h2>
-                <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mt-1">Client Onboarding</p>
+                <h2 className="text-3xl font-black text-white tracking-tight uppercase">{isEditing ? 'Edit Client' : 'New Project'}</h2>
+                <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mt-1">{isEditing ? 'Profile Management' : 'Client Onboarding'}</p>
               </div>
-              <button disabled={isSubmitting} onClick={() => setIsAdding(false)} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"><X className="w-6 h-6 text-zinc-400 hover:text-white" /></button>
+              <button disabled={isSubmitting} onClick={() => {
+                setIsAdding(false);
+                setIsEditing(false);
+                setEditingClient(null);
+              }} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"><X className="w-6 h-6 text-zinc-400 hover:text-white" /></button>
             </div>
 
             {formError && (
@@ -253,7 +367,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
 
             <form onSubmit={handleCreateClient} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Establish Operational Division *</label>
+                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Assign to Project Registry *</label>
                 <select required className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" value={selectedDivId} onChange={e => setSelectedDivId(e.target.value)} disabled={isSubmitting}>
                   <option value="" disabled>Select Unit...</option>
                   {divisions.map(d => <option key={d.id} className="bg-zinc-900" value={d.id}>{d.name}</option>)}
@@ -292,9 +406,13 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
               </div>
 
               <div className="flex gap-4 pt-8 border-t border-white/5">
-                <button type="button" disabled={isSubmitting} onClick={() => setIsAdding(false)} className="flex-1 py-4 bg-white/5 text-zinc-500 hover:text-white squircle-sm font-black uppercase text-[11px] tracking-widest transition-all disabled:opacity-50">Cancel</button>
+                <button type="button" disabled={isSubmitting} onClick={() => {
+                  setIsAdding(false);
+                  setIsEditing(false);
+                  setEditingClient(null);
+                }} className="flex-1 py-4 bg-white/5 text-zinc-500 hover:text-white squircle-sm font-black uppercase text-[11px] tracking-widest transition-all disabled:opacity-50">Cancel</button>
                 <button type="submit" disabled={isSubmitting} className="flex-1 py-4 bg-white text-black hover:bg-zinc-200 squircle-sm font-black uppercase text-[11px] tracking-widest shadow-xl transition-all disabled:opacity-50">
-                  {isSubmitting ? 'Saving...' : 'Create Client'}
+                  {isSubmitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Client')}
                 </button>
               </div>
             </form>

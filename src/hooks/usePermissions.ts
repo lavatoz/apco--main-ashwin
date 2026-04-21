@@ -1,0 +1,91 @@
+import { useMemo } from 'react';
+import type { UserPermission, UserRole } from '../types';
+
+interface UserSession {
+  role: UserRole;
+  permissions: UserPermission[];
+}
+
+export const usePermissions = () => {
+  const user = useMemo(() => {
+    const userStr = localStorage.getItem('auth_user');
+    if (!userStr) return null;
+    try {
+      return JSON.parse(userStr) as UserSession;
+    } catch {
+      return null;
+    }
+  }, [localStorage.getItem('auth_user')]);
+
+  const hasPermission = (permission: UserPermission) => {
+    if (!user) return false;
+    if (user.role === 'Admin') return true;
+    return user.permissions.includes(permission);
+  };
+
+  const isRole = (role: UserRole) => {
+    return user?.role === role;
+  };
+
+  const routePermissionMap: Record<string, string> = {
+    "/dashboard": "dashboard",
+    "/command-center": "dashboard",
+    "/ledger": "finance",
+    "/tasks": "tasks",
+    "/directory": "clients",
+    "/workflow": "workflow",
+    "/analytics": "analytics",
+    "/copilot": "ai"
+  };
+
+  const hasRoutePermission = (route: string) => {
+    if (!user) return false;
+    if (user.role === 'Admin') return true;
+    
+    const requiredPermission = routePermissionMap[route];
+    console.log("Permission Check Log:");
+    console.log("- User permissions:", user.permissions);
+    console.log("- Route:", route);
+    console.log("- Mapped permission:", requiredPermission);
+    
+    if (!requiredPermission) return true; // Public or unknown route
+    
+    return user.permissions.includes(requiredPermission as UserPermission);
+  };
+
+  const firstAllowedRoute = useMemo(() => {
+    if (!user || !user.permissions.length) return '/login';
+    
+    // Reverse Map for redirection with priority
+    const permissionToRoute: Record<string, string> = {
+      dashboard: user.role === 'Client' ? '/client-dashboard' : '/dashboard',
+      finance: '/ledger',
+      tasks: '/tasks',
+      clients: '/directory',
+      workflow: '/workflow',
+      analytics: '/analytics',
+      ai: '/copilot'
+    };
+
+    // Priority order for redirection
+    const priorities = ['dashboard', 'finance', 'tasks', 'clients', 'workflow', 'analytics', 'ai'];
+    
+    for (const p of priorities) {
+        if (user.permissions.includes(p as UserPermission) && permissionToRoute[p]) {
+            return permissionToRoute[p];
+        }
+    }
+
+    return permissionToRoute[user.permissions[0]] || '/dashboard';
+  }, [user]);
+
+  const canEdit = useMemo(() => {
+    return user?.role === 'Admin' || user?.role === 'Staff';
+  }, [user]);
+
+  const canDelete = useMemo(() => {
+    return user?.role === 'Admin';
+  }, [user]);
+
+  return { user, hasPermission, isRole, firstAllowedRoute, canEdit, canDelete, hasRoutePermission };
+};

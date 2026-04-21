@@ -6,11 +6,12 @@ import {
   ArrowUpRight, Sparkles, MessageSquare, Layers, CheckSquare,
   AlertTriangle, AlertCircle, Calendar, TrendingUp, TrendingDown
 } from 'lucide-react';
-import { type Booking, type Client, type Invoice, type Task } from '../types';
+import { type Booking, type Client, type Invoice, type Task, type Division } from '../types';
 
 
 
 interface DashboardProps {
+  divisions: Division[];
   invoices: Invoice[];
   clients: Client[];
   bookings: Booking[];
@@ -20,13 +21,13 @@ interface DashboardProps {
   userRole: 'Admin' | 'Staff' | 'Client' | 'none';
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ invoices, clients, tasks, selectedBrand, setSelectedBrand, userRole }) => {
+const Dashboard: React.FC<DashboardProps> = ({ divisions, invoices, clients, tasks, selectedBrand, setSelectedBrand, userRole }) => {
   const navigate = useNavigate();
 
 
   const [localEntries] = useState<any[]>(() => { try { const e = localStorage.getItem('entries'); return e ? JSON.parse(e) : []; } catch { return []; } });
   const [localExpenses] = useState<any[]>(() => { try { const e = localStorage.getItem('expenses'); return e ? JSON.parse(e) : []; } catch { return []; } });
-  const [localProjects] = useState<any[]>(() => { try { const e = localStorage.getItem('projects'); return e ? JSON.parse(e) : []; } catch { return []; } });
+
 
   const safeInvoices = Array.isArray(invoices) ? invoices : [];
   const safeClients = Array.isArray(clients) ? clients : [];
@@ -35,7 +36,6 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, clients, tasks, selecte
   const filteredInvoices = selectedBrand === 'All' ? safeInvoices.filter(i => i && !i.isQuotation) : safeInvoices.filter(i => i && i.brand === selectedBrand && !i.isQuotation);
   const filteredLocalEntries = selectedBrand === 'All' ? localEntries : localEntries.filter(e => e && e.brand === selectedBrand);
   const filteredLocalExpenses = selectedBrand === 'All' ? localExpenses : localExpenses.filter(e => e && e.brand === selectedBrand);
-  const filteredLocalProjects = selectedBrand === 'All' ? localProjects : localProjects.filter(p => p && p.brand === selectedBrand);
   const filteredClients = selectedBrand === 'All' ? safeClients : safeClients.filter(c => c && c.brand === selectedBrand);
   const filteredTasks = selectedBrand === 'All' ? safeTasks : safeTasks.filter(t => t && t.brand === selectedBrand);
 
@@ -99,14 +99,15 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, clients, tasks, selecte
     });
 
     // Event Alerts
-    filteredLocalProjects.forEach(p => {
-      if (p && p.eventDate) {
-        const eventDate = new Date(p.eventDate);
+    filteredClients.forEach(c => {
+      const eventDateStr = c.eventDate || c.weddingDate;
+      if (eventDateStr) {
+        const eventDate = new Date(eventDateStr);
         const diffTime = eventDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         if (diffDays >= 0 && diffDays <= 3) {
           activeAlerts.push({ 
-            text: `${p.projectName || p.name || 'Client'} event in ${diffDays === 0 ? 'today' : diffDays + (diffDays === 1 ? ' day' : ' days')}`, 
+            text: `${c.projectName || c.name || 'Client'} event in ${diffDays === 0 ? 'today' : diffDays + (diffDays === 1 ? ' day' : ' days')}`, 
             type: 'event',
             priority: 2,
             icon: Calendar
@@ -137,7 +138,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, clients, tasks, selecte
     });
 
     return activeAlerts.sort((a, b) => a.priority - b.priority);
-  }, [filteredInvoices, filteredLocalEntries, filteredClients, totalRevenue, totalExpenses, filteredLocalProjects, navigate, today]);
+  }, [filteredInvoices, filteredLocalEntries, filteredClients, totalRevenue, totalExpenses, navigate, today]);
 
   // Client Profit Data
   const clientProfitData = React.useMemo(() => {
@@ -186,7 +187,10 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, clients, tasks, selecte
   const alerts = React.useMemo(() => generateAlerts(), [generateAlerts]);
 
   // Events Tracker
-  const upcomingEvents = filteredLocalProjects.filter(p => p && p.eventDate && new Date(p.eventDate) >= today).sort((a,b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+  const upcomingEvents = filteredClients.filter(c => {
+    const d = c.eventDate || c.weddingDate;
+    return d && new Date(d) >= today;
+  }).sort((a,b) => new Date(a.eventDate || a.weddingDate!).getTime() - new Date(b.eventDate || b.weddingDate!).getTime());
   const eventsCount = upcomingEvents.length;
 
   const myTasksCount = filteredTasks.filter(t => t && t.status !== 'Done').length; 
@@ -205,66 +209,64 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, clients, tasks, selecte
       { id: 1, label: 'Total Revenue', value: `₹${(totalRevenue / 100000).toFixed(1)}L`, hex: '#FFFFFF', icon: Briefcase, bg: 'bg-zinc-900', targetPath: '/analytics' },
       { id: 2, label: 'Cash Flow', value: `₹${(cashFlow / 100000).toFixed(1)}L`, hex: '#10b981', icon: IndianRupee, bg: 'bg-emerald-950/10' },
       { id: 3, label: 'Alerts', value: alerts.length, hex: '#f59e0b', icon: MessageSquare, bg: 'bg-amber-950/10' },
-      { id: 4, label: 'Events', value: filteredLocalProjects.filter(p => p && p.eventDate && new Date(p.eventDate) >= today).length, hex: '#3b82f6', icon: CalendarCheck, bg: 'bg-blue-950/10' },
+      { id: 4, label: 'Events', value: eventsCount, hex: '#3b82f6', icon: CalendarCheck, bg: 'bg-blue-950/10' },
     ];
   }
 
   return (
-    <div className="space-y-8 animate-ios-slide-up">
-      <div className="space-y-4">
-        <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">Command Center</h1>
-        <div className="bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5 flex gap-1 overflow-x-auto no-scrollbar max-w-max">
+    <div className="space-y-12 animate-ios-slide-up">
+      <div className="space-y-6">
+        <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight uppercase leading-none">Command Center</h1>
+        <div className="bg-zinc-900/50 p-2 rounded-2xl border border-white/5 flex gap-2 overflow-x-auto no-scrollbar max-w-max">
           <button
             onClick={() => setSelectedBrand('All')}
-            className={`px-8 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all whitespace-nowrap ${selectedBrand === 'All' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
+            className={`px-10 py-3.5 text-xs font-black uppercase tracking-[0.2em] rounded-xl transition-all whitespace-nowrap ${selectedBrand === 'All' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
           >
             Global
           </button>
-          <button
-            onClick={() => setSelectedBrand('AAHA Kalyanam')}
-            className={`px-8 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all whitespace-nowrap ${selectedBrand === 'AAHA Kalyanam' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
-          >
-            AAHA
-          </button>
-          <button
-            onClick={() => setSelectedBrand('Tiny Toes')}
-            className={`px-8 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all whitespace-nowrap ${selectedBrand === 'Tiny Toes' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
-          >
-            TINY TOES
-          </button>
+          
+          {divisions.map(div => (
+            <button
+              key={div.id}
+              onClick={() => setSelectedBrand(div.name)}
+              className={`px-10 py-3.5 text-xs font-black uppercase tracking-[0.2em] rounded-xl transition-all whitespace-nowrap ${selectedBrand === div.name ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
+            >
+              {div.name}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {metrics.map((m) => {
           const Icon = m.icon;
           return (
-            <div key={m.id} onClick={() => m.targetPath && navigate(m.targetPath)} className={`${m.bg} border border-white/5 p-6 squircle-md flex flex-col justify-between h-40 group cursor-pointer active:scale-95 ios-transition`}>
+            <div key={m.id} onClick={() => m.targetPath && navigate(m.targetPath)} className={`${m.bg} border border-white/5 p-8 squircle-lg flex flex-col justify-between h-48 group cursor-pointer active:scale-95 ios-transition`}>
               <div className="flex justify-between items-start">
-                <div className="p-3 rounded-2xl bg-white/5 text-white shadow-xl group-hover:bg-white group-hover:text-black transition-all">
-                  <Icon className="w-5 h-5" />
+                <div className="p-4 rounded-2xl bg-white/5 text-white shadow-xl group-hover:bg-white group-hover:text-black transition-all">
+                  <Icon className="w-6 h-6" />
                 </div>
-                <ArrowUpRight className="w-4 h-4 text-zinc-700" />
+                <ArrowUpRight className="w-5 h-5 text-zinc-700" />
               </div>
               <div>
-                <p className="text-zinc-600 text-[9px] font-black uppercase tracking-widest mb-1">{m.label}</p>
-                <h3 className="text-2xl font-black text-white tracking-tight">{m.value}</h3>
+                <p className="text-zinc-600 text-xs font-black uppercase tracking-widest mb-1">{m.label}</p>
+                <h3 className="text-3xl font-black text-white tracking-tight">{m.value}</h3>
               </div>
             </div>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Alerts Section */}
-        <div className="lg:col-span-2 bg-amber-500/5 border border-amber-500/10 p-10 squircle-lg space-y-8">
+        <div className="lg:col-span-2 bg-amber-500/5 border border-amber-500/10 p-12 squircle-xl space-y-10">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
-              <MessageSquare className="w-5 h-5 text-amber-500 fill-amber-500/20" /> Alerts
+            <h3 className="text-base font-black text-white uppercase tracking-widest flex items-center gap-4">
+              <MessageSquare className="w-6 h-6 text-amber-500 fill-amber-500/20" /> Alerts
             </h3>
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <span className="text-[8px] font-black uppercase text-amber-500 bg-amber-500/10 px-2 py-1 rounded-md">Automated Warnings</span>
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-5 h-5 text-amber-500" />
+              <span className="text-[10px] font-black uppercase text-amber-500 bg-amber-500/10 px-3 py-1.5 rounded-md">Automated Warnings</span>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -292,28 +294,34 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, clients, tasks, selecte
         </div>
 
         {/* Events Section */}
-        <div className="bg-blue-500/5 p-10 squircle-lg border border-blue-500/10 space-y-8 flex flex-col">
+        <div className="bg-blue-500/5 p-12 squircle-xl border border-blue-500/10 space-y-10 flex flex-col">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
-              <CalendarCheck className="w-5 h-5 text-blue-500" /> Upcoming Events
+            <h3 className="text-base font-black text-white uppercase tracking-widest flex items-center gap-4">
+              <CalendarCheck className="w-6 h-6 text-blue-500" /> Upcoming Events
             </h3>
           </div>
           <div className="space-y-4">
-            {filteredLocalProjects.filter(p => p && p.eventDate && new Date(p.eventDate) >= today).sort((a,b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime()).slice(0, 5).map((ev, idx) => (
-              <div key={idx} className="p-4 bg-white/5 rounded-2xl flex items-center gap-4 border border-white/5">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+            {upcomingEvents.slice(0, 5).map((ev, idx) => {
+              const eventDateStr = ev.eventDate || ev.weddingDate as string;
+              return (
+              <div 
+                key={ev.id || idx} 
+                onClick={() => ev.id && navigate(`/project/${ev.id}`)}
+                className="p-4 bg-white/5 rounded-2xl flex items-center gap-4 border border-white/5 cursor-pointer hover:bg-white/10 transition-all active:scale-[0.98] group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 group-hover:bg-blue-500 group-hover:text-black transition-all">
                    <CalendarCheck className="w-4 h-4" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs font-black text-white tracking-widest uppercase">{ev.clientName || 'Unknown Project'} • {ev.eventType || 'Event'}</p>
+                  <p className="text-xs font-black text-white tracking-widest uppercase group-hover:text-blue-400 transition-all">{ev.projectName || ev.name || 'Unknown Project'} • {ev.projectType || 'Event'}</p>
                   <p className="text-[10px] uppercase text-zinc-500 font-black tracking-widest mt-1">
-                    {new Date(ev.eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    {ev.deliveryDate && ` → Delivery: ${new Date(ev.deliveryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                    {new Date(eventDateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </p>
                 </div>
+                <ArrowUpRight className="w-3.5 h-3.5 text-zinc-700 opacity-0 group-hover:opacity-100 transition-all" />
               </div>
-            ))}
-            {filteredLocalProjects.filter(p => p && p.eventDate && new Date(p.eventDate) >= today).length === 0 && (
+            )})}
+            {eventsCount === 0 && (
                <p className="text-center py-10 text-[10px] font-black uppercase text-zinc-700 tracking-widest">No upcoming events</p>
             )}
           </div>
@@ -321,39 +329,39 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, clients, tasks, selecte
       </div>
 
       {/* Client Performance Section */}
-      <div className="space-y-6">
-        <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
-          <TrendingUp className="w-5 h-5 text-emerald-500" /> Client Profitability
+      <div className="space-y-8">
+        <h3 className="text-base font-black text-white uppercase tracking-widest flex items-center gap-4">
+          <TrendingUp className="w-6 h-6 text-emerald-500" /> Client Profitability
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {clientProfitData.map((client, idx) => {
             const isLoss = client.profit < 0;
             const isLow = client.profit > 0 && client.profit < 10000;
             return (
-              <div key={idx} className="glass-panel p-6 border border-white/5 squircle-lg space-y-4 hover:bg-white/5 transition-all group relative overflow-hidden bg-white/[0.02]">
+              <div key={idx} className="glass-panel p-8 border border-white/5 squircle-xl space-y-5 hover:bg-white/5 transition-all group relative overflow-hidden bg-white/[0.02]">
                 <div className={`absolute top-0 right-0 w-1 h-full ${isLoss ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                 <div>
-                  <h4 className="text-lg font-black text-white uppercase tracking-tight truncate">{client.name}</h4>
-                  <p className="text-[9px] font-black uppercase text-zinc-500 tracking-[0.2em] mt-1">Project Performance</p>
+                  <h4 className="text-xl font-black text-white uppercase tracking-tight truncate">{client.name}</h4>
+                  <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mt-1.5">Project Performance</p>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest">
                     <span className="text-zinc-500">Revenue</span>
                     <span className="text-white">₹{client.revenue.toLocaleString('en-IN')}</span>
                   </div>
-                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                  <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest">
                     <span className="text-zinc-500">Expenses</span>
                     <span className="text-zinc-400">₹{client.expenses.toLocaleString('en-IN')}</span>
                   </div>
-                  <div className="pt-3 border-t border-white/5 flex justify-between items-end">
+                  <div className="pt-4 border-t border-white/5 flex justify-between items-end">
                     <div className="flex-1">
-                        <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest mb-1">Net Profit</p>
-                        <p className={`text-xl font-black font-mono ${isLoss ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-emerald-500'}`}>
+                        <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-1">Net Profit</p>
+                        <p className={`text-2xl font-black font-mono ${isLoss ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-emerald-500'}`}>
                            ₹{client.profit.toLocaleString('en-IN')}
                         </p>
                     </div>
-                    <div className={`p-2 rounded-lg ${isLoss ? 'bg-red-500/10 text-red-500' : isLow ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
-                        {isLoss ? <TrendingDown className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
+                    <div className={`p-3 rounded-xl ${isLoss ? 'bg-red-500/10 text-red-500' : isLow ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                        {isLoss ? <TrendingDown className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
                     </div>
                   </div>
                 </div>

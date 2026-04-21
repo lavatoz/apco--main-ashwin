@@ -2,15 +2,15 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Plus, Trash2, FileText, TrendingDown, X, Tag, Calculator, FileQuestion, Edit2
+  Plus, Trash2, FileText, TrendingDown, X, Calculator, FileQuestion, Edit2, Download
 } from 'lucide-react';
-import { type Invoice, type Expense, type Client, type Company, InvoiceStatus, type InvoiceItem } from '../types';
+import { type Invoice, type Expense, type Client, type CompanyProfile, InvoiceStatus, type InvoiceItem } from '../types';
 
 interface FinanceManagerProps {
   invoices: Invoice[];
   expenses: Expense[];
   clients: Client[];
-  companies: Company[];
+  companies: CompanyProfile[];
   addInvoice: (invoice: Invoice) => void;
   updateInvoiceStatus: (id: string, status: InvoiceStatus) => void;
   addExpense: (expense: Expense) => void;
@@ -31,7 +31,6 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [newInvoice, setNewInvoice] = useState<{ isQuotation: boolean }>({ isQuotation: false });
   const [newExpense, setNewExpense] = useState<{ category: string; amount: number; description: string; client: string; brand?: string }>({ category: 'Production', amount: 0, description: '', client: 'General' });
-  const [customCategory, setCustomCategory] = useState<string>('');
   const [items, setItems] = useState<InvoiceItem[]>([{ id: '1', description: '', quantity: 1, price: 0 }]);
   const [localEntries, setLocalEntries] = useState<any[]>([]);
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
@@ -72,10 +71,14 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
     }
   }, [location.state]);
 
+  const [categories, setCategories] = useState<string[]>(['Production', 'Travel', 'Marketing', 'Office', 'Other']);
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
   const calculateTotal = (items?: InvoiceItem[]) => items ? items.reduce((sum, item) => sum + (item.price * item.quantity), 0) : 0;
 
   const allBrands = Array.from(new Set([
-    ...companies.map(c => c.name),
+    ...companies.map(c => c.companyName),
     ...clients.map(c => c.brand).filter(Boolean)
   ]));
 
@@ -146,26 +149,20 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
     });
   }, [unifiedRecords, activeTab]);
 
-  const totalRevenue = invoices.filter(i => !i.isQuotation && !deletedIds.includes(String(i.id))).reduce((s, i) => s + calculateTotal(i.items), 0) + 
-                       localEntries.filter(e => e.type === 'invoice' && !deletedIds.includes(String(e.id))).reduce((s, e) => s + (e.total || 0), 0);
+  const totalRevenue = invoices.filter(i => !i.isQuotation && !deletedIds.includes(String(i.id)) && i.status?.toLowerCase() === 'paid').reduce((s, i) => s + calculateTotal(i.items), 0) + 
+                       localEntries.filter(e => e.type === 'invoice' && !deletedIds.includes(String(e.id)) && e.status?.toLowerCase() === 'paid').reduce((s, e) => s + (e.total || 0), 0);
   const totalExpenses = combinedExpenses.filter(e => !deletedIds.includes(String(e.id))).reduce((s, e) => s + Number(e.amount), 0);
   const netProfit = totalRevenue - totalExpenses;
 
   const handleGenerateEntry = (e?: React.FormEvent | React.MouseEvent) => {
     if (e && e.preventDefault) e.preventDefault();
-    console.log("clicked");
 
     if (!selectedClientId) {
       alert("Please select a client.");
       return;
     }
 
-    if (!Array.isArray(items) || items.length === 0 || items.some(i => !i.description)) {
-      alert("Please provide valid line items with descriptions.");
-      return;
-    }
-
-    const totalAmount = items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.price)), 0);
+    const totalAmount = calculateTotal(items);
 
     const client = clients.find(c => String(c.id) === String(selectedClientId));
 
@@ -183,12 +180,10 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
         price: Number(i.price) || 0
       })),
       total: totalAmount,
-      date: new Date().toISOString(),
-      status: newInvoice.isQuotation ? 'quotation' : 'unpaid',
+      date: (newInvoice as any).date || new Date().toISOString(),
+      status: newInvoice.isQuotation ? 'quotation' : ((newInvoice as any).status || 'unpaid'),
       dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     };
-
-    console.log("New Entry Created:", newEntry);
 
     let existing: any[] = [];
     try {
@@ -222,7 +217,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
       amount: Number(newExpense.amount),
       date: new Date().toISOString(),
       createdAt: new Date().toISOString(),
-      category: newExpense.category === 'Other' && customCategory.trim() !== '' ? customCategory.trim() : (newExpense.category || 'Production'),
+      category: newExpense.category || 'Production',
       brand: newExpense.brand || allBrands[0] || 'General'
     };
 
@@ -263,7 +258,6 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
     setIsExpenseModalOpen(false);
     setNewExpense({ category: 'Production', amount: 0, description: '', client: 'General' });
-    setCustomCategory('');
     setEditExpenseId(null);
     showToast(editExpenseId ? "Expense updated successfully" : "Expense saved successfully");
   };
@@ -285,10 +279,10 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl rounded-full group-hover:bg-white/10 transition-all" />
             <div className="flex justify-between items-start mb-8 relative z-10">
               <div className="p-3 bg-white/10 rounded-xl text-white shadow-lg shadow-black/50"><TrendingDown className="w-5 h-5 group-hover:rotate-12 transition-transform" /></div>
-              <span className="text-[9px] font-black uppercase text-zinc-500 tracking-widest px-3 py-1 bg-white/5 rounded-lg border border-white/10">Gross</span>
+              <span className="text-[9px] font-black uppercase text-zinc-500 tracking-widest px-3 py-1 bg-white/5 rounded-lg border border-white/10">Gross Revenue</span>
             </div>
             <h3 className="text-5xl font-black text-white tracking-tighter font-mono"><span className="text-2xl text-zinc-500">₹</span>{(totalRevenue / 100000).toFixed(2)}<span className="text-2xl text-zinc-500">L</span></h3>
-            <p className="text-[10px] font-bold uppercase text-zinc-500 tracking-widest mt-2">Life-time Billings</p>
+            <p className="text-[10px] font-bold uppercase text-zinc-500 tracking-widest mt-2">Realized Paid Earnings</p>
           </div>
           <div className="glass-panel p-8 squircle-lg bg-red-600/5 border-red-500/10 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-3xl rounded-full" />
@@ -324,14 +318,21 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
             ))}
           </div>
           <div className="flex gap-3">
-            {activeTab === 'expenses' ? (
-              <button onClick={() => setIsExpenseModalOpen(true)} className="bg-white text-black px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 hover:bg-zinc-200 transition-all shadow-xl active:scale-95 whitespace-nowrap">
-                <TrendingDown className="w-4 h-4" /> Log Expense
-              </button>
-            ) : (
-              <button onClick={() => setIsCreating(true)} className="bg-white text-black px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 hover:bg-zinc-200 transition-all shadow-xl active:scale-95 whitespace-nowrap">
-                <Plus className="w-4 h-4" /> Create Bill / Quote
-              </button>
+            {userRole !== 'Client' && (
+               activeTab === 'expenses' ? (
+                 <button onClick={() => setIsExpenseModalOpen(true)} className="bg-white text-black px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 hover:bg-zinc-200 transition-all shadow-xl active:scale-95 whitespace-nowrap">
+                   <TrendingDown className="w-4 h-4" /> Log Expense
+                 </button>
+               ) : (
+                 <button onClick={() => setIsCreating(true)} className="bg-white text-black px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 hover:bg-zinc-200 transition-all shadow-xl active:scale-95 whitespace-nowrap">
+                   <Plus className="w-4 h-4" /> Create Bill / Quote
+                 </button>
+               )
+            )}
+            {userRole === 'Client' && (
+              <div className="px-6 py-3.5 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                 <p className="text-[9px] font-black uppercase text-blue-500 tracking-[0.2em]">Verified Transaction Mirror</p>
+              </div>
             )}
           </div>
         </div>
@@ -344,7 +345,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
             return (
               <div id={`record-${record.id}`} key={`${record.source}-${record.id}`} className={`glass-panel p-8 squircle-lg flex flex-col md:flex-row justify-between items-start md:items-center group hover:bg-white/5 transition-all border border-white/5 relative overflow-hidden ${isExpense ? 'border-red-500/10' : isQuote ? 'border-zinc-800/50' : 'border-blue-500/10'}`}>
-                <div className={`absolute top-0 right-0 w-1.5 h-full opacity-30 ${isExpense ? 'bg-red-500' : isQuote ? 'bg-zinc-500' : isPaid ? 'bg-emerald-500' : 'bg-amber-500'}`} style={record.brand ? { backgroundColor: companies.find(co => co.name === record.brand)?.color } : undefined} />
+                <div className={`absolute top-0 right-0 w-1.5 h-full opacity-30 ${isExpense ? 'bg-red-500' : isQuote ? 'bg-zinc-500' : isPaid ? 'bg-emerald-500' : 'bg-amber-500'}`} style={record.brand ? { backgroundColor: companies.find(co => co.companyName === record.brand)?.primaryColor } : undefined} />
                 
                 <div className="flex items-center gap-6 mb-6 md:mb-0">
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-lg ${
@@ -358,7 +359,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
                   <div>
                     <h4 className="font-black text-lg uppercase tracking-tight text-white">{record.client}</h4>
                     <p className="text-[9px] font-black uppercase text-zinc-600 tracking-widest mt-1.5 flex items-center gap-2">
-                      <Tag className="w-3 h-3" /> {record.type} • {record.brand}
+                       {record.type} • {record.brand || 'General'}
                     </p>
                   </div>
                 </div>
@@ -366,67 +367,86 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
                  <div className="w-full md:w-auto flex justify-between md:justify-end items-center gap-8 border-t md:border-t-0 pt-6 md:pt-0 border-white/5">
                   <div className="text-left md:text-right">
                     <p className="text-xl font-black text-white tracking-tight font-mono">₹{record.amount.toLocaleString('en-IN')}</p>
-                    <p className={`text-[9px] font-black uppercase tracking-[0.2em] mt-1 ${isExpense ? 'text-red-500' : isPaid ? 'text-emerald-500' : isQuote ? 'text-zinc-500' : 'text-amber-500'}`}>
-                      {isExpense ? new Date(record.date).toLocaleDateString() : (isQuote ? 'Estimation' : record.status)}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1 md:justify-end">
+                       <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${
+                         isExpense ? 'bg-red-500/10 text-red-500' :
+                         isPaid ? 'bg-emerald-500/10 text-emerald-500' :
+                         isQuote ? 'bg-zinc-500/10 text-zinc-500' :
+                         'bg-amber-500/10 text-amber-500'
+                       }`}>
+                         {isExpense ? 'Expense' : isQuote ? 'Quotation' : record.status}
+                       </span>
+                       <span className="text-[8px] font-black uppercase text-zinc-600 tracking-widest">{new Date(record.date).toLocaleDateString()}</span>
+                    </div>
                   </div>
-                  
-                  <div className="flex gap-2">
-                    {/* Action buttons based on status & type */}
-                    {!isExpense && !isQuote && !isPaid && (
-                      <button
-                        onClick={() => {
-                          if (record.source === 'api_inv') updateInvoiceStatus(record.raw.id, InvoiceStatus.Paid);
-                          else if (record.source === 'local_entry') {
-                             const updated = localEntries.map(e => String(e.id) === record.id ? { ...e, status: 'paid' } : e);
-                             setLocalEntries(updated);
-                             localStorage.setItem('entries', JSON.stringify(updated));
-                          }
-                          showToast('Invoice Marked as Paid');
-                        }}
-                        className="px-4 py-3.5 rounded-xl transition-all bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 font-black text-[9px] uppercase tracking-widest whitespace-nowrap"
-                      >
-                         Mark as Paid
-                      </button>
+                            <div className="flex gap-2">
+                    {userRole === 'Client' && !isExpense && (
+                       <button
+                         onClick={() => showToast('Generating Secure PDF...')}
+                         className="flex items-center gap-2 px-6 py-3.5 rounded-xl transition-all bg-white text-black hover:bg-zinc-200 font-black text-[9px] uppercase tracking-widest whitespace-nowrap active:scale-95"
+                       >
+                          <Download size={14} /> Download PDF
+                       </button>
                     )}
 
-                    {isQuote && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (record.source === 'api_inv') { showToast('Not active on API currently'); }
-                          else if (record.source === 'local_entry') {
-                             const updated = localEntries.map(e => String(e.id) === record.id ? { ...e, type: 'invoice', status: 'unpaid' } : e);
-                             setLocalEntries(updated);
-                             localStorage.setItem('entries', JSON.stringify(updated));
-                             showToast('Converted to Invoice');
-                          }
-                        }}
-                        className="px-4 py-3.5 rounded-xl transition-all bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 font-black text-[9px] uppercase tracking-widest whitespace-nowrap"
-                      >
-                         Generate Invoice
-                      </button>
-                    )}
+                    {userRole !== 'Client' && (
+                      <>
+                        {!isExpense && !isQuote && !isPaid && (
+                          <button
+                            onClick={() => {
+                              if (record.source === 'api_inv') updateInvoiceStatus(record.raw.id, InvoiceStatus.Paid);
+                              else if (record.source === 'local_entry') {
+                                 const updated = localEntries.map(e => String(e.id) === record.id ? { ...e, status: 'paid' } : e);
+                                 setLocalEntries(updated);
+                                 localStorage.setItem('entries', JSON.stringify(updated));
+                              }
+                              showToast('Invoice Marked as Paid');
+                            }}
+                            className="px-4 py-3.5 rounded-xl transition-all bg-emerald-500 text-black hover:bg-emerald-400 font-black text-[9px] uppercase tracking-widest whitespace-nowrap active:scale-95"
+                          >
+                             Mark as Paid
+                          </button>
+                        )}
 
-                    {isExpense && (
-                      <button 
-                        onClick={() => {
-                          setEditExpenseId(record.id);
-                          setNewExpense({ description: record.raw.description, amount: record.raw.amount, category: record.raw.category, brand: record.raw.brand, client: record.raw.client || 'General' });
-                          setIsExpenseModalOpen(true);
-                        }} 
-                        className="p-3.5 rounded-xl transition-all bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10"
-                      >
-                        <Edit2 className="w-5 h-5" />
-                      </button>
-                    )}
+                        {isQuote && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (record.source === 'api_inv') { showToast('Not active on API currently'); }
+                              else if (record.source === 'local_entry') {
+                                 const updated = localEntries.map(e => String(e.id) === record.id ? { ...e, type: 'invoice', status: 'unpaid' } : e);
+                                 setLocalEntries(updated);
+                                 localStorage.setItem('entries', JSON.stringify(updated));
+                                 showToast('Converted to Invoice');
+                              }
+                            }}
+                            className="px-4 py-3.5 rounded-xl transition-all bg-blue-500 text-white hover:bg-blue-600 font-black text-[9px] uppercase tracking-widest whitespace-nowrap active:scale-95"
+                          >
+                             Generate Invoice
+                          </button>
+                        )}
 
-                    <button 
-                      onClick={() => setDeleteModal({ isOpen: true, id: record.id, type: isExpense ? 'expense' : 'entry' })} 
-                      className="p-3.5 rounded-xl transition-all bg-white/5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                        {isExpense && (
+                          <button 
+                            onClick={() => {
+                              setEditExpenseId(record.id);
+                              setNewExpense({ description: record.raw.description, amount: record.raw.amount, category: record.raw.category, brand: record.raw.brand, client: record.raw.client || 'General' });
+                              setIsExpenseModalOpen(true);
+                            }} 
+                            className="p-3.5 rounded-xl transition-all bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10"
+                          >
+                            <Edit2 className="w-5 h-5" />
+                          </button>
+                        )}
+
+                        <button 
+                          onClick={() => setDeleteModal({ isOpen: true, id: record.id, type: isExpense ? 'expense' : 'entry' })} 
+                          className="p-3.5 rounded-xl transition-all bg-white/5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -434,10 +454,10 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
           })}
 
           {filteredRecords.length === 0 && (
-            <div className="py-24 text-center glass-panel rounded-[2rem] border-dashed border-zinc-800 flex flex-col items-center justify-center">
-              <div className="p-4 rounded-full bg-zinc-900 mb-4"><Calculator className="w-8 h-8 text-zinc-700" /></div>
+            <div className="py-24 text-center glass-panel rounded-[2rem] border-dashed border-zinc-800 flex flex-col items-center justify-center bg-zinc-900/20">
+              <div className="p-4 rounded-full bg-zinc-900 mb-4 border border-white/5"><Calculator className="w-8 h-8 text-zinc-700" /></div>
               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-600">
-                {activeTab === 'unpaid' ? "No unpaid invoices" : "Ledger Empty"}
+                {activeTab === 'unpaid' ? "No unpaid invoices" : "Ledger Portfolio Empty"}
               </p>
             </div>
           )}
@@ -448,28 +468,34 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-xl">
           <div className="bg-zinc-900 border border-white/10 squircle-lg w-full max-w-2xl p-10 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto no-scrollbar">
             <div className="flex justify-between items-center mb-10">
-              <h2 className="text-3xl font-black text-white uppercase tracking-tight">New Entry</h2>
-              <button onClick={() => setIsCreating(false)} className="p-2 bg-white/5 rounded-full"><X className="w-6 h-6" /></button>
+              <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Financial Deployment</h2>
+              <button 
+                onClick={() => {
+                  setIsCreating(false);
+                  setNewInvoice({ isQuotation: false });
+                }} 
+                className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"
+              >
+                <X className="w-6 h-6 text-zinc-500" />
+              </button>
             </div>
 
-            <form onSubmit={(e) => e.preventDefault()} className="space-y-8">
-              <div className="grid grid-cols-2 gap-6">
+            <form onSubmit={handleGenerateEntry} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Bill To Client</label>
+                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Engagement Target</label>
                   <select 
-                    className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none" 
+                    required
+                    className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none focus:border-white/20 transition-all cursor-pointer" 
                     value={selectedClientId || ""} 
-                    onChange={e => {
-                      console.log("Selected Client ID:", e.target.value);
-                      setSelectedClientId(e.target.value);
-                    }}
+                    onChange={e => setSelectedClientId(e.target.value)}
                   >
                     <option value="" disabled hidden>Select Client...</option>
-                    {clients.map(client => <option key={String(client.id)} value={String(client.id)}>{client.name || client.projectName}</option>)}
+                    {clients.map(client => <option key={String(client.id)} value={String(client.id)} className="bg-zinc-950 font-black tracking-tight">{client.name || client.projectName}</option>)}
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Document Type</label>
+                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Operation Type</label>
                   <div className="flex bg-black p-1 rounded-xl border border-white/10">
                     <button type="button" onClick={() => setNewInvoice({ ...newInvoice, isQuotation: false })} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!newInvoice.isQuotation ? 'bg-white text-black' : 'text-zinc-500'}`}>Invoice</button>
                     <button type="button" onClick={() => setNewInvoice({ ...newInvoice, isQuotation: true })} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${newInvoice.isQuotation ? 'bg-white text-black' : 'text-zinc-500'}`}>Quotation</button>
@@ -477,28 +503,148 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Line Items</label>
-                {items.map((item, idx) => (
-                  <div key={idx} className="flex gap-3">
-                    <input className="flex-[2] bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none" placeholder="Description" value={item.description} onChange={e => { const n = [...items]; n[idx].description = e.target.value; setItems(n); }} />
-                    <input type="number" className="w-20 bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none text-center" placeholder="Qty" value={item.quantity} onChange={e => { const n = [...items]; n[idx].quantity = Number(e.target.value); setItems(n); }} />
-                    <input type="number" className="w-32 bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none text-right" placeholder="Price" value={item.price} onChange={e => { const n = [...items]; n[idx].price = Number(e.target.value); setItems(n); }} />
-                    {items.length > 1 && <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="p-4 text-zinc-600 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
-                  </div>
-                ))}
-                <button type="button" onClick={() => setItems([...items, { id: Date.now().toString(), description: '', quantity: 1, price: 0 }])} className="text-[10px] font-black uppercase text-blue-500 tracking-widest hover:text-white transition-colors flex items-center gap-2 px-1">
-                  <Plus className="w-3 h-3" /> Add Line Item
-                </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Payment Manifest</label>
+                    <select 
+                      disabled={newInvoice.isQuotation}
+                      className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none focus:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed" 
+                      value={(newInvoice as any).status || 'unpaid'} 
+                      onChange={e => setNewInvoice({ ...newInvoice, status: e.target.value } as any)}
+                    >
+                      <option value="unpaid">Unpaid</option>
+                      <option value="paid">Paid</option>
+                    </select>
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Effective Date</label>
+                    <input 
+                      type="date" 
+                      required 
+                      className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none focus:border-white/20" 
+                      value={(newInvoice as any).date || new Date().toISOString().split('T')[0]} 
+                      onChange={e => setNewInvoice({ ...newInvoice, date: e.target.value } as any)}
+                    />
+                 </div>
               </div>
 
-              <div className="pt-6 border-t border-white/10 flex justify-between items-center">
-                <div>
-                  <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Total Amount</p>
-                  <p className="text-3xl font-black text-white font-mono mt-1">₹{calculateTotal(items).toLocaleString('en-IN')}</p>
+              <div className="space-y-6">
+                <div className="flex justify-between items-center px-1">
+                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest">Billing Manifest</label>
+                  <button 
+                    type="button" 
+                    onClick={() => setItems([...items, { id: Date.now().toString(), description: '', quantity: 1, price: 0 }])}
+                    className="text-[9px] font-black uppercase text-blue-500 tracking-[0.2em] hover:text-white transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-3 h-3" /> Add Row
+                  </button>
                 </div>
-                <button type="button" onClick={handleGenerateEntry} className="bg-white text-black px-8 py-4 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-xl hover:bg-zinc-200 transition-all cursor-pointer">
-                  Generate {newInvoice.isQuotation ? 'Quotation' : 'Invoice'}
+                
+                <div className="space-y-4">
+                  {items.map((item, idx) => (
+                    <div key={item.id || idx} className="grid grid-cols-12 gap-3 items-center group animate-ios-slide-up">
+                      <div className="col-span-12 md:col-span-5">
+                        <input 
+                          type="text"
+                          className="w-full bg-black border border-white/10 rounded-xl p-4 text-xs font-bold text-white outline-none focus:border-white/20" 
+                          placeholder="Description (e.g. Cinema Package)" 
+                          value={item.description} 
+                          onChange={e => {
+                            const n = [...items];
+                            n[idx].description = e.target.value;
+                            setItems(n);
+                          }} 
+                        />
+                      </div>
+                      <div className="col-span-3 md:col-span-2">
+                        <div className="flex bg-black border border-white/10 rounded-xl items-center h-12 overflow-hidden focus-within:border-white/20 transition-all">
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              const n = [...items];
+                              n[idx].quantity = Math.max(1, (n[idx].quantity || 1) - 1);
+                              setItems(n);
+                            }}
+                            className="h-full px-2 text-zinc-600 hover:text-white hover:bg-white/5 transition-colors font-black"
+                          >
+                            -
+                          </button>
+                          <input 
+                            type="number" 
+                            min="1"
+                            className="w-full bg-transparent text-xs font-black text-white outline-none text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                            placeholder="Qty" 
+                            value={item.quantity === 0 ? '' : item.quantity} 
+                            onChange={e => {
+                              const n = [...items];
+                              let val = parseInt(e.target.value);
+                              if (isNaN(val) || val < 1) val = 1;
+                              n[idx].quantity = val;
+                              setItems(n);
+                            }} 
+                            onBlur={e => {
+                              if (!e.target.value) {
+                                const n = [...items];
+                                n[idx].quantity = 1;
+                                setItems(n);
+                              }
+                            }}
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              const n = [...items];
+                              n[idx].quantity = (n[idx].quantity || 0) + 1;
+                              setItems(n);
+                            }}
+                            className="h-full px-2 text-zinc-600 hover:text-white hover:bg-white/5 transition-colors font-black"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                      <div className="col-span-4 md:col-span-2">
+                        <input 
+                          type="number" 
+                          className="w-full bg-black border border-white/10 rounded-xl p-4 text-xs font-bold text-white outline-none text-right" 
+                          placeholder="Price" 
+                          value={item.price} 
+                          onChange={e => {
+                            const n = [...items];
+                            n[idx].price = Number(e.target.value);
+                            setItems(n);
+                          }} 
+                        />
+                      </div>
+                      <div className="col-span-4 md:col-span-2 text-right">
+                         <p className="text-[10px] font-black text-zinc-500 mb-1 uppercase tracking-tighter">Subtotal</p>
+                         <p className="text-sm font-black text-white font-mono">₹{(item.quantity * item.price).toLocaleString('en-IN')}</p>
+                      </div>
+                      <div className="col-span-1 flex justify-end">
+                        <button 
+                          type="button" 
+                          onClick={() => setItems(items.length > 1 ? items.filter((_, i) => i !== idx) : items)} 
+                          className="w-8 h-8 flex items-center justify-center text-zinc-600 hover:text-red-500 bg-white/5 rounded-lg border border-white/5 opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="text-center md:text-left">
+                  <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Calculated Payout</p>
+                  <p className="text-5xl font-black text-white font-mono mt-1 tracking-tighter">₹{calculateTotal(items).toLocaleString('en-IN')}</p>
+                </div>
+                <button 
+                  type="submit" 
+                  disabled={items.some(i => !i.description || i.price <= 0)}
+                  className="w-full md:w-auto bg-white text-black px-12 py-5 rounded-2xl font-black uppercase text-[12px] tracking-widest shadow-2xl hover:bg-zinc-200 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed group flex items-center justify-center gap-3"
+                >
+                   Finalize {newInvoice.isQuotation ? 'Quotation' : 'Invoice'}
                 </button>
               </div>
             </form>
@@ -511,7 +657,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
           <div className="bg-zinc-900 border border-white/10 squircle-lg w-full max-w-lg p-10 shadow-2xl animate-ios-slide-up">
             <div className="flex justify-between items-center mb-10">
               <h2 className="text-3xl font-black text-white uppercase tracking-tight">Log Expense</h2>
-              <button onClick={() => { setIsExpenseModalOpen(false); setEditExpenseId(null); setNewExpense({ category: 'Production', amount: 0, description: '', client: 'General' }); setCustomCategory(''); }} className="p-2 bg-white/5 rounded-full"><X className="w-6 h-6" /></button>
+              <button onClick={() => { setIsExpenseModalOpen(false); setEditExpenseId(null); setNewExpense({ category: 'Production', amount: 0, description: '', client: 'General' }); setShowNewCategoryInput(false); }} className="p-2 bg-white/5 rounded-full"><X className="w-6 h-6" /></button>
             </div>
 
             <form onSubmit={handleExpenseSubmit} className="space-y-6">
@@ -523,33 +669,66 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Amount</label>
-                  <input type="number" required className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none" placeholder="0.00" value={newExpense.amount || ''} onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })} />
+                  <input type="number" required className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none focus:border-white/20" placeholder="0.00" value={newExpense.amount || ''} onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Category</label>
-                  <select className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none" value={newExpense.category} onChange={e => {
-                    setNewExpense({ ...newExpense, category: e.target.value });
-                    if (e.target.value !== 'Other') setCustomCategory('');
-                  }}>
-                    <option value="Production">Production</option>
-                    <option value="Travel">Travel</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Office">Office</option>
-                    <option value="Other">Other</option>
+                  <div className="flex justify-between items-center px-1">
+                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest">Category</label>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowNewCategoryInput(!showNewCategoryInput)}
+                      className="p-1 hover:bg-white/10 rounded transition-colors text-blue-500"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <select 
+                    className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none focus:border-white/20" 
+                    value={showNewCategoryInput ? "ADD_NEW" : newExpense.category} 
+                    onChange={e => {
+                      if (e.target.value === "ADD_NEW") {
+                        setShowNewCategoryInput(true);
+                      } else {
+                        setNewExpense({ ...newExpense, category: e.target.value });
+                        setShowNewCategoryInput(false);
+                      }
+                    }}
+                  >
+                    {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    <option value="ADD_NEW">+ Add New Category</option>
                   </select>
                 </div>
               </div>
 
-              {newExpense.category === 'Other' && (
-                <div className="space-y-2 animate-ios-slide-up">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Custom Category</label>
-                  <input 
-                    required 
-                    className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none focus:border-white/20 transition-all" 
-                    placeholder="e.g. Petrol, Food, Travel" 
-                    value={customCategory} 
-                    onChange={e => setCustomCategory(e.target.value)} 
-                  />
+              {showNewCategoryInput && (
+                <div className="space-y-2 animate-ios-slide-up bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                  <label className="text-[10px] font-black uppercase text-blue-500 tracking-widest px-1">Define New Category</label>
+                  <div className="flex gap-2">
+                    <input 
+                      autoFocus
+                      className="flex-1 bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-white outline-none focus:border-white/20" 
+                      placeholder="e.g. Equipment, Rent..." 
+                      value={newCategoryName} 
+                      onChange={e => setNewCategoryName(e.target.value)} 
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        if (newCategoryName.trim()) {
+                          const name = newCategoryName.trim();
+                          if (!categories.includes(name)) {
+                            setCategories([...categories, name]);
+                          }
+                          setNewExpense({ ...newExpense, category: name });
+                          setNewCategoryName('');
+                          setShowNewCategoryInput(false);
+                        }
+                      }}
+                      className="bg-blue-500 text-white px-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all"
+                    >
+                      Add
+                    </button>
+                  </div>
                 </div>
               )}
 

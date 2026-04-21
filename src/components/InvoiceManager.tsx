@@ -137,10 +137,11 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
               </div>
 
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-slate-700">Line Items</label>
+                <label className="block text-sm font-medium text-slate-700">Services & Charges</label>
                 {items.map((item) => (
                   <div key={item.id} className="flex gap-2 items-start">
                     <input
+                      type="text"
                       placeholder="Description"
                       className="flex-1 border border-slate-300 rounded-lg p-2 text-sm"
                       value={item.description}
@@ -302,12 +303,14 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
 
 const StatusBadge = ({ status, isBaby }: { status: InvoiceStatus, isBaby: boolean }) => {
   // Fix: removed InvoiceStatus.Completed and InvoiceStatus.Cancelled as they do not exist in the enum
-  const styles = {
+  const styles: Record<InvoiceStatus, string> = {
     [InvoiceStatus.Paid]: isBaby ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-900/30 text-emerald-400 border border-emerald-900',
     [InvoiceStatus.Unpaid]: isBaby ? 'bg-slate-100 text-slate-700' : 'bg-zinc-800 text-zinc-400 border border-zinc-700',
     [InvoiceStatus.Overdue]: isBaby ? 'bg-red-100 text-red-700' : 'bg-red-900/30 text-red-400 border border-red-900',
     [InvoiceStatus.Draft]: 'bg-gray-100 text-gray-600',
     [InvoiceStatus.Quotation]: isBaby ? 'bg-yellow-100 text-yellow-700' : 'bg-yellow-900/30 text-yellow-400 border border-yellow-900',
+    [InvoiceStatus.Partial]: isBaby ? 'bg-blue-100 text-blue-700' : 'bg-blue-900/30 text-blue-400 border border-blue-900',
+    [InvoiceStatus.Approved]: isBaby ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20',
   };
 
   return (

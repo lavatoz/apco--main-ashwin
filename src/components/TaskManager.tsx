@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Clock, Trash2, CheckSquare, Layers } from 'lucide-react';
-import { type Task, type Company } from '../types';
+import { Plus, Clock, Trash2, CheckSquare, Layers, Edit2 } from 'lucide-react';
+import { type Task, type CompanyProfile } from '../types';
+import { usePermissions } from '../hooks/usePermissions';
 
 interface CoordinationTask extends Task {
   client?: string;
@@ -10,7 +11,7 @@ interface TaskManagerProps {
   tasks: Task[];
   onSaveTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
-  companies: Company[];
+  companies: CompanyProfile[];
   selectedBrand: string | 'All';
 }
 
@@ -20,14 +21,17 @@ const STAGES = [
   { id: 'DONE', label: 'Completed', color: 'text-emerald-500' }
 ] as const;
 
-const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, selectedBrand }) => {
+const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, selectedBrand, companies }) => {
+  const { canEdit, canDelete } = usePermissions();
   const [isAdding, setIsAdding] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   
   const [newTask, setNewTask] = useState<Partial<CoordinationTask>>({ 
     status: 'TODO' as any, 
     priority: 'Medium', 
-    brand: selectedBrand !== 'All' ? selectedBrand : 'AAHA Kalyanam' 
+    brand: selectedBrand !== 'All' ? selectedBrand : (companies[0]?.companyName || 'Artisans') 
   });
 
   const [localRegistry, setLocalRegistry] = useState<CoordinationTask[]>(() => {
@@ -43,25 +47,57 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
     localStorage.setItem('apco_tasks', JSON.stringify(localRegistry));
   }, [localRegistry]);
 
+  const handleStartEdit = (task: CoordinationTask) => {
+    setNewTask({
+        title: task.title,
+        client: task.client,
+        dueDate: task.dueDate,
+        brand: task.brand,
+        priority: task.priority,
+        status: task.status
+    });
+    setEditingTaskId(task.id);
+    setIsEditing(true);
+    setIsAdding(true);
+  };
+
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (newTask.title) {
-      const task: CoordinationTask = {
-        id: `TSK-${Date.now().toString().slice(-6)}`,
-        title: newTask.title!,
-        client: newTask.client || 'General',
-        assignee: newTask.assignee || 'Unassigned',
-        dueDate: newTask.dueDate || new Date().toISOString().split('T')[0],
-        status: 'TODO' as any,
-        brand: newTask.brand || 'AAHA Kalyanam',
-        priority: newTask.priority || 'Medium'
-      };
+      if (isEditing && editingTaskId) {
+          const updated = localRegistry.map(t => t.id === editingTaskId ? {
+              ...t,
+              title: newTask.title!,
+              client: newTask.client || 'General',
+              dueDate: newTask.dueDate || new Date().toISOString().split('T')[0],
+              brand: newTask.brand || 'AAHA Kalyanam',
+              priority: newTask.priority || 'Medium',
+              status: newTask.status || t.status
+          } : t);
+          setLocalRegistry(updated);
+          const task = updated.find(t => t.id === editingTaskId);
+          if (task) onSaveTask(task);
+      } else {
+        const task: CoordinationTask = {
+            id: `TSK-${Date.now().toString().slice(-6)}`,
+            title: newTask.title!,
+            client: newTask.client || 'General',
+            assignee: newTask.assignee || 'Unassigned',
+            dueDate: newTask.dueDate || new Date().toISOString().split('T')[0],
+            status: 'TODO' as any,
+            brand: newTask.brand || 'AAHA Kalyanam',
+            priority: newTask.priority || 'Medium'
+          };
+          
+          const updated = [...localRegistry, task];
+          setLocalRegistry(updated);
+          onSaveTask(task);
+      }
       
-      const updated = [...localRegistry, task];
-      setLocalRegistry(updated);
-      onSaveTask(task);
       setIsAdding(false);
-      setNewTask({ status: 'TODO' as any, priority: 'Medium', brand: selectedBrand !== 'All' ? selectedBrand : 'AAHA Kalyanam' });
+      setIsEditing(false);
+      setEditingTaskId(null);
+      setNewTask({ status: 'TODO' as any, priority: 'Medium', brand: selectedBrand !== 'All' ? selectedBrand : (companies[0]?.companyName || 'Artisans') });
     }
   };
 
@@ -80,7 +116,6 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData('taskId', taskId);
-    // Add a slight delay for better visual during drag start
     setTimeout(() => {
         (e.target as HTMLElement).classList.add('opacity-40');
     }, 0);
@@ -109,13 +144,19 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
           <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">Coordination</h1>
           <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em] mt-2">Kanban Task Management</p>
         </div>
-        <button
-          onClick={() => setIsAdding(true)}
-          className="bg-white text-black px-8 py-3.5 squircle-sm font-black uppercase text-[11px] tracking-widest flex items-center gap-3 hover:bg-zinc-200 ios-transition shadow-2xl shadow-white/10 group"
-        >
-          <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-          New Task
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => {
+                setIsEditing(false);
+                setNewTask({ status: 'TODO' as any, priority: 'Medium', brand: selectedBrand !== 'All' ? selectedBrand : (companies[0]?.companyName || 'Artisans') });
+                setIsAdding(true);
+            }}
+            className="bg-white text-black px-8 py-3.5 squircle-sm font-black uppercase text-[11px] tracking-widest flex items-center gap-3 hover:bg-zinc-200 ios-transition shadow-2xl shadow-white/10 group"
+          >
+            <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+            New Task
+          </button>
+        )}
       </div>
 
       <div className="flex gap-6 overflow-x-auto pb-8 no-scrollbar min-h-[600px]">
@@ -156,9 +197,22 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
                       <div className={`px-2.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${task.priority === 'High' ? 'border-red-500/20 text-red-500' : 'border-zinc-500/20 text-zinc-500'}`}>
                         {task.priority || 'Medium'}
                       </div>
-                      <button onClick={() => removeTask(task.id)} className="p-1 opacity-0 group-hover:opacity-100 text-zinc-800 hover:text-red-500 transition-all">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex gap-2">
+                        {canEdit && (
+                          <button 
+                              onClick={() => handleStartEdit(task)} 
+                              title="Edit Task"
+                              className="p-1 opacity-0 group-hover:opacity-100 text-zinc-800 hover:text-white transition-all"
+                          >
+                              <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button onClick={() => removeTask(task.id)} className="p-1 opacity-0 group-hover:opacity-100 text-zinc-800 hover:text-red-500 transition-all">
+                              <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <h3 className="text-[12px] font-black tracking-tight mb-2 uppercase text-white truncate">
@@ -192,8 +246,8 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-xl animate-ios-slide-up">
           <div className="bg-zinc-900 border border-white/10 squircle-lg w-full max-w-lg p-10 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-white" />
-            <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-2 text-center">New Coordination</h2>
-            <p className="text-center text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em] mb-10">Add task to Kanban</p>
+            <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-2 text-center">{isEditing ? 'Edit Coordination' : 'New Coordination'}</h2>
+            <p className="text-center text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em] mb-10">{isEditing ? 'Modify Kanban Task' : 'Add task to Kanban'}</p>
             
             <form onSubmit={handleCreateTask} className="space-y-6">
               <div className="space-y-2">
@@ -214,15 +268,41 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
                 <div className="space-y-2 text-left">
                   <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Brand</label>
                   <select className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none" value={newTask.brand} onChange={e => setNewTask({ ...newTask, brand: e.target.value })}>
-                    <option className="bg-zinc-900" value="AAHA Kalyanam">AAHA</option>
-                    <option className="bg-zinc-900" value="Tiny Toes">TINY TOES</option>
+                    {companies.map(c => (
+                      <option key={c.id} className="bg-zinc-900" value={c.companyName}>{c.companyName.split(' ')[0].toUpperCase()}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2 text-left">
+                  <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Priority</label>
+                  <select className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none" value={newTask.priority} onChange={e => setNewTask({ ...newTask, priority: e.target.value as any })}>
+                    <option className="bg-zinc-900" value="Low">Low</option>
+                    <option className="bg-zinc-900" value="Medium">Medium</option>
+                    <option className="bg-zinc-900" value="High">High</option>
+                  </select>
+                </div>
+                {isEditing && (
+                  <div className="space-y-2 text-left">
+                    <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Status</label>
+                    <select className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none" value={newTask.status} onChange={e => setNewTask({ ...newTask, status: e.target.value as any })}>
+                      {STAGES.map(s => <option key={s.id} className="bg-zinc-900" value={s.id}>{s.label}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-4 pt-10">
-                <button type="button" onClick={() => setIsAdding(false)} className="flex-1 py-4 bg-white/5 text-zinc-500 hover:text-white rounded-2xl font-black uppercase text-[10px] tracking-widest border border-white/5 transition-all">Discard</button>
-                <button type="submit" className="flex-1 py-4 bg-white text-black hover:bg-zinc-200 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl transition-all">Create Task</button>
+                <button type="button" onClick={() => {
+                    setIsAdding(false);
+                    setIsEditing(false);
+                    setEditingTaskId(null);
+                }} className="flex-1 py-4 bg-white/5 text-zinc-500 hover:text-white rounded-2xl font-black uppercase text-[10px] tracking-widest border border-white/5 transition-all">Discard</button>
+                <button type="submit" className="flex-1 py-4 bg-white text-black hover:bg-zinc-200 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl transition-all">
+                    {isEditing ? 'Save Changes' : 'Create Task'}
+                </button>
               </div>
             </form>
           </div>

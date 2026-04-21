@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Command, Layout } from 'lucide-react';
 
 interface LoginPageProps {
@@ -12,7 +11,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,11 +40,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         };
         localStorage.setItem('auth_user', JSON.stringify(sessionUser));
         onLogin(sessionUser);
-
-        // Redirect based on role
-        if (role === 'Admin') navigate('/dashboard');
-        else if (role === 'Staff') navigate('/staff-dashboard');
-        else navigate('/client-dashboard');
       } else {
         setError('Invalid credentials or unauthorized role access.');
       }
