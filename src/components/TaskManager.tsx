@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Plus, Clock, Trash2, CheckSquare, Layers, Edit2 } from 'lucide-react';
 import { type Task, type CompanyProfile } from '../types';
 import { usePermissions } from '../hooks/usePermissions';
@@ -21,31 +21,19 @@ const STAGES = [
   { id: 'DONE', label: 'Completed', color: 'text-emerald-500' }
 ] as const;
 
-const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, selectedBrand, companies }) => {
+const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTask, selectedBrand, companies }) => {
   const { canEdit, canDelete } = usePermissions();
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [fadingId, setFadingId] = useState<string | null>(null);
   
   const [newTask, setNewTask] = useState<Partial<CoordinationTask>>({ 
     status: 'TODO' as any, 
     priority: 'Medium', 
-    brand: selectedBrand !== 'All' ? selectedBrand : (companies[0]?.companyName || 'Artisans') 
+    brand: selectedBrand !== 'All' ? (companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand) : (companies[0]?.companyName || 'Artisans') 
   });
-
-  const [localRegistry, setLocalRegistry] = useState<CoordinationTask[]>(() => {
-    try {
-      const stored = localStorage.getItem('apco_tasks');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem('apco_tasks', JSON.stringify(localRegistry));
-  }, [localRegistry]);
 
   const handleStartEdit = (task: CoordinationTask) => {
     setNewTask({
@@ -65,7 +53,9 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
     e.preventDefault();
     if (newTask.title) {
       if (isEditing && editingTaskId) {
-          const updated = localRegistry.map(t => t.id === editingTaskId ? {
+          const t = tasks.find(x => x.id === editingTaskId);
+          if (t) {
+            const updated = {
               ...t,
               title: newTask.title!,
               client: newTask.client || 'General',
@@ -73,10 +63,9 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
               brand: newTask.brand || 'AAHA Kalyanam',
               priority: newTask.priority || 'Medium',
               status: newTask.status || t.status
-          } : t);
-          setLocalRegistry(updated);
-          const task = updated.find(t => t.id === editingTaskId);
-          if (task) onSaveTask(task);
+            };
+            onSaveTask(updated);
+          }
       } else {
         const task: CoordinationTask = {
             id: `TSK-${Date.now().toString().slice(-6)}`,
@@ -87,31 +76,29 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
             status: 'TODO' as any,
             brand: newTask.brand || 'AAHA Kalyanam',
             priority: newTask.priority || 'Medium'
-          };
-          
-          const updated = [...localRegistry, task];
-          setLocalRegistry(updated);
-          onSaveTask(task);
+        };
+        onSaveTask(task);
       }
       
       setIsAdding(false);
       setIsEditing(false);
       setEditingTaskId(null);
-      setNewTask({ status: 'TODO' as any, priority: 'Medium', brand: selectedBrand !== 'All' ? selectedBrand : (companies[0]?.companyName || 'Artisans') });
+      setNewTask({ status: 'TODO' as any, priority: 'Medium', brand: selectedBrand !== 'All' ? (companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand) : (companies[0]?.companyName || 'Artisans') });
     }
   };
 
   const updateStatus = (taskId: string, newStatus: string) => {
-    const updated = localRegistry.map(t => t.id === taskId ? { ...t, status: newStatus as any } : t);
-    setLocalRegistry(updated);
-    const task = updated.find(t => t.id === taskId);
-    if (task) onSaveTask(task);
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      onSaveTask({ ...task, status: newStatus as any });
+    }
   };
 
-  const removeTask = (taskId: string) => {
-    const updated = localRegistry.filter(t => t.id !== taskId);
-    setLocalRegistry(updated);
+  const removeTask = async (taskId: string) => {
+    setFadingId(taskId);
+    await new Promise(r => setTimeout(r, 300));
     onDeleteTask(taskId);
+    setFadingId(null);
   };
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
@@ -135,7 +122,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
     setDragOverColumn(null);
   };
 
-  const filteredTasks = localRegistry.filter(t => selectedBrand === 'All' || t.brand === selectedBrand);
+  const filteredTasks = tasks.filter(t => selectedBrand === 'All' || t.brand === selectedBrand);
 
   return (
     <div className="space-y-10 pb-24 animate-ios-slide-up">
@@ -148,7 +135,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
           <button
             onClick={() => {
                 setIsEditing(false);
-                setNewTask({ status: 'TODO' as any, priority: 'Medium', brand: selectedBrand !== 'All' ? selectedBrand : (companies[0]?.companyName || 'Artisans') });
+                setNewTask({ status: 'TODO' as any, priority: 'Medium', brand: selectedBrand !== 'All' ? (companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand) : (companies[0]?.companyName || 'Artisans') });
                 setIsAdding(true);
             }}
             className="bg-white text-black px-8 py-3.5 squircle-sm font-black uppercase text-[11px] tracking-widest flex items-center gap-3 hover:bg-zinc-200 ios-transition shadow-2xl shadow-white/10 group"
@@ -191,7 +178,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
                     draggable
                     onDragStart={(e) => handleDragStart(e, task.id)}
                     onDragEnd={handleDragEnd}
-                    className="glass-panel p-6 border border-white/5 squircle-lg bg-zinc-900/40 hover:bg-zinc-900/60 transition-all cursor-grab active:cursor-grabbing active:scale-95 group relative overflow-hidden"
+                    className={`glass-panel p-6 border border-white/5 squircle-lg bg-zinc-900/40 hover:bg-zinc-900/60 transition-all cursor-grab active:cursor-grabbing active:scale-95 group relative overflow-hidden ${fadingId === task.id ? 'animate-fade-out' : ''}`}
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div className={`px-2.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${task.priority === 'High' ? 'border-red-500/20 text-red-500' : 'border-zinc-500/20 text-zinc-500'}`}>
@@ -267,11 +254,19 @@ const TaskManager: React.FC<TaskManagerProps> = ({ onSaveTask, onDeleteTask, sel
                 </div>
                 <div className="space-y-2 text-left">
                   <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Brand</label>
-                  <select className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none" value={newTask.brand} onChange={e => setNewTask({ ...newTask, brand: e.target.value })}>
-                    {companies.map(c => (
-                      <option key={c.id} className="bg-zinc-900" value={c.companyName}>{c.companyName.split(' ')[0].toUpperCase()}</option>
-                    ))}
-                  </select>
+                  {selectedBrand !== 'All' ? (
+                    <div className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-zinc-400 cursor-not-allowed">
+                      {companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand}
+                      <span className="ml-2 text-[8px] opacity-40">(Locked by Global Filter)</span>
+                    </div>
+                  ) : (
+                    <select className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none" value={newTask.brand} onChange={e => setNewTask({ ...newTask, brand: e.target.value })}>
+                      <option value="" disabled className="bg-zinc-900">Select Brand...</option>
+                      {companies.map(c => (
+                        <option key={c.id} className="bg-zinc-900" value={c.companyName}>{c.companyName.split(' ')[0].toUpperCase()}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 

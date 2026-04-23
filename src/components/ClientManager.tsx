@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Calendar, UserPlus, X, Mail, Phone, User, Trash2, Edit2, ChevronDown, Briefcase, LayoutGrid } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Search, Calendar, UserPlus, X, Mail, Phone, User, Trash2, Edit2, ChevronDown, Briefcase, LayoutGrid, Loader2 } from 'lucide-react';
 
 import { type Client, type Division } from '../types';
 
@@ -30,11 +31,20 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [eventDate, setEventDate] = useState('');
-  const [projectType, setProjectType] = useState('Wedding');
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    eventDate: '',
+    projectType: 'Wedding',
+    projectId: '',
+    projectName: ''
+  });
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [fadingId, setFadingId] = useState<string | null>(null);
 
   const [isDivDropdownOpen, setIsDivDropdownOpen] = useState(false);
   const [divSearch, setDivSearch] = useState('');
@@ -51,31 +61,55 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
   }, []);
 
   useEffect(() => {
+    if (isAdding || isDeleteModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isAdding, isDeleteModalOpen]);
+
+  useEffect(() => {
+    const targetDiv = divisions.find(d => d.id === preselectedId);
+    setFormData(prev => ({
+      ...prev,
+      projectId: preselectedId !== 'All' ? preselectedId : '',
+      projectName: targetDiv?.name || ''
+    }));
     if (preselectedId) setSelectedDivId(preselectedId);
-    else if (divisions.length > 0) setSelectedDivId(divisions[0].id);
     setLoading(false);
   }, [divisions, preselectedId]);
+
+
 
   const handleStartEdit = (e: React.MouseEvent, client: Client) => {
     e.stopPropagation();
     setEditingClient(client);
-    setName(client.name || '');
-    setEmail(client.email || '');
-    setPhone(client.phone || '');
-    setEventDate(client.eventDate || '');
-    setProjectType(client.projectType || 'Wedding');
-    setSelectedDivId(client.divisionId || 'All');
+    setFormData({
+      name: client.name || '',
+      email: client.email || '',
+      phone: client.phone || '',
+      eventDate: client.eventDate || '',
+      projectType: client.projectType || 'Wedding',
+      projectId: client.divisionId || '',
+      projectName: client.brand || ''
+    });
     setIsEditing(true);
     setIsAdding(true);
   };
 
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDivId || selectedDivId === 'All') {
+    
+    console.log("[DEBUG] formData.projectId before submit:", formData.projectId);
+
+    if (!formData.projectId || formData.projectId === 'All') {
       setFormError("Please select a specific Project Registry");
       return;
     }
-    if (!name) {
+    if (!formData.name) {
       setFormError("Name is required");
       return;
     }
@@ -83,33 +117,38 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
     setIsSubmitting(true);
     setFormError(null);
 
-    const targetDiv = divisions.find(d => d.id === selectedDivId);
+    const targetDiv = divisions.find(d => d.id === formData.projectId);
 
     const clientData: Client = {
       id: isEditing && editingClient ? editingClient.id : String(Date.now()),
       _id: isEditing && editingClient ? editingClient._id : `client-${Date.now()}`,
-      projectName: name,
-      name,
-      email,
-      phone,
-      eventDate,
-      projectType,
-      brand: targetDiv?.name || 'Unknown',
-      divisionId: selectedDivId,
+      projectName: formData.name,
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      eventDate: formData.eventDate,
+      projectType: formData.projectType,
+      brand: targetDiv?.name || formData.projectName || 'Unknown',
+      divisionId: formData.projectId,
       notes: editingClient?.notes || '',
       people: editingClient?.people || [],
-      status: editingClient?.status || 'pending'
+      status: editingClient?.status || 'pending',
+      createdAt: isEditing && editingClient ? editingClient.createdAt : new Date().toISOString()
     };
 
     try {
       await addClient(clientData);
 
       // Clear form and close modal
-      setName('');
-      setEmail('');
-      setPhone('');
-      setEventDate('');
-      setProjectType('Wedding');
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        eventDate: '',
+        projectType: 'Wedding',
+        projectId: preselectedId !== 'All' ? preselectedId : '',
+        projectName: divisions.find(d => d.id === preselectedId)?.name || ''
+      });
       setIsAdding(false);
       setIsEditing(false);
       setEditingClient(null);
@@ -120,11 +159,35 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (window.confirm('Are you sure you want to absolute delete this client record? This action is irreversible.')) {
-      await deleteClient(id);
+  const confirmDelete = async () => {
+    if (!clientToDelete) return;
+    const targetId = clientToDelete.id;
+
+    setIsDeleting(true);
+    await new Promise(r => setTimeout(r, 150));
+
+    setFadingId(targetId);
+    setIsDeleteModalOpen(false);
+    
+    // Wait for fade-out animation
+    await new Promise(r => setTimeout(r, 300));
+    
+    try {
+      await deleteClient(targetId);
+    } catch (err) {
+      console.error("Deletion failure", err);
+    } finally {
+      setIsDeleting(false);
+      setClientToDelete(null);
+      setFadingId(null);
     }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, client: Client) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setClientToDelete(client);
+    setIsDeleteModalOpen(true);
   };
 
   const filteredClients = allClients.filter(c => {
@@ -227,11 +290,15 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
                  setFormError(null);
                  setIsEditing(false);
                  setEditingClient(null);
-                 setName('');
-                 setEmail('');
-                 setPhone('');
-                 setEventDate('');
-                 setProjectType('Wedding');
+                 setFormData({
+                   name: '',
+                   email: '',
+                   phone: '',
+                   eventDate: '',
+                   projectType: 'Wedding',
+                   projectId: preselectedId !== 'All' ? preselectedId : '',
+                   projectName: divisions.find(d => d.id === preselectedId)?.name || ''
+                 });
                  setIsAdding(true);
               }}
               className="bg-white text-black px-8 py-3.5 rounded-2xl flex items-center gap-3 font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 ios-transition shadow-lg active:scale-95"
@@ -270,7 +337,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredClients.map(client => (
-          <div key={client.id} className="glass-panel p-10 squircle-lg ios-transition hover:scale-[1.02] active:scale-[0.98] group relative flex flex-col h-full border border-white/5 cursor-pointer" onMouseDown={() => onOpenPortal(client)}>
+          <div key={client.id} className={`glass-panel p-10 squircle-lg ios-transition hover:scale-[1.02] active:scale-[0.98] group relative flex flex-col h-full border border-white/5 cursor-pointer ${fadingId === client.id ? 'animate-fade-out' : ''}`} onMouseDown={() => onOpenPortal(client)}>
             <div className="flex justify-between items-start mb-8">
               <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/10 text-xs font-black text-zinc-500 tracking-widest uppercase font-mono truncate max-w-[120px]">
                 {client.id}
@@ -288,11 +355,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button 
-                    onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleDelete(e, client.id);
-                     }}
+                    onMouseDown={(e) => handleDeleteClick(e, client)}
                     className="p-2.5 bg-white/5 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-xl border border-white/5 transition-all opacity-0 group-hover:opacity-100"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -344,13 +407,23 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
         ))}
       </div>
 
-      {isAdding && (
-        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-xl">
-          <div className="bg-zinc-900 border border-white/10 squircle-lg w-full max-w-xl p-10 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto no-scrollbar">
+      {isAdding && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => {
+            setIsAdding(false);
+            setIsEditing(false);
+            setEditingClient(null);
+          }}
+        >
+          <div 
+            className="w-full max-w-xl bg-zinc-900 border border-white/10 squircle-lg p-10 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto no-scrollbar relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-center mb-10">
               <div>
-                <h2 className="text-3xl font-black text-white tracking-tight uppercase">{isEditing ? 'Edit Client' : 'New Project'}</h2>
-                <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mt-1">{isEditing ? 'Profile Management' : 'Client Onboarding'}</p>
+                <h2 className="text-3xl font-black text-white tracking-tight uppercase">{isEditing ? 'Edit Client' : 'New Client'}</h2>
+                <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mt-1">{isEditing ? 'Profile Management' : 'Add New Client'}</p>
               </div>
               <button disabled={isSubmitting} onClick={() => {
                 setIsAdding(false);
@@ -368,25 +441,41 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
             <form onSubmit={handleCreateClient} className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Assign to Project Registry *</label>
-                <select required className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" value={selectedDivId} onChange={e => setSelectedDivId(e.target.value)} disabled={isSubmitting}>
-                  <option value="" disabled>Select Unit...</option>
-                  {divisions.map(d => <option key={d.id} className="bg-zinc-900" value={d.id}>{d.name}</option>)}
-                </select>
+                {preselectedId !== 'All' ? (
+                   <div className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-zinc-400 cursor-not-allowed">
+                      {divisions.find(d => d.id === preselectedId)?.name || preselectedId}
+                      <span className="ml-2 text-[8px] opacity-40">(Locked by Global Filter)</span>
+                   </div>
+                ) : (
+                  <select 
+                    className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" 
+                    value={formData.projectId} 
+                    onChange={e => {
+                      const id = e.target.value;
+                      const div = divisions.find(d => d.id === id);
+                      setFormData(prev => ({ ...prev, projectId: id, projectName: div?.name || '' }));
+                    }} 
+                    disabled={isSubmitting}
+                  >
+                    <option value="" disabled>Select Unit...</option>
+                    {divisions.map(d => <option key={d.id} className="bg-zinc-900" value={d.id}>{d.name}</option>)}
+                  </select>
+                )}
               </div>
 
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Client Name *</label>
-                <input required className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. Rahul & Priya" value={name} onChange={e => setName(e.target.value)} disabled={isSubmitting} />
+                <input className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. Rahul & Priya" value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
               </div>
 
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Email <span className="opacity-50">(Optional)</span></label>
-                <input type="email" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. hello@example.com" value={email} onChange={e => setEmail(e.target.value)} disabled={isSubmitting} />
+                <input type="email" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. hello@example.com" value={formData.email} onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))} disabled={isSubmitting} />
               </div>
 
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Project Type *</label>
-                <select className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={projectType} onChange={e => setProjectType(e.target.value)} disabled={isSubmitting}>
+                <select className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={formData.projectType} onChange={e => setFormData(prev => ({ ...prev, projectType: e.target.value }))} disabled={isSubmitting}>
                   <option value="Wedding" className="bg-zinc-900">Luxury Wedding</option>
                   <option value="Kids" className="bg-zinc-900">Kids & Maternity</option>
                   <option value="Corporate" className="bg-zinc-900">Corporate Production</option>
@@ -397,11 +486,11 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Phone <span className="opacity-50">(Optional)</span></label>
-                  <input className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="+91 98765 43210" value={phone} onChange={e => setPhone(e.target.value)} disabled={isSubmitting} />
+                  <input className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="+91 98765 43210" value={formData.phone} onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))} disabled={isSubmitting} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Event Date <span className="opacity-50">(Optional)</span></label>
-                  <input type="date" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={eventDate} onChange={e => setEventDate(e.target.value)} disabled={isSubmitting} />
+                  <input type="date" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={formData.eventDate} onChange={e => setFormData(prev => ({ ...prev, eventDate: e.target.value }))} disabled={isSubmitting} />
                 </div>
               </div>
 
@@ -417,7 +506,53 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
+      )}
+      {/* DELETE CONFIRMATION MODAL */}
+      {isDeleteModalOpen && clientToDelete && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[9999] animate-modal-overlay"
+          onMouseDown={() => { setIsDeleteModalOpen(false); setClientToDelete(null); }}
+        >
+          <div 
+            className="bg-zinc-900 border border-white/10 rounded-[3rem] w-full max-w-[400px] p-12 shadow-2xl text-center animate-modal-content m-4"
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-red-500/20">
+              <Trash2 className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-3xl font-black text-white tracking-tight uppercase mb-4">DELETE CLIENT?</h2>
+            <p className="text-sm text-zinc-500 font-medium mb-10 pb-4 border-b border-white/5 leading-relaxed">
+              Are you sure you want to delete <span className="text-white font-black">{clientToDelete.name}</span>? This cannot be undone.
+            </p>
+
+            <div className="flex gap-4">
+              <button
+                onMouseDown={() => {
+                  setIsDeleteModalOpen(false);
+                  setClientToDelete(null);
+                }}
+                className="flex-1 py-5 bg-white/5 text-zinc-500 hover:text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border border-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                onMouseDown={confirmDelete}
+                disabled={isDeleting}
+                className="flex-1 py-5 bg-red-600 text-white hover:bg-red-500 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                   <>
+                     <Loader2 className="w-4 h-4 animate-spin-fast" />
+                     Purging...
+                   </>
+                ) : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -31,6 +31,17 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
   }
 };
 
+/**
+ * Permission guard for administrative actions
+ */
+const checkClientBlock = (action: string) => {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  if (user.role === 'Client') {
+    console.error(`[SECURITY] Blocked ${user.role} from performing administrative action: ${action}`);
+    throw new Error(`Permission Denied: Clients cannot perform administrative operation '${action}'`);
+  }
+};
+
 const STORAGE_KEY = 'apco_enterprise_db_v5';
 const STAFF_KEY = 'apco_staff_registry';
 const CLOUD_CONFIG_KEY = 'apco_cloud_config';
@@ -47,6 +58,11 @@ interface DBStructure {
   tasks: Task[];
   lastSynced: string;
 }
+
+const INVOICE_KEY = 'artisans_invoices';
+const LEDGER_KEY = 'ledger';
+const ENTRIES_KEY = 'entries';
+const LEGACY_INVOICES_KEY = 'invoices';
 
 const getInitialStaff = (): Staff[] => [
   {
@@ -91,19 +107,54 @@ const saveDB = (db: DBStructure) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...db, lastSynced: new Date().toISOString() }));
 };
 
-const checkClientBlock = (action: string) => {
-  const userStr = localStorage.getItem('auth_user');
-  if (userStr) {
-    try {
-      const userResult = JSON.parse(userStr);
-      if (userResult.role === 'Client') {
-        throw new Error(`Permission Denied: Client role cannot perform action: ${action}`);
-      }
-    } catch (e) {
-      console.error("Auth Parsing Failure", e);
+/**
+ * MIGRATION UTILITY
+ * Consolidates legacy data stores into the single source of truth
+ */
+const migrateInvoices = () => {
+    const artisansInvoices = JSON.parse(localStorage.getItem(INVOICE_KEY) || '[]');
+    if (artisansInvoices.length > 0) return; // Already migrated or fresh start
+
+    console.log("[MIGRATION] Consolidating legacy finance records...");
+    
+    const ledger = JSON.parse(localStorage.getItem(LEDGER_KEY) || '[]');
+    const entries = JSON.parse(localStorage.getItem(ENTRIES_KEY) || '[]');
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_INVOICES_KEY) || '[]');
+
+    const unified: any[] = [];
+    const seenIds = new Set();
+
+    const processItem = (item: any, source: string) => {
+        const id = item.id || item._id || `mig_${source}_${Date.now()}_${Math.random()}`;
+        if (seenIds.has(String(id))) return;
+        
+        seenIds.add(String(id));
+        unified.push({
+            ...item,
+            id: String(id),
+            _id: String(id),
+            type: item.type || (item.isQuotation ? 'quotation' : 'invoice'),
+            isQuotation: item.isQuotation || item.type === 'quotation',
+            status: item.status || 'Unpaid',
+            createdAt: item.createdAt || item.issueDate || new Date().toISOString(),
+            brandId: item.brandId || item.companyId || 'All'
+        });
+    };
+
+    ledger.forEach((item: any) => processItem(item, 'ledger'));
+    entries.forEach((item: any) => processItem(item, 'entries'));
+    legacy.forEach((item: any) => processItem(item, 'legacy'));
+
+    if (unified.length > 0) {
+        localStorage.setItem(INVOICE_KEY, JSON.stringify(unified));
+        console.log(`[MIGRATION] Successfully merged ${unified.length} records.`);
     }
-  }
 };
+
+// Auto-run migration once on load
+if (typeof window !== 'undefined') {
+    migrateInvoices();
+}
 
 export const api = {
   // Auth
@@ -192,29 +243,99 @@ export const api = {
     });
   },
 
-  // Invoices
+  // Unified Invoices & Quotations
   getInvoices: async () => {
-    await delay(100);
-    const data = localStorage.getItem("ledger");
-    return data ? JSON.parse(data) : getDB().invoices;
+    await delay(50);
+    const data = localStorage.getItem(INVOICE_KEY);
+    return data ? JSON.parse(data) : [];
   },
   saveInvoice: async (invoice: Invoice) => {
     checkClientBlock("Create/Edit Invoice");
-    await delay(100);
-    const ledger = JSON.parse(localStorage.getItem("ledger") || "[]");
-    const newInvoice = { ...invoice, _id: invoice._id || `inv-${Date.now()}` };
-    const idx = ledger.findIndex((i: Invoice) => i._id === newInvoice._id);
+    await delay(50);
+    const invoices = JSON.parse(localStorage.getItem(INVOICE_KEY) || "[]");
+    const newInvoice = { 
+        ...invoice, 
+        id: String(invoice.id || invoice._id || `inv-${Date.now()}`),
+        _id: String(invoice._id || invoice.id || `inv-${Date.now()}`),
+        brandId: invoice.brandId || 'All',
+        type: invoice.type || (invoice.isQuotation ? 'quotation' : 'invoice')
+    };
+    
+    const idx = invoices.findIndex((i: any) => String(i.id) === String(newInvoice.id) || String(i._id) === String(newInvoice._id));
     if (idx >= 0) {
-      ledger[idx] = newInvoice;
+        invoices[idx] = newInvoice;
     } else {
-      ledger.push(newInvoice);
+        invoices.push(newInvoice);
     }
-    localStorage.setItem("ledger", JSON.stringify(ledger));
+    localStorage.setItem(INVOICE_KEY, JSON.stringify(invoices));
     return newInvoice;
   },
-  updateInvoiceStatus: async (id: string, status: string) => {
-    checkClientBlock("Update Invoice Status");
-    return fetchApi(`/finance/invoices/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
+  deleteInvoice: async (id: string) => {
+    checkClientBlock("Delete Invoice");
+    await delay(50);
+    const invoices = JSON.parse(localStorage.getItem(INVOICE_KEY) || "[]");
+    const filtered = invoices.filter((inv: any) => String(inv.id) !== String(id) && String(inv._id) !== String(id));
+    localStorage.setItem(INVOICE_KEY, JSON.stringify(filtered));
+  },
+
+  // Unified Finance Summary
+  getFinanceSummary: async (projectId?: string, mode: 'global' | 'project' = 'project') => {
+    console.log(`[FINANCE_SYNC] Fetching unified summary. Mode: ${mode}, ProjectId: ${projectId}`);
+    await delay(50);
+    
+    // Read from single source
+    const allInvoices: Invoice[] = JSON.parse(localStorage.getItem(INVOICE_KEY) || "[]");
+    const localExpenses: Expense[] = JSON.parse(localStorage.getItem("expenses") || "[]");
+
+    // Unified Expenses
+    const allExpenses = [...localExpenses, ...getDB().expenses];
+
+    // Filter Logic
+    let filteredInvoices = allInvoices;
+    let filteredExpenses = allExpenses;
+
+    if (mode === 'project' && projectId && projectId !== 'All') {
+        filteredInvoices = allInvoices.filter(i => 
+          i.brandId === projectId || 
+          i.divisionId === projectId || 
+          i.brand === projectId ||
+          (i as any).companyName === projectId
+        );
+        filteredExpenses = allExpenses.filter(e => 
+          e.divisionId === projectId || 
+          e.brand === projectId || 
+          e.client === projectId
+        );
+    }
+
+    // Calculations (Requirement 6: include draft, unpaid, paid)
+    const revenueInvoices = filteredInvoices.filter(i => !i.isQuotation);
+    const quotes = filteredInvoices.filter(i => i.isQuotation);
+
+    const totalRevenue = revenueInvoices.reduce((sum, inv) => {
+        const total = inv.total || inv.totalAmount || (inv.items?.reduce((s, it) => s + (it.price * it.quantity), 0) || 0);
+        return sum + total;
+    }, 0);
+
+    const recoveredAmount = revenueInvoices.reduce((sum, inv) => {
+        if (inv.status === 'Paid') {
+            return sum + (inv.total || inv.totalAmount || (inv.items?.reduce((s, it) => s + (it.price * it.quantity), 0) || 0));
+        }
+        return sum + (inv.paidAmount || 0);
+    }, 0);
+
+    const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+
+    return {
+      totalRevenue,
+      recoveredAmount,
+      pendingAmount: totalRevenue - recoveredAmount,
+      totalExpenses,
+      profit: totalRevenue - totalExpenses,
+      invoices: revenueInvoices,
+      quotes: quotes,
+      expenses: filteredExpenses
+    };
   },
 
   // Quotes
@@ -236,27 +357,16 @@ export const api = {
 
   saveQuote: async (quote: Invoice) => {
     checkClientBlock("Create/Edit Quote");
-    // Ensure it's marked as a quotation
-    const quoteData = { ...quote, isQuotation: true, type: 'quotation' as const };
+    const quoteData = { 
+        ...quote, 
+        isQuotation: true, 
+        type: 'quotation' as const,
+        brandId: quote.brandId || 'All'
+    };
     
-    try {
-      // Try real backend
-      return await fetchApi('/quotes', { method: 'POST', body: JSON.stringify(quoteData) });
-    } catch (err) {
-      console.warn("Backend /quotes not found, saving to local ledger", err);
-      // Fallback to local storage (existing logic)
-      await delay(100);
-      const ledger = JSON.parse(localStorage.getItem("ledger") || "[]");
-      const newQuote = { ...quoteData, _id: quoteData._id || `quote-${Date.now()}` };
-      const idx = ledger.findIndex((i: Invoice) => i._id === newQuote._id);
-      if (idx >= 0) {
-        ledger[idx] = newQuote;
-      } else {
-        ledger.push(newQuote);
-      }
-      localStorage.setItem("ledger", JSON.stringify(ledger));
-      return newQuote;
-    }
+    // Always save to unified store
+    await api.saveInvoice(quoteData as any);
+    return quoteData;
   },
 
   // Divisions (Enterprise Units)

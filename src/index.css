@@ -6,3 +6,51 @@ html {
   scroll-behavior: smooth;
   font-size: 19.2px;
 }
+
+:root {
+  --primary-color: #3B82F6;
+}
+
+/* Dynamic Primary Color Utilities */
+.bg-primary { background-color: var(--primary-color) !important; }
+.text-primary { color: var(--primary-color) !important; }
+.border-primary { border-color: var(--primary-color) !important; }
+.ring-primary { --tw-ring-color: var(--primary-color) !important; }
+.selection-primary::selection { background-color: var(--primary-color) !important; color: white !important; }
+.shadow-primary { box-shadow: 0 0 20px var(--primary-color); }
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-scale-up {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-modal-overlay {
+  animation: modal-fade-in 0.3s ease-out forwards;
+}
+
+.animate-modal-content {
+  animation: modal-scale-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes fade-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.95); }
+}
+
+.animate-fade-out {
+  animation: fade-out 0.25s ease-out forwards;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-fast {
+  animation: spin 0.6s linear infinite;
+}

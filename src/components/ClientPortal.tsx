@@ -66,25 +66,28 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
   }, [userRole]);
 
   useEffect(() => {
-    const storedInvoices = localStorage.getItem('invoices');
-    const allInvoices = storedInvoices ? JSON.parse(storedInvoices) : [];
-    
-    // Filter by clientId
-    const quotes = allInvoices.filter((i: any) => String(i.clientId) === String(clientId) && (i.type === 'quotation' || i.isQuotation));
-    const invs = allInvoices.filter((i: any) => String(i.clientId) === String(clientId) && (i.type === 'invoice' || !i.isQuotation));
-    
-    setClientQuotes(quotes);
-    setClientInvoices(invs);
+    const fetchInvoices = async () => {
+      try {
+        const allInvoices = await api.getInvoices();
+        
+        // Filter by clientId using unified logic
+        const quotes = allInvoices.filter((i: any) => 
+          (String(i.clientId) === String(clientId) || (i.client && String(i.client.id) === String(clientId))) && 
+          (i.type === 'quotation' || i.isQuotation)
+        );
+        const invs = allInvoices.filter((i: any) => 
+          (String(i.clientId) === String(clientId) || (i.client && String(i.client.id) === String(clientId))) && 
+          (i.type === 'invoice' || !i.isQuotation)
+        );
+        
+        setClientQuotes(quotes);
+        setClientInvoices(invs);
+      } catch (err) {
+        console.error("Finance Registry Sync Failure:", err);
+      }
+    };
 
-    // Also check local entries from FinanceManager
-    const storedEntries = localStorage.getItem('entries');
-    const allEntries = storedEntries ? JSON.parse(storedEntries) : [];
-    const entryQuotes = allEntries.filter((e: any) => String(e.clientId) === String(clientId) && (e.type === 'quotation' || e.isQuotation));
-    const entryInvs = allEntries.filter((e: any) => String(e.clientId) === String(clientId) && (e.type === 'invoice' || !e.isQuotation));
-    
-    if (entryQuotes.length > 0) setClientQuotes(prev => [...prev, ...entryQuotes]);
-    if (entryInvs.length > 0) setClientInvoices(prev => [...prev, ...entryInvs]);
-
+    fetchInvoices();
   }, [clientId, activeTab]);
 
   if (loading) return <div className="min-h-screen bg-black flex items-center justify-center"><div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>;

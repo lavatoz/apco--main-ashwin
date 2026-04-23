@@ -20,9 +20,10 @@ interface ProjectBoardProps {
   onUpdateStage: (id: string, stage: ProjectStage) => void;
   onDeleteProject: (id: string) => void;
   selectedBrand: string | 'All';
+  fadingId?: string | null;
 }
 
-const ProjectBoard: React.FC<ProjectBoardProps> = ({ projects, onUpdateStage, onDeleteProject, selectedBrand }) => {
+const ProjectBoard: React.FC<ProjectBoardProps> = ({ projects, onUpdateStage, onDeleteProject, selectedBrand, fadingId }) => {
   
   const filteredProjects = projects.filter(p => selectedBrand === 'All' || p.brand === selectedBrand);
 
@@ -93,7 +94,7 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ projects, onUpdateStage, on
                 return (
                   <div 
                     key={project.id}
-                    className={`glass-panel p-6 squircle-lg border ${isOverdue ? 'border-red-500/30' : 'border-white/5'} bg-zinc-900/40 hover:bg-zinc-900/60 transition-all group relative overflow-hidden`}
+                    className={`glass-panel p-6 squircle-lg border ${isOverdue ? 'border-red-500/30' : 'border-white/5'} bg-zinc-900/40 hover:bg-zinc-900/60 transition-all group relative overflow-hidden ${fadingId === project.id ? 'animate-fade-out' : ''}`}
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div className="max-w-[70%]">

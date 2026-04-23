@@ -71,6 +71,7 @@ export interface Task {
   brand: string;
   divisionId?: string;
   priority: string;
+  client?: string;
 }
 
 export interface Division {
@@ -140,7 +141,7 @@ export interface Person {
 
 export type UserRole = 'Admin' | 'Staff' | 'Client';
 
-export type StaffRole = 'photographer' | 'videographer' | 'editor' | 'assistant';
+export type StaffRole = string;
 
 export type UserPermission = 'dashboard' | 'clients' | 'tasks' | 'finance' | 'ai' | 'analytics' | 'system' | 'workflow' | 'operations' | 'files';
 

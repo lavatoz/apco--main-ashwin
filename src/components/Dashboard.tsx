@@ -1,50 +1,193 @@
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   CalendarCheck, IndianRupee, Briefcase,
   ArrowUpRight, Sparkles, MessageSquare, Layers, CheckSquare,
-  AlertTriangle, AlertCircle, Calendar, TrendingUp, TrendingDown
+  AlertTriangle, AlertCircle, Calendar, TrendingUp, TrendingDown,
+  Plus, X, Shield, Trash2, Loader2, Settings2, UserPlus
 } from 'lucide-react';
 import { type Booking, type Client, type Invoice, type Task, type Division } from '../types';
+import { api } from '../services/api';
 
 
 
 interface DashboardProps {
-  divisions: Division[];
   invoices: Invoice[];
   clients: Client[];
   bookings: Booking[];
   tasks: Task[];
   selectedBrand: string | 'All';
-  setSelectedBrand: (brand: string | 'All') => void;
   userRole: 'Admin' | 'Staff' | 'Client' | 'none';
+  expenses?: any[];
+  divisions: Division[];
+  addDivision: (division: Division) => void;
+  deleteDivision: (id: string) => void;
+  addClient: (client: Client) => Promise<void>;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ divisions, invoices, clients, tasks, selectedBrand, setSelectedBrand, userRole }) => {
+const slugify = (text: string) => text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
+
+const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, userRole, divisions, addDivision, deleteDivision, addClient }) => {
   const navigate = useNavigate();
 
+  const [summary, setSummary] = useState<any>(null);
+  
+  // Project Registries States
+  const [isAdding, setIsAdding] = useState(false);
+  const [isEditing, setIsEditing] = useState<Division | null>(null);
+  const [newDiv, setNewDiv] = useState<Partial<Division>>({ type: 'Wedding' });
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [divToDelete, setDivToDelete] = useState<Division | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [fadingId, setFadingId] = useState<string | null>(null);
 
-  const [localEntries] = useState<any[]>(() => { try { const e = localStorage.getItem('entries'); return e ? JSON.parse(e) : []; } catch { return []; } });
-  const [localExpenses] = useState<any[]>(() => { try { const e = localStorage.getItem('expenses'); return e ? JSON.parse(e) : []; } catch { return []; } });
+  // Create Client States
+  const [isAddingClient, setIsAddingClient] = useState(false);
+  const [isSubmittingClient, setIsSubmittingClient] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [clientFormData, setClientFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    eventDate: '',
+    projectType: 'Wedding',
+    projectId: selectedBrand !== 'All' ? selectedBrand : '',
+    projectName: divisions.find(d => d.id === selectedBrand)?.name || ''
+  });
+
+  const isAdmin = userRole === 'Admin';
+
+  const confirmDelete = async () => {
+    if (!divToDelete) return;
+    const targetId = divToDelete.id;
+
+    setIsDeleting(true);
+    await new Promise(r => setTimeout(r, 150));
+
+    setFadingId(targetId);
+    setIsDeleteModalOpen(false);
+    
+    // Smooth transition
+    await new Promise(r => setTimeout(r, 300));
+    
+    try {
+      await deleteDivision(targetId);
+    } catch (err) {
+      console.error("Master Purge Protocol Failed", err);
+    } finally {
+      setIsDeleting(false);
+      setDivToDelete(null);
+      setFadingId(null);
+    }
+  };
+
+  const handleSubmitDivision = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newDiv.name && newDiv.type) {
+      addDivision({
+        id: isEditing ? isEditing.id : `div_${Date.now()}`,
+        name: newDiv.name,
+        type: newDiv.type as any,
+        createdAt: isEditing ? isEditing.createdAt : new Date().toISOString(),
+        description: newDiv.description || '',
+        color: newDiv.color || '#3b82f6'
+      });
+      setIsAdding(false);
+      setIsEditing(null);
+      setNewDiv({ type: 'Wedding' });
+    }
+  };
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientFormData.projectId || clientFormData.projectId === 'All') {
+      setFormError("Please select a specific Project Registry");
+      return;
+    }
+    if (!clientFormData.name) {
+      setFormError("Name is required");
+      return;
+    }
+
+    setIsSubmittingClient(true);
+    setFormError(null);
+
+    const targetDiv = divisions.find(d => d.id === clientFormData.projectId);
+
+    const clientData: Client = {
+      id: String(Date.now()),
+      _id: `client-${Date.now()}`,
+      projectName: clientFormData.name,
+      name: clientFormData.name,
+      email: clientFormData.email,
+      phone: clientFormData.phone,
+      eventDate: clientFormData.eventDate,
+      projectType: clientFormData.projectType,
+      brand: targetDiv?.name || clientFormData.projectName || 'Unknown',
+      divisionId: clientFormData.projectId,
+      notes: '',
+      people: [],
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      await addClient(clientData);
+      setClientFormData({
+        name: '',
+        email: '',
+        phone: '',
+        eventDate: '',
+        projectType: 'Wedding',
+        projectId: selectedBrand !== 'All' ? selectedBrand : '',
+        projectName: divisions.find(d => d.id === selectedBrand)?.name || ''
+      });
+      setIsAddingClient(false);
+    } catch (err) {
+      setFormError("Failed to save data.");
+    } finally {
+      setIsSubmittingClient(false);
+    }
+  };
+
+  React.useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const data = await api.getFinanceSummary(selectedBrand, selectedBrand === 'All' ? 'global' : 'project');
+        setSummary(data);
+      } catch (err) {
+        console.error("Dashboard Finance Sync Failed:", err);
+      } finally {
+        // removed load
+      }
+    };
+    fetchSummary();
+  }, [selectedBrand]);
+
+  React.useEffect(() => {
+    if (isAddingClient || isAdding || isDeleteModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isAddingClient, isAdding, isDeleteModalOpen]);
 
 
-  const safeInvoices = Array.isArray(invoices) ? invoices : [];
   const safeClients = Array.isArray(clients) ? clients : [];
   const safeTasks = Array.isArray(tasks) ? tasks : [];
 
-  const filteredInvoices = selectedBrand === 'All' ? safeInvoices.filter(i => i && !i.isQuotation) : safeInvoices.filter(i => i && i.brand === selectedBrand && !i.isQuotation);
-  const filteredLocalEntries = selectedBrand === 'All' ? localEntries : localEntries.filter(e => e && e.brand === selectedBrand);
-  const filteredLocalExpenses = selectedBrand === 'All' ? localExpenses : localExpenses.filter(e => e && e.brand === selectedBrand);
   const filteredClients = selectedBrand === 'All' ? safeClients : safeClients.filter(c => c && c.brand === selectedBrand);
   const filteredTasks = selectedBrand === 'All' ? safeTasks : safeTasks.filter(t => t && t.brand === selectedBrand);
 
-  // Financials
-  const apiRevenue = filteredInvoices.reduce((sum, inv) => sum + (Array.isArray(inv.items) ? inv.items.reduce((s, i) => s + ((i.price || 0) * (i.quantity || 0)), 0) : 0), 0);
-  const localRevenue = filteredLocalEntries.filter(e => e && e.type === 'invoice').reduce((s, e) => s + (e.total || 0), 0);
-  const totalRevenue = apiRevenue + localRevenue;
-  const totalExpenses = filteredLocalExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const cashFlow = totalRevenue - totalExpenses;
+  // Financials (Unified Source)
+  const totalRevenue = summary?.totalRevenue || 0;
+  const totalExpenses = summary?.totalExpenses || 0;
+  const cashFlow = summary?.profit || 0;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -53,15 +196,9 @@ const Dashboard: React.FC<DashboardProps> = ({ divisions, invoices, clients, tas
   const generateAlerts = React.useCallback(() => {
     const activeAlerts: { text: string; type: 'warning' | 'critical' | 'event'; priority: number; icon: any; action?: () => void }[] = [];
 
-    const unpaidApi = filteredInvoices.filter(i => !i.status || i.status.toLowerCase() !== 'paid');
-    const unpaidLocal = filteredLocalEntries.filter(e => e && e.type === 'invoice' && (!e.status || e.status.toLowerCase() !== 'paid'));
-    
-    const unpaidInvoices = [...unpaidApi, ...unpaidLocal];
+    const unpaidInvoices = summary?.invoices?.filter((i: any) => i.status !== 'Paid') || [];
     const unpaidCount = unpaidInvoices.length;
-    const unpaidAmount = unpaidInvoices.reduce((sum, inv) => {
-      const total = inv.total || (Array.isArray(inv.items) ? inv.items.reduce((s: number, item: any) => s + ((item.price || 0) * (item.quantity || 0)), 0) : 0);
-      return sum + total;
-    }, 0);
+    const unpaidAmount = summary?.pendingAmount || 0;
     
     if (unpaidCount > 0) {
       activeAlerts.push({ 
@@ -75,7 +212,8 @@ const Dashboard: React.FC<DashboardProps> = ({ divisions, invoices, clients, tas
     
 
 
-    unpaidInvoices.forEach(inv => {
+
+    unpaidInvoices.forEach((inv: any) => {
       const invDateStr = inv.dueDate || (inv as any).date || inv.issueDate || inv.createdAt;
       if (invDateStr) {
         const invDate = new Date(invDateStr);
@@ -92,7 +230,7 @@ const Dashboard: React.FC<DashboardProps> = ({ divisions, invoices, clients, tas
             type: 'critical',
             priority: 1,
             icon: AlertCircle,
-            action: () => navigate('/revenue', { state: { scrollId: inv.id } })
+            action: () => navigate('/revenue', { state: { scrollId: inv.id || inv._id } })
           });
         }
       }
@@ -138,37 +276,28 @@ const Dashboard: React.FC<DashboardProps> = ({ divisions, invoices, clients, tas
     });
 
     return activeAlerts.sort((a, b) => a.priority - b.priority);
-  }, [filteredInvoices, filteredLocalEntries, filteredClients, totalRevenue, totalExpenses, navigate, today]);
+  }, [summary, filteredClients, totalRevenue, totalExpenses, navigate, today, safeClients]);
 
   // Client Profit Data
   const clientProfitData = React.useMemo(() => {
     const map: Record<string, { revenue: number; expenses: number }> = {};
     
-    // API Invoices
-    safeInvoices.filter(i => i && !i.isQuotation).forEach(inv => {
+    summary?.invoices?.forEach((inv: any) => {
       let cName = 'Unknown Client';
       if (inv.client) cName = inv.client.name || inv.client.projectName || cName;
       else if (inv.clientId) {
         const c = safeClients.find(cl => String(cl.id) === String(inv.clientId));
         if (c) cName = c.projectName || c.name || cName;
-      } else if ((inv as any).clientName) {
-        cName = (inv as any).clientName;
+      } else if (inv.clientName) {
+        cName = inv.clientName;
       }
       
-      const amt = Array.isArray(inv.items) ? inv.items.reduce((s: number, it: any) => s + ((it.price || 0) * (it.quantity || 0)), 0) : 0;
+      const amt = inv.total || inv.totalAmount || (Array.isArray(inv.items) ? inv.items.reduce((s: number, it: any) => s + ((it.price || 0) * (it.quantity || 0)), 0) : 0);
       if (!map[cName]) map[cName] = { revenue: 0, expenses: 0 };
       map[cName].revenue += amt;
     });
 
-    // Local Invoices
-    filteredLocalEntries.filter(e => e && e.type === 'invoice').forEach(inv => {
-      const cName = inv.clientName || 'Unknown Client';
-      if (!map[cName]) map[cName] = { revenue: 0, expenses: 0 };
-      map[cName].revenue += (inv.total || 0);
-    });
-
-    // Local Expenses
-    filteredLocalExpenses.forEach(exp => {
+    summary?.expenses?.forEach((exp: any) => {
       const cName = exp.client || 'General';
       if (!map[cName]) map[cName] = { revenue: 0, expenses: 0 };
       map[cName].expenses += (Number(exp.amount) || 0);
@@ -182,7 +311,7 @@ const Dashboard: React.FC<DashboardProps> = ({ divisions, invoices, clients, tas
     }));
 
     return result.sort((a,b) => b.profit - a.profit);
-  }, [safeInvoices, filteredLocalEntries, filteredLocalExpenses, safeClients, filteredClients]);
+  }, [summary, safeClients]);
 
   const alerts = React.useMemo(() => generateAlerts(), [generateAlerts]);
 
@@ -199,60 +328,73 @@ const Dashboard: React.FC<DashboardProps> = ({ divisions, invoices, clients, tas
   let metrics: any[] = [];
   if (userRole === 'Staff') {
     metrics = [
-      { id: 1, label: 'My Tasks', value: myTasksCount, hex: '#FFFFFF', icon: CheckSquare, bg: 'bg-zinc-900' },
-      { id: 2, label: 'Active Jobs', value: activeProjectsCount, hex: '#10b981', icon: Layers, bg: 'bg-emerald-950/10' },
-      { id: 3, label: 'Alerts', value: alerts.length, hex: '#f59e0b', icon: MessageSquare, bg: 'bg-amber-950/10' },
-      { id: 4, label: 'Events', value: eventsCount, hex: '#3b82f6', icon: CalendarCheck, bg: 'bg-blue-950/10' },
+      { id: 1, label: 'My Tasks', value: myTasksCount, hex: '#FFFFFF', icon: CheckSquare, bg: 'bg-zinc-900', targetPath: '/tasks' },
+      { id: 2, label: 'Active Jobs', value: activeProjectsCount, hex: '#10b981', icon: Layers, bg: 'bg-emerald-950/10', targetPath: '/directory' },
+      { id: 3, label: 'Alerts', value: alerts.length, hex: '#f59e0b', icon: MessageSquare, bg: 'bg-amber-950/10', targetPath: '/alerts' },
+      { id: 4, label: 'Events', value: eventsCount, hex: '#3b82f6', icon: CalendarCheck, bg: 'bg-blue-950/10', targetPath: '/coordination?view=upcoming' },
     ];
   } else {
     metrics = [
       { id: 1, label: 'Total Revenue', value: `₹${(totalRevenue / 100000).toFixed(1)}L`, hex: '#FFFFFF', icon: Briefcase, bg: 'bg-zinc-900', targetPath: '/analytics' },
-      { id: 2, label: 'Cash Flow', value: `₹${(cashFlow / 100000).toFixed(1)}L`, hex: '#10b981', icon: IndianRupee, bg: 'bg-emerald-950/10' },
-      { id: 3, label: 'Alerts', value: alerts.length, hex: '#f59e0b', icon: MessageSquare, bg: 'bg-amber-950/10' },
-      { id: 4, label: 'Events', value: eventsCount, hex: '#3b82f6', icon: CalendarCheck, bg: 'bg-blue-950/10' },
+      { id: 2, label: 'Cash Flow', value: `₹${(cashFlow / 100000).toFixed(1)}L`, hex: '#10b981', icon: IndianRupee, bg: 'bg-emerald-950/10', targetPath: '/ledger' },
+      { id: 3, label: 'Alerts', value: alerts.length, hex: '#f59e0b', icon: MessageSquare, bg: 'bg-amber-950/10', targetPath: '/alerts' },
+      { id: 4, label: 'Events', value: eventsCount, hex: '#3b82f6', icon: CalendarCheck, bg: 'bg-blue-950/10', targetPath: '/coordination?view=upcoming' },
     ];
   }
 
   return (
     <div className="space-y-12 animate-ios-slide-up">
-      <div className="space-y-6">
-        <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight uppercase leading-none">Command Center</h1>
-        <div className="bg-zinc-900/50 p-2 rounded-2xl border border-white/5 flex gap-2 overflow-x-auto no-scrollbar max-w-max">
+      {isAdmin && (
+        <div className="flex justify-end -mb-6">
           <button
-            onClick={() => setSelectedBrand('All')}
-            className={`px-10 py-3.5 text-xs font-black uppercase tracking-[0.2em] rounded-xl transition-all whitespace-nowrap ${selectedBrand === 'All' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
+            onClick={() => {
+              setFormError(null);
+              setClientFormData({
+                name: '',
+                email: '',
+                phone: '',
+                eventDate: '',
+                projectType: 'Wedding',
+                projectId: selectedBrand !== 'All' ? selectedBrand : '',
+                projectName: divisions.find(d => d.id === selectedBrand)?.name || ''
+              });
+              setIsAddingClient(true);
+            }}
+            className="bg-white text-black px-8 py-3.5 rounded-2xl flex items-center gap-3 font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 ios-transition shadow-lg active:scale-95"
           >
-            Global
+            <UserPlus className="w-5 h-5" />
+            Create Client
           </button>
-          
-          {divisions.map(div => (
-            <button
-              key={div.id}
-              onClick={() => setSelectedBrand(div.name)}
-              className={`px-10 py-3.5 text-xs font-black uppercase tracking-[0.2em] rounded-xl transition-all whitespace-nowrap ${selectedBrand === div.name ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
-            >
-              {div.name}
-            </button>
-          ))}
         </div>
-      </div>
+      )}
+      {/* Metrics Grid */}
+
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {metrics.map((m) => {
           const Icon = m.icon;
           return (
-            <div key={m.id} onClick={() => m.targetPath && navigate(m.targetPath)} className={`${m.bg} border border-white/5 p-8 squircle-lg flex flex-col justify-between h-48 group cursor-pointer active:scale-95 ios-transition`}>
-              <div className="flex justify-between items-start">
-                <div className="p-4 rounded-2xl bg-white/5 text-white shadow-xl group-hover:bg-white group-hover:text-black transition-all">
+            <button 
+              key={m.id} 
+              onClick={() => m.targetPath && navigate(m.targetPath)} 
+              className={`${m.bg} border border-white/5 p-8 squircle-lg flex flex-col justify-between h-48 group cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:border-white/20 active:scale-95 text-left w-full outline-none focus:ring-2 focus:ring-white/20 relative overflow-hidden`}
+              aria-label={`View ${m.label}`}
+            >
+              <div 
+                className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500" 
+                style={{ background: `radial-gradient(circle at top right, ${m.hex}, transparent 70%)` }}
+              />
+              <div className="flex justify-between items-start relative z-10">
+                <div className="p-4 rounded-2xl bg-white/5 text-white shadow-xl group-hover:bg-white group-hover:text-black transition-all duration-200">
                   <Icon className="w-6 h-6" />
                 </div>
-                <ArrowUpRight className="w-5 h-5 text-zinc-700" />
+                <ArrowUpRight className="w-5 h-5 text-zinc-700 group-hover:text-white group-hover:translate-x-1 group-hover:-translate-y-1 transition-all duration-200" />
               </div>
-              <div>
-                <p className="text-zinc-600 text-xs font-black uppercase tracking-widest mb-1">{m.label}</p>
+              <div className="relative z-10">
+                <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-zinc-400 transition-colors">{m.label}</p>
                 <h3 className="text-3xl font-black text-white tracking-tight">{m.value}</h3>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -373,6 +515,241 @@ const Dashboard: React.FC<DashboardProps> = ({ divisions, invoices, clients, tas
           )}
         </div>
       </div>
+
+      {/* PROJECT REGISTRIES SECTION */}
+      <div className="space-y-10">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-white/5 pb-8">
+          <div>
+            <h2 className="text-2xl font-black text-white tracking-tight uppercase flex items-center gap-3">
+              <Settings2 className="w-6 h-6 text-zinc-500" /> Project Registries
+            </h2>
+          </div>
+          {isAdmin && (
+            <button 
+              onClick={() => { setIsEditing(null); setNewDiv({ type: 'Wedding' }); setIsAdding(true); }}
+              className="bg-white text-black px-8 py-4 rounded-xl font-black uppercase text-[11px] tracking-widest flex items-center gap-3 hover:bg-zinc-200 transition-all shadow-2xl active:scale-95"
+            >
+              <Plus className="w-5 h-5" /> Register Projects
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {divisions.map(div => (
+            <div 
+              key={div.id} 
+              onClick={() => navigate(`/ecosystem/brand/${slugify(div.name)}`)}
+              className={`glass-panel p-10 relative group overflow-hidden transition-all duration-500 squircle-lg border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] cursor-pointer hover:scale-[1.02] hover:border-white/20 shadow-2xl ${fadingId === div.id ? 'animate-fade-out' : ''}`}
+            >
+              <div className="absolute top-0 right-0 w-1.5 h-full opacity-40 group-hover:opacity-100 bg-blue-500" />
+              
+              <div className="flex justify-between items-start mb-6">
+                 <h3 className="font-black text-2xl text-white tracking-tighter leading-none truncate uppercase pr-4 group-hover:text-blue-400 transition-colors uppercase">{div.name}</h3>
+                 {isAdmin && (
+                    <div className="flex gap-2">
+                       <button 
+                         onClick={(e) => { e.stopPropagation(); setIsEditing(div); setNewDiv(div); setIsAdding(true); }}
+                         className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/10"
+                       >
+                         <Shield className="w-4 h-4" />
+                       </button>
+                       <button 
+                         onClick={(e) => { e.stopPropagation(); setDivToDelete(div); setIsDeleteModalOpen(true); }}
+                         className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 transition-all border border-transparent hover:border-red-500/10"
+                       >
+                         <Trash2 className="w-4 h-4" />
+                       </button>
+                    </div>
+                 )}
+              </div>
+
+              <div className="space-y-4">
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 block">{div.type} Operational Registry</span>
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); navigate(`/ecosystem/brand/${slugify(div.name)}`); }}
+                   className="w-full py-4 bg-white/5 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-white group-hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                 >
+                    Deployment View
+                    <Shield className="w-3 h-3" />
+                 </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {isAdding && (
+        <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-6 backdrop-blur-2xl">
+          <div className="bg-zinc-900 border border-white/10 rounded-[2.5rem] w-full max-w-xl p-12 shadow-2xl animate-ios-slide-up">
+            <div className="flex justify-between items-center mb-12">
+              <h2 className="text-3xl font-black text-white uppercase tracking-tight">{isEditing ? 'Update Registry' : 'Register Projects'}</h2>
+              <button onClick={() => { setIsAdding(false); setIsEditing(null); setNewDiv({ type: 'Wedding' }); }} className="p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
+            </div>
+            <form onSubmit={handleSubmitDivision} className="space-y-8">
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Registry Name</label>
+                <input required className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-sm font-black text-white outline-none focus:bg-white/10 transition-all" placeholder="e.g. AAHA KALYANAM" value={newDiv.name || ''} onChange={e => setNewDiv({ ...newDiv, name: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Operational Type</label>
+                <select 
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all"
+                  value={newDiv.type || 'Wedding'}
+                  onChange={e => setNewDiv({ ...newDiv, type: e.target.value as any })}
+                >
+                  <option value="Wedding" className="bg-zinc-900 uppercase">Wedding Production</option>
+                  <option value="Kids" className="bg-zinc-900 uppercase">Kids / Maternity</option>
+                  <option value="Corporate" className="bg-zinc-900 uppercase">Corporate Enterprise</option>
+                  <option value="Events" className="bg-zinc-900 uppercase">Special Events</option>
+                </select>
+              </div>
+              <button type="submit" className="w-full py-5 bg-white text-black font-black rounded-2xl text-[11px] uppercase tracking-widest shadow-2xl transition-all">
+                {isEditing ? 'Confirm Update' : 'Formalize Deployment'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isDeleteModalOpen && divToDelete && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[9999] animate-modal-overlay"
+          onClick={() => { setIsDeleteModalOpen(false); setDivToDelete(null); }}
+        >
+          <div 
+            className="bg-zinc-900 border border-white/10 rounded-[3rem] w-full max-w-[400px] p-12 shadow-2xl text-center animate-modal-content m-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-red-500/20">
+              <Trash2 className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-3xl font-black text-white tracking-tight uppercase mb-4">Purge Registry?</h2>
+            <p className="text-sm text-zinc-500 font-medium mb-10 pb-4 border-b border-white/5 leading-relaxed">
+              Caution: This will permanently purge the <span className="text-white font-black">{divToDelete.name}</span> registry. This structural change is irreversible.
+            </p>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setDivToDelete(null);
+                }}
+                className="flex-1 py-5 bg-white/5 text-zinc-500 hover:text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border border-white/5"
+              >
+                Abort
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="flex-1 py-5 bg-red-600 text-white hover:bg-red-500 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                   <>
+                     <Loader2 className="w-4 h-4 animate-spin-fast" />
+                     Purging...
+                   </>
+                ) : 'Confirm Purge'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {isAddingClient && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setIsAddingClient(false)}
+        >
+          <div 
+            className="w-full max-w-xl bg-zinc-900 border border-white/10 squircle-lg p-10 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto no-scrollbar relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-10">
+              <div>
+                <h2 className="text-3xl font-black text-white tracking-tight uppercase">New Client</h2>
+                <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mt-1">Add New Client</p>
+              </div>
+              <button disabled={isSubmittingClient} onClick={() => {
+                setIsAddingClient(false);
+              }} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"><X className="w-6 h-6 text-zinc-400 hover:text-white" /></button>
+            </div>
+
+            {formError && (
+              <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl text-[10px] uppercase tracking-widest font-mono text-center">
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateClient} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Assign to Project Registry *</label>
+                {selectedBrand !== 'All' ? (
+                   <div className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-zinc-400 cursor-not-allowed">
+                      {divisions.find(d => d.id === selectedBrand)?.name || selectedBrand}
+                      <span className="ml-2 text-[8px] opacity-40">(Locked by Global Filter)</span>
+                   </div>
+                ) : (
+                  <select 
+                    className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" 
+                    value={clientFormData.projectId} 
+                    onChange={e => {
+                      const id = e.target.value;
+                      const div = divisions.find(d => d.id === id);
+                      setClientFormData(prev => ({ ...prev, projectId: id, projectName: div?.name || '' }));
+                    }} 
+                    disabled={isSubmittingClient}
+                  >
+                    <option value="" disabled>Select Unit...</option>
+                    {divisions.map(d => <option key={d.id} className="bg-zinc-900" value={d.id}>{d.name}</option>)}
+                  </select>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Client Name *</label>
+                <input className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. Rahul & Priya" value={clientFormData.name} onChange={e => setClientFormData(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmittingClient} />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Email <span className="opacity-50">(Optional)</span></label>
+                <input type="email" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. hello@example.com" value={clientFormData.email} onChange={e => setClientFormData(prev => ({ ...prev, email: e.target.value }))} disabled={isSubmittingClient} />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Project Type *</label>
+                <select className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={clientFormData.projectType} onChange={e => setClientFormData(prev => ({ ...prev, projectType: e.target.value }))} disabled={isSubmittingClient}>
+                  <option value="Wedding" className="bg-zinc-900">Luxury Wedding</option>
+                  <option value="Kids" className="bg-zinc-900">Kids & Maternity</option>
+                  <option value="Corporate" className="bg-zinc-900">Corporate Production</option>
+                  <option value="Fashion" className="bg-zinc-900">Fashion Editorial</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Phone <span className="opacity-50">(Optional)</span></label>
+                  <input className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="+91 98765 43210" value={clientFormData.phone} onChange={e => setClientFormData(prev => ({ ...prev, phone: e.target.value }))} disabled={isSubmittingClient} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Event Date <span className="opacity-50">(Optional)</span></label>
+                  <input type="date" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={clientFormData.eventDate} onChange={e => setClientFormData(prev => ({ ...prev, eventDate: e.target.value }))} disabled={isSubmittingClient} />
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-8 border-t border-white/5">
+                <button type="button" disabled={isSubmittingClient} onClick={() => {
+                  setIsAddingClient(false);
+                }} className="flex-1 py-4 bg-white/5 text-zinc-500 hover:text-white squircle-sm font-black uppercase text-[11px] tracking-widest transition-all disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={isSubmittingClient} className="flex-1 py-4 bg-white text-black hover:bg-zinc-200 squircle-sm font-black uppercase text-[11px] tracking-widest shadow-xl transition-all disabled:opacity-50">
+                  {isSubmittingClient ? 'Saving...' : 'Create Client'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

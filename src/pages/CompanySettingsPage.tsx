@@ -1,11 +1,11 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import { type CompanyProfile } from '../types';
 import { 
   Building, Palette, CreditCard, FileText, Upload, Trash2, 
-  CheckCircle2, Plus, X, Globe, Mail, Phone, MapPin, 
-  Star, Settings as Gear, Shield, ExternalLink, Copy, Check, Info,
+  CheckCircle2, Plus, X, 
+  Star, Settings as Gear, Shield, Copy, Check, Info,
   Eye, EyeOff, Edit3, Save, AlertTriangle, QrCode, Hash, FileImage
 } from 'lucide-react';
 
@@ -19,6 +19,24 @@ const CompanySettingsPage: React.FC = () => {
   const [isEditingPdfPassword, setIsEditingPdfPassword] = useState(false);
   const [tempPassword, setTempPassword] = useState(globalSettings.pdfOwnerPassword || '');
   const [dismissedTip, setDismissedTip] = useState(() => localStorage.getItem('artisans_dismissed_pdf_tip') === 'true');
+  const [selectedGlobalColor, setSelectedGlobalColor] = useState(() => localStorage.getItem('artisans_primary_color') || '#3B82F6');
+
+  const presetColors = [
+    { name: 'Blue', value: '#3B82F6' },
+    { name: 'Green', value: '#10B981' },
+    { name: 'Purple', value: '#8B5CF6' },
+    { name: 'Pink', value: '#EC4899' },
+    { name: 'Orange', value: '#F97316' },
+    { name: 'Red', value: '#EF4444' },
+    { name: 'Amber', value: '#F59E0B' },
+    { name: 'Teal', value: '#14B8A6' },
+  ];
+
+  const handleGlobalColorChange = (color: string) => {
+    setSelectedGlobalColor(color);
+    localStorage.setItem('artisans_primary_color', color);
+    window.dispatchEvent(new CustomEvent('primary-color-changed'));
+  };
 
   // Form State for Modal
   const [formData, setFormData] = useState<Partial<CompanyProfile>>({});
@@ -264,14 +282,39 @@ const CompanySettingsPage: React.FC = () => {
               </select>
            </div>
            
-           <div className="glass-panel p-10 squircle-lg border border-white/5 bg-white/[0.01] flex items-center justify-between">
+           <div className="glass-panel p-10 squircle-lg border border-white/5 bg-white/[0.01] flex flex-col md:flex-row md:items-center justify-between gap-8">
               <div>
                  <p className="text-lg font-black text-white uppercase tracking-tighter mb-1">Primary Color Scheme</p>
                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-relaxed">System-wide UI accent protocol</p>
               </div>
-              <div className="flex items-center gap-4">
-                 <div className="w-8 h-8 rounded-full bg-blue-500 border-2 border-white shadow-xl" />
-                 <div className="w-8 h-8 rounded-full bg-zinc-800 border border-white/10" />
+              <div className="flex flex-wrap items-center gap-4">
+                 <div className="flex items-center gap-2 p-2 bg-black/40 rounded-2xl border border-white/5">
+                    {presetColors.map(color => (
+                       <button
+                         key={color.value}
+                         onClick={() => handleGlobalColorChange(color.value)}
+                         className={`w-7 h-7 rounded-full transition-all hover:scale-110 active:scale-90 relative ${selectedGlobalColor === color.value ? 'ring-2 ring-white ring-offset-2 ring-offset-black' : ''}`}
+                         style={{ backgroundColor: color.value }}
+                         title={color.name}
+                       />
+                    ))}
+                 </div>
+
+                 <div className="flex items-center gap-3 pl-4 border-l border-white/10">
+                    <div className="relative group">
+                       <input 
+                         type="color" 
+                         value={selectedGlobalColor}
+                         onChange={(e) => handleGlobalColorChange(e.target.value)}
+                         className="w-10 h-10 bg-transparent border-none cursor-pointer outline-none overflow-hidden rounded-lg"
+                       />
+                       <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-white text-black text-[8px] font-black uppercase rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Custom Picker</div>
+                    </div>
+                    <div className="hidden sm:block">
+                       <p className="text-[9px] font-black text-white uppercase tracking-widest leading-none">Custom</p>
+                       <p className="text-[8px] font-bold text-zinc-500 uppercase mt-1">{selectedGlobalColor}</p>
+                    </div>
+                 </div>
               </div>
            </div>
         </div>

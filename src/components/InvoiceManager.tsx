@@ -1,6 +1,7 @@
 
 /* eslint-disable react-hooks/purity */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Trash2, Send, CheckCircle2, Clock, IndianRupee } from 'lucide-react';
 // Fix: removed non-existent Brand import from types
 import { type Invoice, type Client, InvoiceStatus, type InvoiceItem } from '../types';
@@ -20,6 +21,17 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [items, setItems] = useState<InvoiceItem[]>([{ id: '1', description: '', quantity: 1, price: 0 }]);
   const [dueDate, setDueDate] = useState<string>('');
+
+  useEffect(() => {
+    if (isCreating) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isCreating]);
 
   const [aiDraft, setAiDraft] = useState<{ id: string, text: string } | null>(null);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
@@ -105,9 +117,15 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
         </button>
       </div>
 
-      {isCreating && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 text-slate-900">
+      {isCreating && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-ios-fade-in"
+          onClick={() => setIsCreating(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-10 shadow-2xl relative animate-ios-slide-up text-slate-900 no-scrollbar"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-xl font-bold mb-6">New Invoice</h2>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
@@ -210,7 +228,8 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Invoice List */}

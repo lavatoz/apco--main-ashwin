@@ -1,50 +1,43 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useCompanySettings } from '../hooks/useCompanySettings';
+import { api } from '../services/api';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { TrendingUp, BarChart2 } from 'lucide-react';
 
-interface Entry {
-  id: string | number;
-  total?: number;
-  date?: string;
-  createdAt?: string;
-  type?: string;
-}
 
-interface Expense {
-  id: string | number;
-  amount: number;
-  date?: string;
-  createdAt?: string;
-}
 
 const AnalyticsDashboard: React.FC = () => {
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const navigate = useNavigate();
+  const { companies, selectedCompanyId, setSelectedCompanyId } = useCompanySettings();
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const storedEntries = localStorage.getItem('entries');
-      if (storedEntries) {
-        setEntries(JSON.parse(storedEntries));
+    const fetchSummary = async () => {
+      setLoading(true);
+      try {
+        const data = await api.getFinanceSummary(selectedCompanyId, selectedCompanyId === 'All' ? 'global' : 'project');
+        setSummary(data);
+      } catch (err) {
+        console.error("Analytics Finance Sync Failed:", err);
+      } finally {
+        setLoading(false);
       }
-      const storedExpenses = localStorage.getItem('expenses');
-      if (storedExpenses) {
-        setExpenses(JSON.parse(storedExpenses));
-      }
-    } catch (error) {
-      console.warn('Failed to parse localStorage data', error);
-    }
-  }, []);
+    };
+    fetchSummary();
+  }, [selectedCompanyId]);
 
   const chartData = useMemo(() => {
+    if (!summary) return [];
+    
     const dataMap: Record<string, { dateStr: string; revenue: number; expenses: number }> = {};
 
-    // Process Entries (Revenue)
-    entries.forEach((entry) => {
-      if (entry.type !== 'invoice') return;
-      const dateVal = entry.date || entry.createdAt;
+    // Process Invoices
+    summary.invoices?.forEach((inv: any) => {
+      const dateVal = inv.issueDate || inv.date || inv.createdAt;
       if (!dateVal) return;
       const dateObj = new Date(dateVal);
       if (isNaN(dateObj.getTime())) return;
@@ -54,12 +47,12 @@ const AnalyticsDashboard: React.FC = () => {
       if (!dataMap[dateStr]) {
         dataMap[dateStr] = { dateStr, revenue: 0, expenses: 0 };
       }
-      dataMap[dateStr].revenue += Number(entry.total || 0);
+      dataMap[dateStr].revenue += Number(inv.total || inv.totalAmount || (inv.items?.reduce((s: any, it: any) => s + (it.price * it.quantity), 0) || 0));
     });
 
     // Process Expenses
-    expenses.forEach((expense) => {
-      const dateVal = expense.date || expense.createdAt;
+    summary.expenses?.forEach((exp: any) => {
+      const dateVal = exp.date || exp.createdAt;
       if (!dateVal) return;
       const dateObj = new Date(dateVal);
       if (isNaN(dateObj.getTime())) return;
@@ -69,7 +62,7 @@ const AnalyticsDashboard: React.FC = () => {
       if (!dataMap[dateStr]) {
         dataMap[dateStr] = { dateStr, revenue: 0, expenses: 0 };
       }
-      dataMap[dateStr].expenses += Number(expense.amount || 0);
+      dataMap[dateStr].expenses += Number(exp.amount || 0);
     });
 
     // Finalize Array & Sort
@@ -89,14 +82,33 @@ const AnalyticsDashboard: React.FC = () => {
         displayDate: dateObj.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: '2-digit' })
       };
     });
-  }, [entries, expenses]);
+  }, [summary]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 animate-ios-slide-up h-[70vh]">
+        <div className="w-12 h-12 border-4 border-zinc-900 border-t-white rounded-full animate-spin mb-6" />
+        <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.4em]">Synchronizing Financial Models...</p>
+      </div>
+    );
+  }
 
   if (chartData.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-20 animate-ios-slide-up h-full min-h-[50vh]">
-        <BarChart2 className="w-16 h-16 text-zinc-800 mb-6" />
-        <h2 className="text-2xl font-black text-white uppercase tracking-widest">No financial data available</h2>
-        <p className="text-zinc-500 font-bold uppercase text-[10px] tracking-[0.2em] mt-2">Create invoices or log expenses to populate metrics.</p>
+      <div className="flex flex-col items-center justify-center p-20 animate-ios-slide-up min-h-[70vh] bg-zinc-950/20 rounded-[3rem] border border-dashed border-white/5">
+        <BarChart2 className="w-20 h-20 text-zinc-800 mb-8" />
+        <h2 className="text-3xl font-black text-white uppercase tracking-tighter">No financial data for this project yet</h2>
+        <p className="text-zinc-500 font-bold uppercase text-[10px] tracking-[0.2em] mt-4 mb-10 max-w-md text-center leading-relaxed">
+          Operational metrics are empty. You haven't issued any invoices or logged outflow for {selectedCompanyId === 'All' ? 'any entity' : selectedCompanyId}.
+        </p>
+        <div className="flex gap-4">
+          <button onClick={() => navigate('/revenue')} className="px-8 py-3.5 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-zinc-200 transition-all active:scale-95 shadow-xl shadow-white/5">
+            Create Invoice
+          </button>
+          <button onClick={() => navigate('/ledger')} className="px-8 py-3.5 bg-white/5 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-white/10 transition-all active:scale-95 border border-white/10">
+            Go to Ledger
+          </button>
+        </div>
       </div>
     );
   }
@@ -120,12 +132,30 @@ const AnalyticsDashboard: React.FC = () => {
 
   return (
     <div className="space-y-10 animate-ios-slide-up pb-24">
-      <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-6">
         <div>
-          <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none flex items-center gap-4">
-            Revenue Analytics <TrendingUp className="w-8 h-8 text-blue-500" />
+          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase leading-none flex items-center gap-4">
+            Analytics <TrendingUp className="w-10 h-10 text-emerald-500" />
           </h1>
-          <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em] mt-2">Cash Flow Modeling & Performance</p>
+          <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em] mt-3">Comprehensive Financial Intelligence</p>
+        </div>
+
+        <div className="bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5 flex gap-1 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setSelectedCompanyId('All')}
+            className={`px-8 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${selectedCompanyId === 'All' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
+          >
+            Global
+          </button>
+          {companies.map(div => (
+            <button
+              key={div.id}
+              onClick={() => setSelectedCompanyId(div.id)}
+              className={`px-8 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${selectedCompanyId === div.id ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
+            >
+              {div.companyName}
+            </button>
+          ))}
         </div>
       </div>
 

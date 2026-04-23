@@ -1,12 +1,47 @@
-import React, { useEffect, useState, useRef } from 'react';
+import * as React from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Mail, Phone, Calendar, Briefcase, Plus, ArrowLeft, FileText, IndianRupee, Activity, X, CheckCircle2, Trash2, Edit2, Copy, Download, CreditCard, ChevronRight, Search, Camera, Video, Edit3, Users, AlertTriangle, Clock, Package, Pencil, Check } from 'lucide-react';
+import { Mail, Phone, Calendar, Briefcase, Plus, ArrowLeft, FileText, IndianRupee, Activity, X, CheckCircle2, Trash2, Edit2, Copy, Download, CreditCard, ChevronRight, Search, Camera, Video, Edit3, Users, AlertTriangle, Clock, Package, Check } from 'lucide-react';
 import { type Client, type Invoice, type PaymentRecord, type User as UserType, type ClientAgreement, type IdDocument, type Project, type ProjectStage, type AgreementTemplate, type ActiveAgreementSnapshot, InvoiceStatus } from '../types';
 import { api } from '../services/api';
 import { useCompanySettings, useCompanyForClient } from '../hooks/useCompanySettings';
 import { generateInvoicePDF } from '../utils/pdfGenerator';
 import { Share2 as ShareIcon } from 'lucide-react';
+
+const SUGGESTIONS = {
+   physical: [
+      { name: "Photo Album (50 pages)", price: 6000 },
+      { name: "Premium Album (100 pages)", price: 12000 },
+      { name: "Photo Frame", price: 2500 },
+      { name: "Mini Album", price: 3000 },
+   ],
+   digital: [
+      { name: "Highlight Video (3 min)", price: 15000 },
+      { name: "Full Wedding Film", price: 50000 },
+      { name: "Teaser Video", price: 8000 },
+      { name: "Instagram Reel", price: 3000 },
+   ],
+   team: [
+      { name: "Joel", role: "photographer" },
+      { name: "Arun", role: "videographer" },
+      { name: "Nikhil", role: "editor" },
+      { name: "Ajay", role: "assistant" },
+   ],
+};
+
+const CATEGORY_KEYWORDS = {
+   physical: ["album", "frame", "photo", "print", "box", "canvas"],
+   digital: ["video", "film", "reel", "cinema", "teaser", "highlight", "edit"],
+};
+
+const ROLES = [
+   { value: 'photographer', label: 'Photographer' },
+   { value: 'videographer', label: 'Videographer' },
+   { value: 'editor', label: 'Editor' },
+   { value: 'assistant', label: 'Assistant' },
+];
+
 
 const SmartRoleDropdown: React.FC<{
    role: string,
@@ -27,6 +62,13 @@ const SmartRoleDropdown: React.FC<{
 
    const [isAddingInDropdown, setIsAddingInDropdown] = useState(false);
    const [newMemberNameInDropdown, setNewMemberNameInDropdown] = useState('');
+   const [newMemberRoleInDropdown, setNewMemberRoleInDropdown] = useState(role);
+
+   const [inlineEditingId, setInlineEditingId] = useState<string | null>(null);
+   const [editName, setEditName] = useState('');
+   const [editRole, setEditRole] = useState('');
+
+   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
    const updatePosition = () => {
       if (wrapperRef.current) {
@@ -46,6 +88,8 @@ const SmartRoleDropdown: React.FC<{
             if (contentRef.current && !contentRef.current.contains(e.target as Node)) {
                setIsOpen(false);
                setIsAddingInDropdown(false);
+               setInlineEditingId(null);
+               setDeleteConfirmId(null);
             }
          };
          window.addEventListener('scroll', handleScroll, true);
@@ -66,6 +110,8 @@ const SmartRoleDropdown: React.FC<{
             }
             setIsOpen(false);
             setIsAddingInDropdown(false);
+            setInlineEditingId(null);
+            setDeleteConfirmId(null);
          }
       };
       document.addEventListener("mousedown", handleClickOutside);
@@ -84,16 +130,32 @@ const SmartRoleDropdown: React.FC<{
          name: newMemberNameInDropdown,
          email: `${newMemberNameInDropdown.toLowerCase().replace(/\s/g, '')}@artisans.local`,
          role: 'Staff',
-         staffRole: role as any,
+         staffRole: newMemberRoleInDropdown as any,
          isActive: true,
          permissions: []
       };
       onAddMember?.(newUser);
-      onChange(newUser.id);
+      if (newMemberRoleInDropdown === role) {
+         onChange(newUser.id);
+      }
       setIsAddingInDropdown(false);
-      setIsOpen(false);
       setNewMemberNameInDropdown('');
       setSearch('');
+   };
+
+   const handleEditSave = (e: React.MouseEvent, id: string) => {
+      e.preventDefault(); e.stopPropagation();
+      if (!editName.trim()) return;
+      const original = allStaff.find(s => s.id === id);
+      if (!original) return;
+
+      const updated: UserType = {
+         ...original,
+         name: editName,
+         staffRole: editRole as any
+      };
+      onEdit?.(updated);
+      setInlineEditingId(null);
    };
 
    return (
@@ -129,16 +191,31 @@ const SmartRoleDropdown: React.FC<{
             >
                {isAddingInDropdown ? (
                   <div className="p-5 space-y-4 animate-ios-slide-up" onMouseDown={e => e.stopPropagation()}>
-                     <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-1">Add to {role}s</p>
-                     <input
-                        autoFocus
-                        placeholder="Member name"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all font-mono"
-                        value={newMemberNameInDropdown}
-                        onChange={e => setNewMemberNameInDropdown(e.target.value)}
-                     />
-                     <div className="flex gap-2">
-                        <button onClick={handleAddSaved} className="flex-1 py-3 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-95">Add Member</button>
+                     <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-1">Initialize Registry</p>
+                     <div className="space-y-3">
+                        <div className="space-y-1">
+                           <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Full Name</label>
+                           <input
+                              autoFocus
+                              placeholder="Ex. Jane Doe"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all"
+                              value={newMemberNameInDropdown}
+                              onChange={e => setNewMemberNameInDropdown(e.target.value)}
+                           />
+                        </div>
+                        <div className="space-y-1">
+                           <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Functional Class</label>
+                           <select
+                              className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all appearance-none"
+                              value={newMemberRoleInDropdown}
+                              onChange={e => setNewMemberRoleInDropdown(e.target.value)}
+                           >
+                              {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                           </select>
+                        </div>
+                     </div>
+                     <div className="flex gap-2 pt-2">
+                        <button onClick={handleAddSaved} className="flex-1 py-3 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-95 shadow-xl shadow-white/10">Commit Person</button>
                         <button onClick={() => setIsAddingInDropdown(false)} className="px-4 py-3 bg-white/5 text-zinc-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
                      </div>
                   </div>
@@ -157,65 +234,113 @@ const SmartRoleDropdown: React.FC<{
                      </div>
 
                      <div className="max-h-[280px] overflow-y-auto no-scrollbar p-2 flex flex-col gap-1.5 custom-scrollbar">
-                        {filteredOpts.map(s => (
-                           <div
-                              key={s.id}
-                              onMouseDown={(e) => {
-                                 e.preventDefault();
-                                 e.stopPropagation();
-                                 onChange(s.id);
-                                 setIsOpen(false);
-                                 setSearch('');
-                              }}
-                              className="p-3 hover:bg-white/[0.05] rounded-xl cursor-pointer flex justify-between items-center transition-all group/item"
-                           >
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                 <div className={`w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-[11px] font-black uppercase shrink-0 group-hover/item:bg-indigo-500 group-hover/item:text-white transition-all shadow-sm`}>
-                                    {(s.name || s.email || '?').charAt(0)}
+                        {filteredOpts.map(s => {
+                           const isEditing = inlineEditingId === s.id;
+                           const isDeleting = deleteConfirmId === s.id;
+
+                           if (isEditing) {
+                              return (
+                                 <div key={s.id} className="p-3 bg-white/5 rounded-xl space-y-3 animate-ios-fade-in" onMouseDown={e => e.stopPropagation()}>
+                                    <input
+                                       autoFocus
+                                       className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-[10px] font-bold text-white outline-none focus:border-indigo-500/50"
+                                       value={editName}
+                                       onChange={e => setEditName(e.target.value)}
+                                    />
+                                    <div className="flex items-center gap-2">
+                                       <select
+                                          className="flex-1 bg-black/40 border border-white/10 rounded-lg p-2 text-[9px] font-black text-zinc-400 uppercase outline-none"
+                                          value={editRole}
+                                          onChange={e => setEditRole(e.target.value)}
+                                       >
+                                          {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                                       </select>
+                                       <button onClick={(e) => handleEditSave(e, s.id)} className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all"><Check size={12} /></button>
+                                       <button onClick={() => setInlineEditingId(null)} className="p-2 bg-white/5 text-zinc-500 rounded-lg hover:bg-white/10 transition-all"><X size={12} /></button>
+                                    </div>
                                  </div>
-                                 <div className="truncate">
-                                    <p className="text-[10px] font-black text-white uppercase truncate tracking-wide">{s.name || s.email}</p>
-                                    <p className="text-[8px] font-bold text-zinc-500 truncate uppercase mt-0.5 flex items-center gap-1">
-                                       <div className="w-1 h-1 rounded-full bg-zinc-700" />
-                                       {s.staffRole || 'Member'}
-                                    </p>
+                              );
+                           }
+
+                           if (isDeleting) {
+                              return (
+                                 <div key={s.id} className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-between animate-ios-slide-up" onMouseDown={e => e.stopPropagation()}>
+                                    <span className="text-[9px] font-black text-red-500 uppercase tracking-widest px-1">Are you sure?</span>
+                                    <div className="flex items-center gap-2">
+                                       <button 
+                                          onClick={(e) => {
+                                             e.preventDefault(); e.stopPropagation();
+                                             onDelete?.(s.id);
+                                             setDeleteConfirmId(null);
+                                          }}
+                                          className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-red-600 transition-all"
+                                       >
+                                          Delete
+                                       </button>
+                                       <button onClick={() => setDeleteConfirmId(null)} className="px-3 py-1.5 bg-white/5 text-zinc-500 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
+                                    </div>
                                  </div>
-                              </div>
-                              <div className="flex items-center gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                 {onEdit && (
+                              );
+                           }
+
+                           return (
+                              <div
+                                 key={s.id}
+                                 onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onChange(s.id);
+                                    setIsOpen(false);
+                                    setSearch('');
+                                 }}
+                                 className="p-3 hover:bg-white/[0.05] rounded-xl cursor-pointer flex justify-between items-center transition-all group/item"
+                              >
+                                 <div className="flex items-center gap-3 overflow-hidden">
+                                    <div className={`w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-[11px] font-black uppercase shrink-0 group-hover/item:bg-indigo-500 group-hover/item:text-white transition-all shadow-sm`}>
+                                       {(s.name || s.email || '?').charAt(0)}
+                                    </div>
+                                    <div className="truncate">
+                                       <p className="text-[10px] font-black text-white uppercase truncate tracking-wide">{s.name || s.email}</p>
+                                       <p className="text-[8px] font-bold text-zinc-500 truncate uppercase mt-0.5 flex items-center gap-1">
+                                          <div className="w-1 h-1 rounded-full bg-zinc-700" />
+                                          {s.staffRole || 'Member'}
+                                       </p>
+                                    </div>
+                                 </div>
+                                 <div className="flex items-center gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
                                     <button
                                        type="button"
                                        onMouseDown={(e) => {
                                           e.preventDefault();
                                           e.stopPropagation();
-                                          onEdit(s);
+                                          setEditName(s.name || '');
+                                          setEditRole(s.staffRole || '');
+                                          setInlineEditingId(s.id);
                                        }}
                                        className="p-1.5 hover:bg-white/10 rounded-lg text-zinc-500 hover:text-white transition-all"
                                     >
                                        <Edit2 size={12} />
                                     </button>
-                                 )}
-                                 {onDelete && (
                                     <button
                                        type="button"
                                        onMouseDown={(e) => {
                                           e.preventDefault();
                                           e.stopPropagation();
-                                          onDelete(s.id);
+                                          setDeleteConfirmId(s.id);
                                        }}
                                        className="p-1.5 hover:bg-red-500/10 rounded-lg text-zinc-500 hover:text-red-500 transition-all"
                                     >
                                        <Trash2 size={12} />
                                     </button>
-                                 )}
-                                 {isBusyFn && isBusyFn(s.id) ? (
-                                    <span className="text-[7px] text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full uppercase font-black tracking-tighter">Busy</span>
-                                 ) : (
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                                 )}
+                                    {isBusyFn && isBusyFn(s.id) ? (
+                                       <span className="text-[7px] text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full uppercase font-black tracking-tighter">Busy</span>
+                                    ) : (
+                                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                                    )}
+                                 </div>
                               </div>
-                           </div>
-                        ))}
+                           );
+                        })}
 
                         {filteredOpts.length === 0 && (
                            <div className="py-12 flex flex-col items-center justify-center gap-3 opacity-50">
@@ -226,7 +351,7 @@ const SmartRoleDropdown: React.FC<{
                            </div>
                         )}
 
-                        {selectedId && (
+                        {selectedId && !inlineEditingId && !deleteConfirmId && (
                            <>
                               <div className="h-px bg-white/5 my-1 shrink-0" />
                               <div
@@ -253,320 +378,18 @@ const SmartRoleDropdown: React.FC<{
                               e.preventDefault();
                               e.stopPropagation();
                               setNewMemberNameInDropdown(search);
+                              setNewMemberRoleInDropdown(role);
                               setIsAddingInDropdown(true);
                            }}
                            className="w-full py-3.5 bg-white text-black hover:bg-zinc-200 active:scale-[0.98] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl shadow-indigo-500/10"
                         >
-                           + Add New Member
+                           + Add New Person
                         </button>
                      </div>
                   </>
                )}
             </div>,
             document.body
-         )}
-      </div>
-   );
-}
-
-const ROLES = [
-   { value: 'photographer', label: 'Photographer' },
-   { value: 'videographer', label: 'Videographer' },
-   { value: 'editor', label: 'Editor' },
-   { value: 'assistant', label: 'Assistant' }
-];
-
-const ServiceAutocomplete: React.FC<{
-   onSelect: (label: string) => void,
-   allStaff: UserType[],
-   disabled?: boolean,
-   placeholder?: string,
-   onEdit?: (id: string, newLabel: string) => void,
-   onDelete?: (id: string) => void,
-   onAdd?: (member: UserType) => void
-}> = ({ onSelect, allStaff, disabled, placeholder, onEdit, onDelete, onAdd }) => {
-   const [isOpen, setIsOpen] = useState(false);
-   const [tempValue, setTempValue] = useState('');
-   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
-   const inputRef = useRef<HTMLInputElement>(null);
-   const wrapperRef = useRef<HTMLDivElement>(null);
-   const dropdownRef = useRef<HTMLDivElement>(null);
-
-   const [editingId, setEditingId] = useState<string | null>(null);
-   const [editValue, setEditValue] = useState('');
-
-   const [isAddingMember, setIsAddingMember] = useState(false);
-   const [newMemberName, setNewMemberName] = useState('');
-   const [newMemberRole, setNewMemberRole] = useState('photographer');
-
-   const updatePosition = () => {
-      if (inputRef.current) {
-         const rect = inputRef.current.getBoundingClientRect();
-         setDropdownStyle({
-            top: rect.bottom + 8,
-            left: rect.left,
-            width: rect.width,
-            position: 'fixed'
-         });
-      }
-   };
-
-   useEffect(() => {
-      if (isOpen) {
-         updatePosition();
-         window.addEventListener('scroll', updatePosition, true);
-         window.addEventListener('resize', updatePosition);
-         return () => {
-            window.removeEventListener('scroll', updatePosition, true);
-            window.removeEventListener('resize', updatePosition);
-         };
-      }
-   }, [isOpen]);
-
-   useEffect(() => {
-      const handleClickOutside = (e: MouseEvent) => {
-         const target = e.target as Node;
-         if (wrapperRef.current && wrapperRef.current.contains(target)) return;
-         if (dropdownRef.current && dropdownRef.current.contains(target)) return;
-         setIsOpen(false);
-         setEditingId(null);
-         setIsAddingMember(false);
-      };
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-   }, []);
-
-   const staffSuggestions = allStaff.map(s => ({
-      label: s.name || s.email || 'Unknown',
-      sub: s.staffRole || 'Member',
-      id: s.id,
-      raw: s
-   }));
-
-   const serviceSuggestions = [
-      { label: 'Photography Services', sub: 'Category' },
-      { label: 'Cinematography / Videography', sub: 'Category' },
-      { label: 'Studio Post-Production', sub: 'Category' },
-      { label: 'Drone Acquisition', sub: 'Category' },
-      { label: 'Luxury Album Design', sub: 'Category' },
-      { label: 'Social Media Miniatures', sub: 'Category' },
-      { label: 'Travel & Logistics', sub: 'Add-on' }
-   ];
-
-   const filteredServices = serviceSuggestions.filter(s =>
-      s.label.toLowerCase().includes(tempValue.toLowerCase())
-   );
-
-   const filteredStaff = staffSuggestions.filter(s =>
-      s.label.toLowerCase().includes(tempValue.toLowerCase()) ||
-      (s.sub && s.sub.toLowerCase().includes(tempValue.toLowerCase()))
-   );
-
-   // Grouping Logic
-   const groups: { title: string, items: any[] }[] = [];
-
-   if (filteredServices.length > 0) {
-      groups.push({ title: 'System Categories', items: filteredServices });
-   }
-
-   ROLES.forEach(role => {
-      const members = filteredStaff.filter(s => s.sub.toLowerCase() === role.value);
-      if (members.length > 0) {
-         groups.push({ title: role.label + 's', items: members });
-      }
-   });
-
-   const otherStaff = filteredStaff.filter(s => !ROLES.find(r => r.value === s.sub.toLowerCase()));
-   if (otherStaff.length > 0) {
-      groups.push({ title: 'Other Members', items: otherStaff });
-   }
-
-   const renderLabel = (text: string, highlight: string) => {
-      if (!highlight.trim()) return <span>{text}</span>;
-      const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
-      return (
-         <span>
-            {parts.map((part, i) =>
-               part.toLowerCase() === highlight.toLowerCase()
-                  ? <span key={i} className="text-emerald-400 underline decoration-emerald-500/30 underline-offset-4">{part}</span>
-                  : <span key={i}>{part}</span>
-            )}
-         </span>
-      );
-   };
-
-   const commitSelection = (val: string) => {
-      console.log('Committing Service Selection:', val);
-      onSelect(val);
-      setTempValue('');
-      setIsOpen(false);
-   };
-
-   const handleAddClick = (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setNewMemberName(tempValue);
-      setIsAddingMember(true);
-   };
-
-   const saveNewMember = (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!newMemberName.trim()) return;
-
-      const newMember: UserType = {
-         id: `artisan_${Date.now()}`,
-         name: newMemberName,
-         email: `${newMemberName.toLowerCase().replace(/\s/g, '')}@artisans.local`,
-         role: 'Staff',
-         staffRole: newMemberRole as any,
-         isActive: true,
-         permissions: []
-      };
-
-      onAdd?.(newMember);
-      commitSelection(newMember.name!);
-      setIsAddingMember(false);
-      setNewMemberName('');
-   };
-
-   return (
-      <div className="relative w-full" ref={wrapperRef}>
-         <input
-            ref={inputRef}
-            type="text"
-            required
-            disabled={disabled}
-            className="w-full bg-transparent border-none p-2 text-sm font-bold text-white focus:outline-none placeholder:text-zinc-600/50"
-            placeholder={placeholder || "Search service or personnel..."}
-            value={tempValue}
-            onChange={e => {
-               setTempValue(e.target.value);
-               setIsOpen(true);
-            }}
-         />
-         {isOpen && (
-            createPortal(
-               <div
-                  ref={dropdownRef}
-                  style={dropdownStyle}
-                  className="bg-[#0c0c0e] border border-white/10 rounded-2xl z-[99999] shadow-[0_30px_90px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col animate-ios-fade-in pointer-events-auto backdrop-blur-xl"
-               >
-                  <div className="max-h-[350px] overflow-y-auto no-scrollbar p-2 flex flex-col gap-4 custom-scrollbar">
-                     {isAddingMember ? (
-                        <div className="p-4 space-y-4 animate-ios-slide-up" onMouseDown={e => e.stopPropagation()}>
-                           <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest px-1">Define New Team Member</p>
-                           <input
-                              autoFocus
-                              placeholder="Full Name"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-emerald-500/50 transition-all"
-                              value={newMemberName}
-                              onChange={e => setNewMemberName(e.target.value)}
-                           />
-                           <div className="grid grid-cols-2 gap-2">
-                              {ROLES.map(role => (
-                                 <button
-                                    key={role.value}
-                                    type="button"
-                                    onClick={() => setNewMemberRole(role.value)}
-                                    className={`py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${newMemberRole === role.value ? 'bg-white text-black border-white' : 'bg-white/5 text-zinc-500 border-white/5 hover:bg-white/10'}`}
-                                 >
-                                    {role.label}
-                                 </button>
-                              ))}
-                           </div>
-                           <div className="flex gap-2 pt-2">
-                              <button onClick={saveNewMember} className="flex-1 py-3 bg-emerald-500 text-black rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all active:scale-95">Save Member</button>
-                              <button onClick={() => setIsAddingMember(false)} className="px-4 py-3 bg-white/5 text-zinc-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
-                           </div>
-                        </div>
-                     ) : (
-                        <>
-                           {groups.map((group, gIdx) => (
-                              <div key={gIdx} className="space-y-1">
-                                 <p className="px-3 pt-2 pb-1 text-[8px] font-black text-zinc-600 uppercase tracking-[0.2em]">{group.title}</p>
-                                 {group.items.map((s, idx) => (
-                                    <div
-                                       key={idx}
-                                       onMouseDown={(e) => {
-                                          if (editingId) return;
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          commitSelection(s.label);
-                                       }}
-                                       className="p-3 hover:bg-white/[0.05] rounded-xl cursor-pointer flex justify-between items-center group transition-all"
-                                    >
-                                       <div className="flex items-center gap-4 overflow-hidden w-full">
-                                          {editingId === s.id ? (
-                                             <div className="flex items-center gap-2 w-full" onMouseDown={e => e.stopPropagation()}>
-                                                <input
-                                                   autoFocus
-                                                   className="flex-1 bg-white/10 border border-white/10 rounded-lg px-2 py-1 text-[10px] font-bold text-white outline-none focus:border-emerald-500/50 transition-all"
-                                                   value={editValue}
-                                                   onChange={e => setEditValue(e.target.value)}
-                                                   onKeyDown={e => {
-                                                      if (e.key === 'Enter') {
-                                                         onEdit?.(s.id, editValue);
-                                                         setEditingId(null);
-                                                      } else if (e.key === 'Escape') {
-                                                         setEditingId(null);
-                                                      }
-                                                   }}
-                                                />
-                                                <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onEdit?.(s.id, editValue); setEditingId(null); }} className="p-1 px-2 bg-emerald-500/20 text-emerald-500 rounded hover:bg-emerald-500/30 transition-all"><Check size={10} /></button>
-                                                <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setEditingId(null); }} className="p-1 px-2 bg-white/5 text-zinc-500 rounded hover:bg-white/10 hover:text-white transition-all"><X size={10} /></button>
-                                             </div>
-                                          ) : (
-                                             <div className="flex flex-col truncate">
-                                                <p className="text-[10px] font-black text-white uppercase tracking-wider truncate">
-                                                   {renderLabel(s.label, tempValue)}
-                                                </p>
-                                                <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-[0.2em] mt-1 opacity-60">
-                                                   {s.sub}
-                                                </p>
-                                             </div>
-                                          )}
-                                       </div>
-
-                                       {editingId !== s.id && (
-                                          <div className="flex items-center gap-2">
-                                             {s.id && (
-                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mr-2">
-                                                   <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setEditingId(s.id); setEditValue(s.label); }} className="p-1.5 hover:bg-white/10 rounded text-zinc-500 hover:text-white transition-all"><Pencil className="w-4 h-4" /></button>
-                                                   <button onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); if (window.confirm(`Delete ${s.label}?`)) onDelete?.(s.id); }} className="p-1.5 hover:bg-red-500/10 rounded text-zinc-500 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
-                                                </div>
-                                             )}
-                                             <Plus size={10} className="text-zinc-700 group-hover:text-emerald-500 transition-colors" />
-                                          </div>
-                                       )}
-                                    </div>
-                                 ))}
-                              </div>
-                           ))}
-
-                           {groups.length === 0 && (
-                              <div className="p-8 text-center opacity-50 flex flex-col items-center gap-4">
-                                 <Users className="w-8 h-8 text-zinc-700" />
-                                 <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-relaxed">No registered results found</p>
-                              </div>
-                           )}
-                        </>
-                     )}
-                  </div>
-
-                  {!isAddingMember && (
-                     <div
-                        onMouseDown={handleAddClick}
-                        className="p-4 bg-white/[0.02] hover:bg-white/[0.05] text-center cursor-pointer border-t border-white/5 transition-all group/custom"
-                     >
-                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest group-hover/custom:text-emerald-400 transition-colors flex items-center justify-center gap-2">
-                           <Plus className="w-3 h-3" /> Add New Member
-                        </p>
-                     </div>
-                  )}
-               </div>,
-               document.body
-            )
          )}
       </div>
    );
@@ -600,55 +423,13 @@ const ClientDetailsPage: React.FC = () => {
    const [newStaffForm, setNewStaffForm] = useState({ name: '', role: 'photographer', contact: '' });
    const [pendingDropdownAssign, setPendingDropdownAssign] = useState<{ role: string, idx: number } | null>(null);
 
-   // Quote Builder Members State (Artisans)
-   const [artisansMembers, setArtisansMembers] = useState<UserType[]>([]);
 
-   useEffect(() => {
-      const stored = localStorage.getItem('artisans_team_members');
-      if (stored) {
-         setArtisansMembers(JSON.parse(stored));
-      } else {
-         // Sync from users on first run or use existing artisans_members if present
-         const oldStored = localStorage.getItem('artisans_members');
-         if (oldStored) {
-            const parsed = JSON.parse(oldStored);
-            setArtisansMembers(parsed);
-            localStorage.setItem('artisans_team_members', JSON.stringify(parsed));
-         } else {
-            const users = JSON.parse(localStorage.getItem('users') || '[]');
-            const staff = users.filter((u: any) => u.role === 'Staff');
-            setArtisansMembers(staff);
-            localStorage.setItem('artisans_team_members', JSON.stringify(staff));
-         }
-      }
-   }, []);
 
    const handleAddArtisanMember = (m: UserType) => {
-      setArtisansMembers(prev => {
-         const next = [...prev, m];
-         localStorage.setItem('artisans_team_members', JSON.stringify(next));
-         return next;
-      });
-      // Also sync to global users if needed for Team Placement
+      // Sync to global users for Team Placement
       const storedUsers = JSON.parse(localStorage.getItem('users') || '[]');
       localStorage.setItem('users', JSON.stringify([...storedUsers, m]));
       setAllStaff(prev => [...prev, m]);
-   };
-
-   const handleEditArtisanMember = (id: string, newLabel: string) => {
-      setArtisansMembers(prev => {
-         const next = prev.map(m => m.id === id ? { ...m, name: newLabel } : m);
-         localStorage.setItem('artisans_team_members', JSON.stringify(next));
-         return next;
-      });
-   };
-
-   const handleDeleteArtisanMember = (id: string) => {
-      setArtisansMembers(prev => {
-         const next = prev.filter(m => m.id !== id);
-         localStorage.setItem('artisans_team_members', JSON.stringify(next));
-         return next;
-      });
    };
 
    // Agreement Templates State
@@ -692,11 +473,160 @@ const ClientDetailsPage: React.FC = () => {
    const [modalType, setModalType] = useState<'quotation' | 'invoice'>('quotation');
    const [editDocId, setEditDocId] = useState<string | null>(null);
    const [autoGeneratedId, setAutoGeneratedId] = useState<string>('');
+   const [builderCategory, setBuilderCategory] = useState<'physical' | 'digital' | 'team'>('physical');
+   const [searchQuery, setSearchQuery] = useState("");
+   const [showSuggestions, setShowSuggestions] = useState(false);
+   const [suggestionsPosition, setSuggestionsPosition] = useState({ top: 0, left: 0, width: 0 });
+   const [isAddingNewInSearch, setIsAddingNewInSearch] = useState(false);
+   const [newMemberRoleInSearch, setNewMemberRoleInSearch] = useState('photographer');
+   const searchRef = useRef<HTMLDivElement>(null);
    const [formDueDate, setFormDueDate] = useState('');
 
-   const [lineItems, setLineItems] = useState<{ id: string; description: string; quantity: number; price: number }[]>([
-      { id: 'item_1', description: '', quantity: 1, price: 0 }
-   ]);
+   const [categorizedItems, setCategorizedItems] = useState<{
+      physical: { id: string; name: string; quantity: number; price: number }[];
+      digital: { id: string; name: string; quantity: number; price: number }[];
+      team: { id: string; name: string; role: string; cost?: number }[];
+   }>({
+      physical: [],
+      digital: [],
+      team: []
+   });
+
+   const [lastDeletedItem, setLastDeletedItem] = useState<{
+      category: 'physical' | 'digital' | 'team';
+      item: any;
+      index: number;
+   } | null>(null);
+   const [toasts, setToasts] = useState<{ id: string; message: string; onUndo?: () => void }[]>([]);
+
+
+   // Helper to add item to a category
+   const addItemToCategory = (category: 'physical' | 'digital' | 'team') => {
+      setCategorizedItems(prev => ({
+         ...prev,
+         [category]: [
+            ...prev[category],
+            category === 'team' 
+               ? { id: `team_${Date.now()}`, name: '', role: 'photographer', cost: 0 }
+               : { id: `${category}_${Date.now()}`, name: '', quantity: 1, price: 0 }
+         ]
+      }));
+   };
+
+   // Helper to update item in a category
+   const updateCategorizedItem = (category: 'physical' | 'digital' | 'team', id: string, field: string, value: any) => {
+      setCategorizedItems(prev => ({
+         ...prev,
+         [category]: prev[category].map(item => item.id === id ? { ...item, [field]: value } : item)
+      }));
+   };
+
+   const addToast = (message: string, onUndo?: (id: string) => void) => {
+      const id = Math.random().toString(36).substr(2, 9);
+      setToasts(prev => [...prev, { id, message, onUndo: onUndo ? () => onUndo(id) : undefined }]);
+      setTimeout(() => {
+         setToasts(prev => prev.filter(t => t.id !== id));
+      }, 5000);
+   };
+
+   // Helper to remove item from a category
+   const removeCategorizedItem = (category: 'physical' | 'digital' | 'team', id: string) => {
+      const itemToDelete = categorizedItems[category].find(it => it.id === id);
+      const itemIndex = categorizedItems[category].findIndex(it => it.id === id);
+      if (!itemToDelete) return;
+
+      if (!window.confirm('Are you sure you want to delete this?')) return;
+
+      setLastDeletedItem({ category, item: itemToDelete, index: itemIndex });
+      setCategorizedItems(prev => ({
+         ...prev,
+         [category]: prev[category].filter(item => item.id !== id)
+      }));
+
+      addToast("Item deleted", (toastId) => handleUndoDelete(toastId));
+   };
+
+   const handleSearchChange = (query: string, element?: HTMLElement) => {
+      setSearchQuery(query);
+      if (element) {
+         const rect = element.getBoundingClientRect();
+         setSuggestionsPosition({
+            top: rect.bottom + window.scrollY,
+            left: rect.left + window.scrollX,
+            width: rect.width
+         });
+      }
+      setShowSuggestions(!!query);
+      setIsAddingNewInSearch(false);
+
+      const lowerQuery = query.toLowerCase();
+      
+      const isPhysical = CATEGORY_KEYWORDS.physical.some(k => lowerQuery.includes(k));
+      const isDigital = CATEGORY_KEYWORDS.digital.some(k => lowerQuery.includes(k));
+      const isTeam = SUGGESTIONS.team.some(t => t.name.toLowerCase().includes(lowerQuery));
+
+      if (isPhysical) setBuilderCategory('physical');
+      else if (isDigital) setBuilderCategory('digital');
+      else if (isTeam) setBuilderCategory('team');
+   };
+
+   const addSelectedSuggestion = (suggestion: any, category: 'physical' | 'digital' | 'team') => {
+      setCategorizedItems(prev => ({
+         ...prev,
+         [category]: [
+            ...prev[category],
+            category === 'team' 
+               ? { id: `team_${Date.now()}`, name: suggestion.name, role: suggestion.role, cost: 0 }
+               : { id: `${category}_${Date.now()}`, name: suggestion.name, quantity: 1, price: suggestion.price }
+         ]
+      }));
+      setSearchQuery("");
+      setShowSuggestions(false);
+      addToast("Item added");
+   };
+
+   const handleAddFromSearch = () => {
+      console.log("ADDING:", searchQuery);
+      if (!searchQuery.trim()) return;
+
+      const newItem = builderCategory === 'team'
+         ? { id: `team_${Date.now()}`, name: searchQuery, role: 'photographer', cost: 0 }
+         : { id: `${builderCategory}_${Date.now()}`, name: searchQuery, quantity: 1, price: 0 };
+
+      setCategorizedItems(prev => ({
+         ...prev,
+         [builderCategory]: [...prev[builderCategory], newItem]
+      }));
+
+      addToast(`${builderCategory === 'team' ? 'Person' : builderCategory === 'physical' ? 'Item' : 'Service'} added`);
+      setSearchQuery("");
+      setShowSuggestions(false);
+      setIsAddingNewInSearch(false);
+   };
+
+   useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+         if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+            setShowSuggestions(false);
+         }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+   }, []);
+
+   const handleUndoDelete = (toastId?: string) => {
+      if (!lastDeletedItem) return;
+      const { category, item, index } = lastDeletedItem;
+      setCategorizedItems(prev => {
+         const newList = [...prev[category]];
+         newList.splice(index, 0, item);
+         return { ...prev, [category]: newList };
+      });
+      setLastDeletedItem(null);
+      if (toastId) {
+         setToasts(prev => prev.filter(t => t.id !== toastId));
+      }
+   };
 
    const [formCompanyLogoUrl, setFormCompanyLogoUrl] = useState('');
    const [formPaymentTerms, setFormPaymentTerms] = useState('Due on Receipt');
@@ -729,10 +659,27 @@ const ClientDetailsPage: React.FC = () => {
 
    // Right Side Preview Drawer Logic
    const [previewDoc, setPreviewDoc] = useState<Invoice | null>(null);
+
+   // Handle body scroll lock for modals
+   useEffect(() => {
+      if (isModalOpen || !!previewDoc || isAddStaffModalOpen) {
+         document.body.style.overflow = 'hidden';
+      } else {
+         document.body.style.overflow = 'auto';
+      }
+      return () => {
+         document.body.style.overflow = 'auto';
+      };
+   }, [isModalOpen, previewDoc, isAddStaffModalOpen]);
    const [paymentAmount, setPaymentAmount] = useState('');
    const [paymentDate, setPaymentDate] = useState('');
 
-   const calculateSubtotal = () => lineItems.reduce((acc, curr) => acc + (curr.quantity * curr.price), 0);
+   const calculateSubtotal = () => {
+      const physicalSub = categorizedItems.physical.reduce((acc, curr) => acc + (curr.quantity * curr.price), 0);
+      const digitalSub = categorizedItems.digital.reduce((acc, curr) => acc + (curr.quantity * curr.price), 0);
+      // Team costs are optional in subtotal based on requirement
+      return physicalSub + digitalSub;
+   };
    const calculateFinalTotal = () => {
       const sub = calculateSubtotal();
       const taxAmount = (sub * formTaxPercent) / 100;
@@ -747,7 +694,16 @@ const ClientDetailsPage: React.FC = () => {
          setAutoGeneratedId(existingDoc.id);
          setSelectedCompanyIdForDoc(existingDoc.brandId || '');
          setFormDueDate(existingDoc.dueDate || '');
-         setLineItems(existingDoc.items && existingDoc.items.length > 0 ? existingDoc.items : [{ id: Date.now().toString(), description: '', quantity: 1, price: 0 }]);
+         
+         // Hydrate categorized items from existing items list
+         const hyd: any = { physical: [], digital: [], team: [] };
+         (existingDoc.items || []).forEach((it: any) => {
+            if (it.id?.startsWith('physical')) hyd.physical.push({ id: it.id, name: it.description, quantity: it.quantity, price: it.price });
+            else if (it.id?.startsWith('digital')) hyd.digital.push({ id: it.id, name: it.description, quantity: it.quantity, price: it.price });
+            else if (it.id?.startsWith('team')) hyd.team.push({ id: it.id, name: it.description, role: 'Personnel', cost: it.price });
+            else hyd.physical.push({ id: `physical_${Date.now()}_${Math.random()}`, name: it.description, quantity: it.quantity, price: it.price });
+         });
+         setCategorizedItems(hyd);
          setFormCompanyLogoUrl(existingDoc.companyLogoUrl || '');
          setFormPaymentTerms(existingDoc.paymentTerms || '');
          setFormTaxPercent(existingDoc.taxPercent || 0);
@@ -762,7 +718,7 @@ const ClientDetailsPage: React.FC = () => {
          setSelectedCompanyIdForDoc(company.id || '');
          setAutoGeneratedId(generateAutoId(type, company.id || ''));
          setFormDueDate(new Date().toISOString().split('T')[0]);
-         setLineItems([{ id: Date.now().toString(), description: '', quantity: 1, price: 0 }]);
+         setCategorizedItems({ physical: [], digital: [], team: [] });
          setFormCompanyLogoUrl(company.logo || '');
          setFormPaymentTerms(company.paymentTerms || 'Due on Receipt');
          setFormTaxPercent(0);
@@ -883,8 +839,18 @@ const ClientDetailsPage: React.FC = () => {
       e.preventDefault();
       if (!client) return;
 
-      const validItems = lineItems.filter(item => item.description.trim() !== '' || item.price > 0);
-      if (validItems.length === 0) return;
+      // Flatten items for document saving
+      const allItems = [
+         ...categorizedItems.physical.map(it => ({ id: it.id, description: it.name, quantity: it.quantity, price: it.price })),
+         ...categorizedItems.digital.map(it => ({ id: it.id, description: it.name, quantity: it.quantity, price: it.price })),
+         ...categorizedItems.team.map(it => ({ id: it.id, description: it.name, quantity: 1, price: it.cost || 0 }))
+      ];
+
+      const validItems = allItems.filter(item => item.description.trim() !== '' || (item.price && item.price > 0));
+      if (validItems.length === 0) {
+         alert("Please add at least one service or deliverable.");
+         return;
+      }
 
       setIsSubmitting(true);
       const totalAmount = calculateFinalTotal();
@@ -896,9 +862,7 @@ const ClientDetailsPage: React.FC = () => {
             : clientInvoices.find(i => i.id === editDocId);
       }
 
-      // Custom logic to track the submitter button (Save Draft vs Generate) 
       const draftState = (e.nativeEvent as SubmitEvent)?.submitter?.getAttribute('data-action') === 'draft';
-
       const docId = existingDoc?.id || autoGeneratedId;
       const selectedCompany = companies.find(c => c.id === selectedCompanyIdForDoc) || matchedCompany || currentContextCompany;
 
@@ -917,12 +881,7 @@ const ClientDetailsPage: React.FC = () => {
          status: draftState ? 'Draft' : existingDoc?.status || (modalType === 'quotation' ? 'Quotation' : 'Unpaid'),
          type: modalType,
          isQuotation: modalType === 'quotation',
-         items: validItems.map(item => ({
-            id: item.id,
-            description: item.description,
-            quantity: item.quantity,
-            price: item.price
-         })),
+         items: validItems,
          createdAt: existingDoc?.createdAt || new Date().toISOString().split('T')[0],
          issueDate: existingDoc?.issueDate || new Date().toISOString().split('T')[0],
          dueDate: formDueDate || new Date().toISOString().split('T')[0],
@@ -965,6 +924,9 @@ const ClientDetailsPage: React.FC = () => {
          setSuccessMsg(`${modalType === 'quotation' ? 'Quote' : 'Invoice'} successfully ${editDocId ? 'updated' : 'issued'}!`);
          if (previewDoc && previewDoc.id === savedDoc.id) setPreviewDoc(savedDoc);
 
+         // Trigger global finance sync for App.tsx state
+         window.dispatchEvent(new CustomEvent('finance-updated'));
+
          setTimeout(() => {
             setIsModalOpen(false);
             setSuccessMsg(null);
@@ -981,9 +943,7 @@ const ClientDetailsPage: React.FC = () => {
       }
    };
 
-   const handleAddRow = () => setLineItems([...lineItems, { id: Date.now().toString(), description: '', quantity: 1, price: 0 }]);
-   const handleRemoveRow = (id: string) => setLineItems(lineItems.filter(item => item.id !== id));
-   const handleItemChange = (id: string, field: string, value: string | number) => setLineItems(lineItems.map(item => item.id === id ? { ...item, [field]: value } : item));
+
 
    const handleAddNewTemplate = () => {
       const nextV = agreementTemplates.length > 0 ? Math.max(...agreementTemplates.map(g => g.version)) + 1 : 1;
@@ -1233,9 +1193,10 @@ const ClientDetailsPage: React.FC = () => {
    };
 
    const handleEditStaff = (staff: UserType) => {
-      setEditingStaffId(staff.id);
-      setNewStaffForm({ name: staff.name || '', role: staff.staffRole as any, contact: staff.email || '' });
-      setIsAddStaffModalOpen(true);
+      const stored = JSON.parse(localStorage.getItem('users') || '[]');
+      const updated = stored.map((u: any) => u.id === staff.id ? { ...u, ...staff } : u);
+      localStorage.setItem('users', JSON.stringify(updated));
+      setAllStaff(updated.filter((u: any) => u.role === 'Staff'));
    };
 
    const handleAddNewStaffSubmit = (e: React.FormEvent) => {
@@ -1899,13 +1860,15 @@ const ClientDetailsPage: React.FC = () => {
                                              )}
                                           </div>
                                        </div>
-                                    ))}
+                                     ))}
                                  </div>
                               </div>
                            );
                         })}
                      </div>
                   </div>
+               </div>
+            )}
 
                   {/* WORKFLOW & PROGRESS SECTION */}
                   <div className="glass-panel p-8 squircle-md border border-white/5 space-y-8 bg-white/[0.01]">
@@ -2237,15 +2200,19 @@ const ClientDetailsPage: React.FC = () => {
                      )}
                   </div>
                </div>
-            )}
-         </div>
 
 
 
          {/* -------------------- UNIFIED FINANCIAL BUILDER MODAL -------------------- */}
-         {isModalOpen && (
-            <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 backdrop-blur-xl animate-ios-slide-up">
-               <div className="bg-zinc-900 border border-white/10 squircle-lg w-full max-w-4xl p-10 shadow-[0_0_100px_rgba(0,0,0,1)] relative max-h-[90vh] overflow-y-auto no-scrollbar">
+         {isModalOpen && createPortal(
+            <div 
+               className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-ios-fade-in"
+               onClick={() => setIsModalOpen(false)}
+            >
+               <div 
+                  className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-zinc-900 border border-white/10 rounded-2xl p-10 shadow-2xl relative animate-ios-slide-up no-scrollbar"
+                  onClick={(e) => e.stopPropagation()}
+               >
                   <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
                      <X className="w-5 h-5 text-zinc-400 hover:text-white" />
                   </button>
@@ -2323,64 +2290,380 @@ const ClientDetailsPage: React.FC = () => {
                            </div>
                         </div>
 
-                        {/* Lines Config */}
-                        <div className="space-y-4">
-                           <h3 className="text-sm font-black uppercase text-white tracking-[0.2em] border-b border-white/5 pb-4">Services & Charges</h3>
-                           <div className="space-y-3">
-                              <div className="grid grid-cols-12 gap-4 px-4 text-[9px] font-black uppercase text-zinc-500 tracking-widest">
-                                 <div className="col-span-6">Service / Description</div>
-                                 <div className="col-span-2 text-center">Quantity</div>
-                                 <div className="col-span-2 text-left">Price (₹)</div>
-                                 <div className="col-span-2 text-right pr-4">Total</div>
-                              </div>
-                              {lineItems.map(item => (
-                                 <div key={item.id} className="grid grid-cols-12 gap-4 items-center bg-white/[0.02] border border-white/5 p-2 rounded-2xl group focus-within:bg-white/[0.05] transition-all">
-                                    <div className="col-span-6">
-                                       {item.description ? (
-                                          <div className="flex items-center justify-between w-full bg-black/40 border border-white/5 rounded-xl p-3 text-sm font-bold text-white group/desc transition-all hover:border-white/10">
-                                             <span className="truncate">{item.description}</span>
-                                             <button
-                                                type="button"
-                                                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleItemChange(item.id, 'description', ''); }}
-                                                className="p-1 text-zinc-600 hover:text-white transition-colors opacity-0 group-hover/desc:opacity-100"
-                                             >
-                                                <X size={12} />
-                                             </button>
-                                          </div>
-                                       ) : (
-                                          <ServiceAutocomplete
-                                             onSelect={val => handleItemChange(item.id, 'description', val)}
-                                             allStaff={artisansMembers}
-                                             disabled={isSubmitting}
-                                             placeholder="Search service or personnel..."
-                                             onEdit={handleEditArtisanMember}
-                                             onDelete={handleDeleteArtisanMember}
-                                             onAdd={handleAddArtisanMember}
-                                          />
-                                       )}
-                                    </div>
-                                    <div className="col-span-2"><input required type="number" min="1" className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm font-bold text-white focus:outline-none text-center" value={item.quantity} onChange={e => handleItemChange(item.id, 'quantity', parseInt(e.target.value) || 1)} disabled={isSubmitting} /></div>
-                                    <div className="col-span-2"><input required type="number" min="0" className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm font-bold text-white focus:outline-none" value={item.price} onChange={e => handleItemChange(item.id, 'price', parseFloat(e.target.value) || 0)} disabled={isSubmitting} /></div>
-                                    <div className="col-span-2 flex items-center justify-between px-2">
-                                       <span className="font-mono text-zinc-300 font-bold text-sm overflow-hidden text-ellipsis whitespace-nowrap">₹{(item.quantity * item.price).toLocaleString()}</span>
-                                       <button
-                                          type="button"
-                                          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveRow(item.id); }}
-                                          className="p-2 text-zinc-600 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                                       >
-                                          <Trash2 className="w-4 h-4" />
-                                       </button>
+                        {/* 3. UNIFIED SERVICE BUILDER */}
+                        <div className="space-y-6">
+                           <h3 className="text-sm font-black uppercase text-white tracking-[0.2em] border-b border-white/5 pb-4">Operational Vector Composition</h3>
+                           
+                           <div className="glass-panel bg-white/[0.01] border border-white/5 rounded-3xl flex flex-col shadow-2xl overflow-visible">
+                              {/* Header with Dropdown and Add Button */}
+                              <div className="flex justify-between items-center px-6 py-5 bg-white/[0.02] border-b border-white/5 relative">
+                                 <div className="flex items-center gap-4">
+                                    <select 
+                                       className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-black text-white uppercase tracking-widest outline-none focus:border-white/20 transition-all cursor-pointer appearance-none min-w-[180px]"
+                                       value={builderCategory}
+                                       onChange={(e) => setBuilderCategory(e.target.value as any)}
+                                    >
+                                       <option value="physical">Physical Deliverables</option>
+                                       <option value="digital">Digital Deliverables</option>
+                                       <option value="team">Team / Personnel</option>
+                                    </select>
+                                    <div className="w-px h-4 bg-white/10 mx-1" />
+                                    <div className="flex items-center gap-2 opacity-50">
+                                       {builderCategory === 'physical' && <Package size={14} className="text-emerald-500" />}
+                                       {builderCategory === 'digital' && <Video size={14} className="text-blue-500" />}
+                                       {builderCategory === 'team' && <Users size={14} className="text-indigo-500" />}
+                                       <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
+                                          {builderCategory === 'physical' && 'Physical Assets'}
+                                          {builderCategory === 'digital' && 'Digital Media'}
+                                          {builderCategory === 'team' && 'Personnel Registry'}
+                                       </span>
                                     </div>
                                  </div>
-                              ))}
+                                 <button 
+                                    type="button" 
+                                    onClick={() => addItemToCategory(builderCategory)}
+                                    className="w-10 h-10 rounded-2xl bg-white text-black flex items-center justify-center hover:bg-zinc-200 transition-all active:scale-[0.98] shadow-xl shadow-white/5"
+                                 >
+                                    <Plus size={18} />
+                                 </button>
+                              </div>
+
+                              {/* Smart Search Input */}
+                              <div className="px-6 py-4 bg-white/[0.01] border-b border-white/5 relative" ref={searchRef}>
+                                 <div className="relative group">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-white transition-colors">
+                                       <Search size={14} />
+                                    </div>
+                                    <input 
+                                       type="text"
+                                       placeholder="Search or add items, videos, or team..."
+                                       className="w-full bg-black/40 border border-white/5 rounded-2xl py-3.5 pl-11 pr-4 text-[11px] font-bold text-white outline-none focus:border-white/10 focus:bg-black/60 transition-all placeholder:text-zinc-700"
+                                       value={searchQuery}
+                                       onChange={(e) => handleSearchChange(e.target.value, e.target)}
+                                       onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleAddFromSearch();
+                                       }}
+                                       onFocus={(e) => {
+                                          const rect = e.target.getBoundingClientRect();
+                                          setSuggestionsPosition({
+                                             top: rect.bottom + window.scrollY,
+                                             left: rect.left + window.scrollX,
+                                             width: rect.width
+                                          });
+                                          if (searchQuery) setShowSuggestions(true);
+                                       }}
+                                    />
+                                    {showSuggestions && createPortal(
+                                       <div 
+                                          className="fixed bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl z-[10000] overflow-hidden animate-ios-slide-up"
+                                          style={{
+                                             top: `${suggestionsPosition.top}px`,
+                                             left: `${suggestionsPosition.left}px`,
+                                             width: `${suggestionsPosition.width}px`
+                                          }}
+                                       >
+                                          <div className="max-h-[350px] overflow-y-auto no-scrollbar py-2">
+                                             {isAddingNewInSearch ? (
+                                                <div className="p-5 space-y-4 animate-ios-slide-up">
+                                                   <div className="flex items-center justify-between">
+                                                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-1">Initialize Personnel</p>
+                                                      <button onClick={() => setIsAddingNewInSearch(false)} className="text-zinc-500 hover:text-white transition-colors"><X size={14}/></button>
+                                                   </div>
+                                                   <div className="space-y-3">
+                                                      <div className="space-y-1">
+                                                         <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Expert Name</label>
+                                                         <input
+                                                            autoFocus
+                                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all"
+                                                            value={searchQuery}
+                                                            onChange={e => setSearchQuery(e.target.value)}
+                                                         />
+                                                      </div>
+                                                      <div className="space-y-1">
+                                                         <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Functional Class</label>
+                                                         <select
+                                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all appearance-none"
+                                                            value={newMemberRoleInSearch}
+                                                            onChange={e => setNewMemberRoleInSearch(e.target.value)}
+                                                         >
+                                                            {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                                                         </select>
+                                                      </div>
+                                                   </div>
+                                                   <button 
+                                                      type="button"
+                                                      onClick={() => {
+                                                         const newId = `team_${Date.now()}`;
+                                                         setCategorizedItems(prev => ({ ...prev, team: [...prev.team, { id: newId, name: searchQuery, role: newMemberRoleInSearch, cost: 0 }] }));
+                                                         setSearchQuery("");
+                                                         setShowSuggestions(false);
+                                                         setIsAddingNewInSearch(false);
+                                                         addToast("Personnel added to registry");
+                                                      }}
+                                                      className="w-full py-3 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-[0.98] shadow-xl shadow-white/10"
+                                                   >
+                                                      Commit to Manifest
+                                                   </button>
+                                                </div>
+                                             ) : (
+                                                <>
+                                                   {Object.entries(SUGGESTIONS).map(([category, items]) => {
+                                                      const filtered = items.filter(it => it.name.toLowerCase().includes(searchQuery.toLowerCase()));
+                                                      if (filtered.length === 0) return null;
+                                                      return (
+                                                         <div key={category} className="px-2 pb-2">
+                                                            <div className="px-3 py-2 flex items-center gap-2 opacity-30">
+                                                               {category === 'physical' && <Package size={10} />}
+                                                               {category === 'digital' && <Video size={10} />}
+                                                               {category === 'team' && <Users size={10} />}
+                                                               <span className="text-[8px] font-black uppercase tracking-widest">{category}</span>
+                                                            </div>
+                                                            {filtered.map((it, idx) => (
+                                                               <button 
+                                                                  key={idx}
+                                                                  type="button"
+                                                                  onClick={() => addSelectedSuggestion(it, category as any)}
+                                                                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 rounded-xl transition-all group/item text-left"
+                                                               >
+                                                                  <span className="text-[10px] font-bold text-zinc-300 group-hover/item:text-white transition-colors">{it.name}</span>
+                                                                  <span className="text-[9px] font-black text-emerald-500 font-mono">
+                                                                     {(it as any).price ? `₹${(it as any).price.toLocaleString()}` : (it as any).role.toUpperCase()}
+                                                                  </span>
+                                                               </button>
+                                                            ))}
+                                                         </div>
+                                                      );
+                                                   })}
+
+                                                   {Object.values(SUGGESTIONS).every(items => items.filter(it => it.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0) && (
+                                                      <button 
+                                                         type="button"
+                                                         onClick={handleAddFromSearch}
+                                                         className="w-full py-12 text-center flex flex-col items-center gap-2 hover:bg-white/5 transition-all group"
+                                                      >
+                                                         <Plus size={20} className="text-zinc-600 group-hover:text-white transition-colors" />
+                                                         <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] group-hover:text-white transition-colors">Add "{searchQuery}" to {builderCategory} registry</p>
+                                                      </button>
+                                                   )}
+                                                   
+                                                   <div className="px-2 pt-2 border-t border-white/5">
+                                                      <button 
+                                                         type="button"
+                                                         onClick={handleAddFromSearch}
+                                                         className="w-full flex items-center gap-3 px-3 py-3 hover:bg-white/5 rounded-xl transition-all text-white text-left group"
+                                                      >
+                                                         <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center text-zinc-500 group-hover:bg-white group-hover:text-black transition-all">
+                                                            <Plus size={14} />
+                                                         </div>
+                                                         <div className="flex flex-col items-start">
+                                                            <span className="text-[10px] font-bold">
+                                                               {builderCategory === 'physical' && `+ Add '${searchQuery}' as new item`}
+                                                               {builderCategory === 'digital' && `+ Add '${searchQuery}' as new service`}
+                                                               {builderCategory === 'team' && `+ Add '${searchQuery}' as new person`}
+                                                            </span>
+                                                            <span className="text-[7px] font-black text-zinc-600 uppercase tracking-widest italic">Initialize into {builderCategory} manifest</span>
+                                                         </div>
+                                                      </button>
+                                                   </div>
+                                                </>
+                                             )}
+                                          </div>
+                                       </div>,
+                                       document.body
+                                    )}
+                                 </div>
+                              </div>
+
+                              {/* Dynamic Content */}
+                              <div className="p-4 space-y-3 flex-1 overflow-y-auto max-h-[500px] no-scrollbar min-h-[300px]">
+                                 {builderCategory === 'physical' && (
+                                    <>
+                                       {categorizedItems.physical.map(item => (
+                                          <div key={item.id} className="p-4 bg-black/40 border border-white/5 rounded-2xl space-y-3 group hover:border-white/10 transition-all">
+                                             <div className="flex items-center justify-between gap-3">
+                                                <input 
+                                                   placeholder="Asset Name (e.g. Album)"
+                                                   className="flex-1 bg-transparent border-none text-[11px] font-bold text-white outline-none placeholder:text-zinc-700"
+                                                   value={item.name}
+                                                   onChange={e => updateCategorizedItem('physical', item.id, 'name', e.target.value)}
+                                                />
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                   <div className="p-1.5 bg-emerald-500/10 rounded-lg">
+                                                      <Edit2 size={10} className="text-emerald-500" />
+                                                   </div>
+                                                </div>
+                                             </div>
+                                             <div className="flex items-center justify-between gap-4 pt-2 border-t border-white/5">
+                                                <div className="flex items-center gap-2">
+                                                   <span className="text-[8px] font-black text-zinc-600 uppercase">Qty</span>
+                                                   <input 
+                                                      type="number" 
+                                                      className="w-12 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-white text-center"
+                                                      value={item.quantity}
+                                                      onChange={e => updateCategorizedItem('physical', item.id, 'quantity', parseInt(e.target.value) || 1)}
+                                                   />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                   <span className="text-[8px] font-black text-zinc-600 uppercase">Rate</span>
+                                                   <input 
+                                                      type="number" 
+                                                      className="w-24 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-emerald-500 text-right font-mono"
+                                                      value={item.price}
+                                                      onChange={e => updateCategorizedItem('physical', item.id, 'price', parseFloat(e.target.value) || 0)}
+                                                   />
+                                                </div>
+                                                <button type="button" onClick={() => removeCategorizedItem('physical', item.id)} className="p-2 text-zinc-700 hover:text-red-500 transition-colors">
+                                                   <Trash2 size={12} />
+                                                </button>
+                                             </div>
+                                          </div>
+                                       ))}
+                                       {categorizedItems.physical.length === 0 && (
+                                          <div className="py-20 text-center flex flex-col items-center gap-5">
+                                             <div className="w-20 h-20 rounded-[2.5rem] bg-white/[0.02] border border-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                <Package className="w-10 h-10 text-zinc-800" />
+                                             </div>
+                                             <div className="space-y-1">
+                                                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-500">No physical deliverables added</p>
+                                                <p className="text-[9px] font-bold text-zinc-700 uppercase tracking-widest">Start by adding your first asset to the manifest</p>
+                                             </div>
+                                             <button 
+                                                type="button"
+                                                onClick={() => addItemToCategory('physical')}
+                                                className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/10 transition-all active:scale-95 flex items-center gap-2"
+                                             >
+                                                <Plus size={14} className="text-emerald-500" /> Add First Item
+                                             </button>
+                                          </div>
+                                       )}
+                                    </>
+                                 )}
+
+                                 {builderCategory === 'digital' && (
+                                    <>
+                                       {categorizedItems.digital.map(item => (
+                                          <div key={item.id} className="p-4 bg-black/40 border border-white/5 rounded-2xl space-y-3 group hover:border-white/10 transition-all">
+                                             <div className="flex items-center justify-between gap-3">
+                                                <input 
+                                                   placeholder="Service Name (e.g. Cinema)"
+                                                   className="flex-1 bg-transparent border-none text-[11px] font-bold text-white outline-none placeholder:text-zinc-700"
+                                                   value={item.name}
+                                                   onChange={e => updateCategorizedItem('digital', item.id, 'name', e.target.value)}
+                                                />
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                   <div className="p-1.5 bg-blue-500/10 rounded-lg">
+                                                      <Edit2 size={10} className="text-blue-500" />
+                                                   </div>
+                                                </div>
+                                             </div>
+                                             <div className="flex items-center justify-between gap-4 pt-2 border-t border-white/5">
+                                                <div className="flex items-center gap-2">
+                                                   <span className="text-[8px] font-black text-zinc-600 uppercase">Qty</span>
+                                                   <input 
+                                                      type="number" 
+                                                      className="w-12 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-white text-center"
+                                                      value={item.quantity}
+                                                      onChange={e => updateCategorizedItem('digital', item.id, 'quantity', parseInt(e.target.value) || 1)}
+                                                   />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                   <span className="text-[8px] font-black text-zinc-600 uppercase">Rate</span>
+                                                   <input 
+                                                      type="number" 
+                                                      className="w-24 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-blue-500 text-right font-mono"
+                                                      value={item.price}
+                                                      onChange={e => updateCategorizedItem('digital', item.id, 'price', parseFloat(e.target.value) || 0)}
+                                                   />
+                                                </div>
+                                                <button type="button" onClick={() => removeCategorizedItem('digital', item.id)} className="p-2 text-zinc-700 hover:text-red-500 transition-colors">
+                                                   <Trash2 size={12} />
+                                                </button>
+                                             </div>
+                                          </div>
+                                       ))}
+                                       {categorizedItems.digital.length === 0 && (
+                                          <div className="py-20 text-center flex flex-col items-center gap-5">
+                                             <div className="w-20 h-20 rounded-[2.5rem] bg-white/[0.02] border border-white/5 flex items-center justify-center">
+                                                <Video className="w-10 h-10 text-zinc-800" />
+                                             </div>
+                                             <div className="space-y-1">
+                                                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-500">No digital deliverables added</p>
+                                                <p className="text-[9px] font-bold text-zinc-700 uppercase tracking-widest">Configure cinematic services and digital assets</p>
+                                             </div>
+                                             <button 
+                                                type="button"
+                                                onClick={() => addItemToCategory('digital')}
+                                                className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/10 transition-all active:scale-95 flex items-center gap-2"
+                                             >
+                                                <Plus size={14} className="text-blue-500" /> Add First Media
+                                             </button>
+                                          </div>
+                                       )}
+                                    </>
+                                 )}
+
+                                 {builderCategory === 'team' && (
+                                    <>
+                                       {categorizedItems.team.map(item => (
+                                          <div key={item.id} className="p-4 bg-black/40 border border-white/5 rounded-2xl space-y-3 group hover:border-white/10 transition-all">
+                                             <div className="flex items-center justify-between gap-3">
+                                                <input 
+                                                   placeholder="Expert Name"
+                                                   className="flex-1 bg-transparent border-none text-[11px] font-bold text-white outline-none placeholder:text-zinc-700"
+                                                   value={item.name}
+                                                   onChange={e => updateCategorizedItem('team', item.id, 'name', e.target.value)}
+                                                />
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                   <div className="p-1.5 bg-indigo-500/10 rounded-lg">
+                                                      <Edit2 size={10} className="text-indigo-500" />
+                                                   </div>
+                                                </div>
+                                             </div>
+                                             <div className="flex items-center justify-between gap-4 pt-2 border-t border-white/5">
+                                                <select 
+                                                   className="bg-white/5 border border-white/5 rounded-lg p-1 text-[9px] font-black text-zinc-400 uppercase tracking-widest outline-none"
+                                                   value={item.role}
+                                                   onChange={e => updateCategorizedItem('team', item.id, 'role', e.target.value)}
+                                                >
+                                                   {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                                                </select>
+                                                <div className="flex items-center gap-2">
+                                                   <span className="text-[8px] font-black text-zinc-600 uppercase">Cost</span>
+                                                   <input 
+                                                      type="number" 
+                                                      className="w-20 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-indigo-400 text-right font-mono"
+                                                      value={item.cost}
+                                                      onChange={e => updateCategorizedItem('team', item.id, 'cost', parseFloat(e.target.value) || 0)}
+                                                   />
+                                                </div>
+                                                <button type="button" onClick={() => removeCategorizedItem('team', item.id)} className="p-2 text-zinc-700 hover:text-red-500 transition-colors">
+                                                   <Trash2 size={12} />
+                                                </button>
+                                             </div>
+                                          </div>
+                                       ))}
+                                       {categorizedItems.team.length === 0 && (
+                                          <div className="py-20 text-center flex flex-col items-center gap-5">
+                                             <div className="w-20 h-20 rounded-[2.5rem] bg-white/[0.02] border border-white/5 flex items-center justify-center">
+                                                <Users className="w-10 h-10 text-zinc-800" />
+                                             </div>
+                                             <div className="space-y-1">
+                                                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-500">No team members assigned</p>
+                                                <p className="text-[9px] font-bold text-zinc-700 uppercase tracking-widest">Register personnel for this operational vector</p>
+                                             </div>
+                                             <button 
+                                                type="button"
+                                                onClick={() => addItemToCategory('team')}
+                                                className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/10 transition-all active:scale-95 flex items-center gap-2"
+                                             >
+                                                <Plus size={14} className="text-indigo-500" /> Add First Personnel
+                                             </button>
+                                          </div>
+                                       )}
+                                    </>
+                                 )}
+                              </div>
                            </div>
-                           <button
-                              type="button"
-                              onMouseDown={(e) => { e.preventDefault(); handleAddRow(); }}
-                              className="mt-2 px-6 py-3 bg-white/5 text-zinc-400 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-white/10 transition-all flex items-center gap-2 border border-white/5 border-dashed"
-                           >
-                              <Plus className="w-4 h-4" /> Add Service Line
-                           </button>
                         </div>
 
                         {/* 4. FINANCIAL BREAKDOWN & EXTRA TEXT */}
@@ -2442,12 +2725,18 @@ const ClientDetailsPage: React.FC = () => {
                   )}
                </div>
             </div>
-         )}
+         , document.body)}
 
-         {/* -------------------- RIGHT SIDE PREVIEW DRAWER -------------------- */}
-         {previewDoc && (
-            <div className="fixed inset-0 z-[150] flex justify-end bg-black/60 backdrop-blur-sm animate-ios-fade-in" onClick={() => { setPreviewDoc(null); setPaymentAmount(''); }}>
-               <div className="w-full max-w-md bg-zinc-950 border-l border-white/10 h-full overflow-y-auto shadow-2xl animate-ios-slide-left relative flex flex-col" onClick={e => e.stopPropagation()}>
+         {/* -------------------- RIGHT SIDE PREVIEW MODAL -------------------- */}
+         {previewDoc && createPortal(
+            <div 
+               className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-ios-fade-in" 
+               onClick={() => { setPreviewDoc(null); setPaymentAmount(''); }}
+            >
+               <div 
+                  className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-zinc-900 border border-white/10 rounded-2xl p-10 shadow-2xl relative animate-ios-slide-up no-scrollbar flex flex-col" 
+                  onClick={e => e.stopPropagation()}
+               >
 
                   <div className="p-8 border-b border-white/5 sticky top-0 bg-zinc-950/90 backdrop-blur-md z-10 flex items-center justify-between">
                      <div>
@@ -2609,12 +2898,18 @@ const ClientDetailsPage: React.FC = () => {
                   )}
                </div>
             </div>
-         )}
+         , document.body)}
 
          {/* Add Staff Modal */}
-         {isAddStaffModalOpen && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-ios-fade-in">
-               <div className="w-full max-w-sm bg-zinc-950 border border-white/10 rounded-3xl p-8 shadow-2xl animate-ios-slide-up relative">
+         {isAddStaffModalOpen && createPortal(
+            <div 
+               className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-ios-fade-in"
+               onClick={() => setIsAddStaffModalOpen(false)}
+            >
+               <div 
+                  className="w-full max-w-sm bg-zinc-950 border border-white/10 rounded-3xl p-8 shadow-2xl animate-ios-slide-up relative"
+                  onClick={(e) => e.stopPropagation()}
+               >
                   <button onClick={() => setIsAddStaffModalOpen(false)} className="absolute top-6 right-6 p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
                      <X className="w-4 h-4 text-zinc-400" />
                   </button>
@@ -2645,6 +2940,34 @@ const ClientDetailsPage: React.FC = () => {
                   </form>
                </div>
             </div>
+         , document.body)}
+ 
+         {createPortal(
+            <div className="fixed bottom-8 right-8 z-[10000] flex flex-col gap-3 pointer-events-none">
+               {toasts.map(toast => (
+                  <div 
+                     key={toast.id}
+                     className="pointer-events-auto bg-zinc-900/90 border border-white/10 rounded-2xl p-4 flex items-center gap-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-ios-slide-up backdrop-blur-xl group min-w-[240px] border-l-4 border-l-red-500"
+                  >
+                     <div className="flex items-center gap-3 flex-1">
+                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">{toast.message}</span>
+                     </div>
+                     {toast.onUndo && (
+                        <button 
+                           onClick={(e) => {
+                              e.preventDefault();
+                              toast.onUndo?.();
+                           }}
+                           className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-all active:scale-95"
+                        >
+                           Undo
+                        </button>
+                     )}
+                  </div>
+               ))}
+            </div>,
+            document.body
          )}
 
       </div>

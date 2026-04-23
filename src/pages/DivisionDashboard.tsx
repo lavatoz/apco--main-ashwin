@@ -54,14 +54,14 @@ const DivisionDashboard: React.FC = () => {
         <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
             <h1 className="text-3xl font-black text-white uppercase tracking-tighter">Project Hub Not Found</h1>
             <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.2em] mt-2 mb-10">Operational Unit mapping failed for ID: {divisionId}</p>
-            <button onClick={() => navigate('/system')} className="px-8 py-4 bg-white text-black font-black uppercase text-[10px] rounded-xl">Return to Enterprise</button>
+            <button onClick={() => navigate('/ecosystem')} className="px-8 py-4 bg-white text-black font-black uppercase text-[10px] rounded-xl">Return to Enterprise</button>
         </div>
     );
 
     return (
         <div className="space-y-12 animate-ios-slide-up pb-20">
             <div className="flex items-center gap-6">
-                <button onClick={() => navigate('/system')} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-zinc-500 hover:text-white transition-all">
+                <button onClick={() => navigate('/ecosystem')} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-zinc-500 hover:text-white transition-all">
                     <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div>

@@ -33,7 +33,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
     { path: '/copilot', label: 'Copilot', icon: Sparkles, permission: 'ai' },
     { path: '/analytics', label: 'Analytics', icon: BarChart3, permission: 'analytics' },
     { path: '/client-dashboard', label: 'Portal', icon: FolderOpen, permission: 'files' },
-    { path: '/system', label: 'Ecosystem', icon: Settings, permission: 'system' },
+    { path: '/ecosystem', label: 'Ecosystem', icon: Settings, permission: 'system' },
+    { path: '/settings', label: 'Settings', icon: Settings, permission: 'dashboard' },
   ].filter(item => {
     if (!user) return false;
     if (user.role === 'Admin') return true;
@@ -99,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
               {({ isActive }) => (
                 <>
                   {/* Active Indicator Glow */}
-                  {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/50 blur-md" />}
+                  {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary blur-md" />}
  
                   <Icon className={`w-6 h-6 shrink-0 transition-transform duration-300 ${isActive ? 'text-white scale-110' : 'group-hover:text-white group-hover:scale-110'}`} />
                   <span className="lg:block hidden truncate transition-all tracking-tight">{item.label}</span>
@@ -110,22 +111,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
         })}
       </nav>
 
-      <div className="p-6 mt-auto space-y-4">
-        <div className="px-2 mb-2">
-          <NavLink
-              to="/settings"
-              onClick={() => setIsMobileOpen(false)}
-              className={({ isActive }) => `
-                w-full flex items-center gap-5 px-4 py-3 rounded-2xl transition-all group
-                ${isActive ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-zinc-500 hover:text-white hover:bg-white/5'}
-              `}
-          >
-              <Settings className="w-5 h-5 shrink-0" />
-              <span className="lg:block hidden text-[11px] font-black uppercase tracking-widest leading-none">Settings</span>
-          </NavLink>
-        </div>
 
-        <div className="p-5 bg-black/20 border border-white/5 rounded-[1.5rem] mb-4 lg:block hidden backdrop-blur-sm">
+      <div className="p-6 mt-auto space-y-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/10"><Cpu className="w-4 h-4" /></div>
             <div>
@@ -149,7 +136,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
           <LogOut className="w-6 h-6 shrink-0" />
           <span className="lg:block hidden text-base tracking-tight">Lock Station</span>
         </button>
-      </div>
     </div>
   );
 };

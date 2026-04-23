@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import {
-  CheckCircle2, Package, Plus, X, Layers
+  CheckCircle2, Package, Plus, X, Layers, Trash2, Loader2
 } from 'lucide-react';
-import { type Client, type Task, TaskStatus, type Project, type ProjectStage } from '../types';
+import { type Client, type Task, TaskStatus, type Project, type ProjectStage, type CompanyProfile } from '../types';
 import ProjectBoard from './ProjectBoard';
 
 interface ProductionHubProps {
   clients: Client[];
   tasks: Task[];
   selectedBrand: string | 'All';
+  companies: CompanyProfile[];
 }
 
-const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, clients: allClients }) => {
+const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, clients: allClients, companies }) => {
   const location = useLocation();
   const locationState = location.state as { prefillClient?: string; brand?: string } | null;
 
@@ -22,7 +24,7 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
   const [newProject, setNewProject] = useState({ 
     title: locationState?.prefillClient ? `${locationState.prefillClient} Project` : '', 
     client: locationState?.prefillClient || '', 
-    brand: locationState?.brand || (selectedBrand !== 'All' ? selectedBrand : 'AAHA Kalyanam'), 
+    brand: locationState?.brand || (selectedBrand !== 'All' ? (companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand) : 'AAHA Kalyanam'), 
     eventDate: '', 
     stage: 'booked' as ProjectStage,
     totalAmount: 0
@@ -34,6 +36,11 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
        window.history.replaceState({}, document.title);
     }
   }, [locationState]);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [fadingId, setFadingId] = useState<string | null>(null);
 
   // Unified Project Store
   const [projectRegistry, setProjectRegistry] = useState<Project[]>(() => {
@@ -77,7 +84,7 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
     setNewProject({ 
         title: '', 
         client: '', 
-        brand: selectedBrand !== 'All' ? selectedBrand : 'AAHA Kalyanam', 
+        brand: selectedBrand !== 'All' ? (companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand) : (companies[0]?.companyName || 'Artisans'), 
         eventDate: '', 
         stage: 'booked' as any,
         totalAmount: 0
@@ -92,12 +99,40 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
     setProjectRegistry(updated.filter(p => p.status === 'confirmed'));
   };
 
-  const deleteProject = (id: string) => {
-    const stored = localStorage.getItem('projects');
-    const allProjects: Project[] = stored ? JSON.parse(stored) : [];
-    const updated = allProjects.filter(p => p.id !== id);
-    localStorage.setItem('projects', JSON.stringify(updated));
-    setProjectRegistry(updated.filter(p => p.status === 'confirmed'));
+  const confirmDelete = async () => {
+    if (!projectToDelete) return;
+    const targetId = projectToDelete.id;
+
+    setIsDeleting(true);
+    await new Promise(r => setTimeout(r, 150));
+
+    setFadingId(targetId);
+    setIsDeleteModalOpen(false);
+    
+    // Smooth transition
+    await new Promise(r => setTimeout(r, 300));
+    
+    try {
+      const stored = localStorage.getItem('projects');
+      const allProjects: Project[] = stored ? JSON.parse(stored) : [];
+      const updated = allProjects.filter(p => p.id !== targetId);
+      localStorage.setItem('projects', JSON.stringify(updated));
+      setProjectRegistry(updated.filter(p => p.status === 'confirmed'));
+    } catch (err) {
+      console.error("Project Purge Failed", err);
+    } finally {
+      setIsDeleting(false);
+      setProjectToDelete(null);
+      setFadingId(null);
+    }
+  };
+
+  const handleDeleteClick = (id: string) => {
+    const project = projectRegistry.find(p => p.id === id);
+    if (project) {
+        setProjectToDelete(project);
+        setIsDeleteModalOpen(true);
+    }
   };
 
   const filteredTasks = tasks.filter(t => (selectedBrand === 'All' || t.brand === selectedBrand) && t.status !== TaskStatus.Done);
@@ -118,8 +153,9 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
       <ProjectBoard 
         projects={projectRegistry} 
         onUpdateStage={updateProjectStage}
-        onDeleteProject={deleteProject}
+        onDeleteProject={handleDeleteClick}
         selectedBrand={selectedBrand}
+        fadingId={fadingId}
       />
 
       <div className="grid grid-cols-1 gap-6">
@@ -216,13 +252,22 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
                     <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Event Date</label>
                     <input type="date" required className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={newProject.eventDate} onChange={e => setNewProject({...newProject, eventDate: e.target.value})} />
                  </div>
-                 <div className="space-y-2 text-left">
+                  <div className="space-y-2 text-left">
                     <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Brand</label>
-                    <select className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-sm font-bold text-white outline-none" value={newProject.brand} onChange={e => setNewProject({...newProject, brand: e.target.value})}>
-                        <option className="bg-zinc-900" value="AAHA Kalyanam">AAHA Kalyanam</option>
-                        <option className="bg-zinc-900" value="Tiny Toes">Tiny Toes</option>
-                    </select>
-                 </div>
+                    {selectedBrand !== 'All' ? (
+                      <div className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-sm font-bold text-zinc-400 cursor-not-allowed">
+                        {companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand}
+                        <span className="ml-2 text-[8px] opacity-40">(Locked by Global Filter)</span>
+                      </div>
+                    ) : (
+                      <select className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-sm font-bold text-white outline-none" value={newProject.brand} onChange={e => setNewProject({...newProject, brand: e.target.value})}>
+                        <option value="" disabled className="bg-zinc-900">Select Brand...</option>
+                        {companies.map(c => (
+                          <option key={c.id} className="bg-zinc-900" value={c.companyName}>{c.companyName.split(' ')[0].toUpperCase()}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
               </div>
               <div className="pt-6">
                  <button type="submit" className="w-full bg-white text-black px-8 py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-2xl hover:bg-zinc-200 transition-all active:scale-95">Initialize Project</button>
@@ -230,6 +275,51 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
             </form>
           </div>
         </div>
+      )}
+      {/* DELETE CONFIRMATION MODAL */}
+      {isDeleteModalOpen && projectToDelete && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[9999] animate-modal-overlay"
+          onClick={() => { setIsDeleteModalOpen(false); setProjectToDelete(null); }}
+        >
+          <div 
+            className="bg-zinc-900 border border-white/10 rounded-[3rem] w-full max-w-[400px] p-12 shadow-2xl text-center animate-modal-content m-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-red-500/20">
+              <Trash2 className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-3xl font-black text-white tracking-tight uppercase mb-4">Purge Project?</h2>
+            <p className="text-sm text-zinc-500 font-medium mb-10 pb-4 border-b border-white/5 leading-relaxed">
+              Delete <span className="text-white font-black">{projectToDelete.name}</span>? This action will remove the project and all associated operational tracking.
+            </p>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setProjectToDelete(null);
+                }}
+                className="flex-1 py-5 bg-white/5 text-zinc-500 hover:text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border border-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="flex-1 py-5 bg-red-600 text-white hover:bg-red-500 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                   <>
+                     <Loader2 className="w-4 h-4 animate-spin-fast" />
+                     Purging...
+                   </>
+                ) : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

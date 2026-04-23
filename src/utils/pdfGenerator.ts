@@ -35,8 +35,7 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
            title: `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'} ${invoice.id}`,
            subject: `Financial Document for ${client.name}`,
            author: settings.companyName,
-           creator: 'Artisans OS v1.0',
-           producer: `Artisans ${settings.companyName} — Secure Render Mode`
+           creator: 'Artisans OS v1.0'
         });
 
         // Still applying encryption if set
@@ -376,8 +375,7 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
     subject: `Invoice for ${client.name}`,
     author: settings.companyName,
     keywords: `invoice, ${invoice.id}, ${settings.companyName}`,
-    creator: 'Artisans OS v1.0',
-    producer: `Artisans ${settings.companyName} — Tamper-Protected Protocol`
+    creator: 'Artisans OS v1.0'
   });
 
   // 7. ENCRYPTION
