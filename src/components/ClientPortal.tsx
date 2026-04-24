@@ -5,6 +5,7 @@ import type { Client, CloudConfig, TimelineItem, Deliverable, Person, StaffAssig
 import { api } from '../services/api';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import Gallery from './Gallery';
+import { safeParse } from '../utils/storage';
 
 interface ClientPortalProps {
   client: Client;
@@ -37,8 +38,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
     const fetchProjects = async () => {
       setLoading(true);
       try {
-        const storedProjects = localStorage.getItem('projects');
-        const allProjs = storedProjects ? JSON.parse(storedProjects) : [];
+        const allProjs = safeParse<any[]>('projects', []);
         const filtered = allProjs.filter((p: any) => p.clientId === clientId);
         setProjects(filtered);
         
@@ -640,7 +640,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
                         <button 
                            onClick={() => {
                                // Force a persistent save to projects collection
-                               const stored = JSON.parse(localStorage.getItem('projects') || '[]');
+                               const stored = safeParse<any[]>('projects', []);
                                const updated = stored.map((p: any) => p.id === project.id ? project : p);
                                localStorage.setItem('projects', JSON.stringify(updated));
                                alert("Project financials updated and locked.");

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Command, RefreshCw } from 'lucide-react';
+import { safeParse } from '../utils/storage';
 
 const Auth: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -21,9 +22,7 @@ const Auth: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     try {
-      // Safe parsing
-      const storedUsers = localStorage.getItem('users');
-      const users: any[] = storedUsers ? JSON.parse(storedUsers) : [];
+      const users: any[] = safeParse('users', []);
 
       if (!Array.isArray(users)) {
         throw new Error("Invalid users structure in localStorage");

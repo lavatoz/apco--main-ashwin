@@ -4,16 +4,15 @@ import {
   Clock, Package, Image as ImageIcon, 
   Trash2, PlayCircle, Send, CheckCircle, AlertTriangle
 } from 'lucide-react';
+import type { Project, ProjectStage, StaffAssignment } from '../types';
+import { getNextProjectStage, getNextProjectStageAction, getProjectStageProgress, normalizeProjectStage } from '../utils/projectStages';
 
 const STAGES = [
-  { id: 'booked', label: 'Booked', icon: Calendar, color: 'text-blue-500', nextAction: 'Mark Event Done', nextStage: 'event_done' },
-  { id: 'event_done', label: 'Event Done', icon: Camera, color: 'text-purple-500', nextAction: 'Send for Selection', nextStage: 'selection' },
-  { id: 'selection', label: 'Selection', icon: ImageIcon, color: 'text-amber-500', nextAction: 'Start Editing', nextStage: 'editing' },
-  { id: 'editing', label: 'Editing', icon: Clock, color: 'text-rose-500', nextAction: 'Ship to Delivery', nextStage: 'delivery' },
-  { id: 'delivery', label: 'Delivery', icon: Send, color: 'text-emerald-500', nextAction: 'Finalize Project', nextStage: null }
+  { id: 'Planning', label: 'Planning', icon: Calendar, color: 'text-blue-500', nextAction: 'Start Shoot', nextStage: 'Shoot' },
+  { id: 'Shoot', label: 'Shoot', icon: Camera, color: 'text-purple-500', nextAction: 'Start Editing', nextStage: 'Editing' },
+  { id: 'Editing', label: 'Editing', icon: Clock, color: 'text-amber-500', nextAction: 'Start Delivery', nextStage: 'Delivery' },
+  { id: 'Delivery', label: 'Delivery', icon: Send, color: 'text-emerald-500', nextAction: 'Finalize Project', nextStage: null }
 ] as const;
-
-import type { Project, ProjectStage, StaffAssignment } from '../types';
 
 interface ProjectBoardProps {
   projects: Project[];
@@ -28,14 +27,7 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ projects, onUpdateStage, on
   const filteredProjects = projects.filter(p => selectedBrand === 'All' || p.brand === selectedBrand);
 
   const calculateProgress = (project: Project) => {
-    switch (project.stage) {
-      case 'booked': return 10;
-      case 'event_done': return 30;
-      case 'selection': return 55;
-      case 'editing': return 80;
-      case 'delivery': return 100;
-      default: return 0;
-    }
+    return getProjectStageProgress(project.stage);
   };
 
   const getProgressColor = (progress: number, isOverdue: boolean) => {
@@ -49,7 +41,7 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ projects, onUpdateStage, on
      const eventDate = new Date(project.date).getTime();
      const now = new Date().getTime();
      const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-     return (now - eventDate > thirtyDays) && project.stage !== 'delivery';
+     return (now - eventDate > thirtyDays) && normalizeProjectStage(project.stage) !== 'Delivery';
   };
 
   const isTeamMissing = (project: Project) => {
@@ -60,7 +52,7 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ projects, onUpdateStage, on
   return (
     <div className="flex gap-6 overflow-x-auto pb-10 no-scrollbar min-h-[600px]">
       {STAGES.map(stage => {
-        const stageProjects = filteredProjects.filter(p => p.stage === stage.id);
+        const stageProjects = filteredProjects.filter(p => normalizeProjectStage(p.stage) === stage.id);
         return (
           <div key={stage.id} className="flex-shrink-0 w-80 flex flex-col gap-6">
             <div className="flex items-center justify-between px-3">
@@ -90,6 +82,9 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ projects, onUpdateStage, on
                 const isOverdue = checkIsOverdue(project);
                 const missingTeam = isTeamMissing(project);
                 const barColor = getProgressColor(progress, isOverdue);
+                const nextStage = getNextProjectStage(project.stage);
+                const nextAction = getNextProjectStageAction(project.stage);
+                const normalizedStage = normalizeProjectStage(project.stage);
                 
                 return (
                   <div 
@@ -200,16 +195,17 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({ projects, onUpdateStage, on
                         )}
                     </div>
 
-                    {stage.nextStage && (
+                    {nextStage && nextAction && (
                        <button 
-                          onClick={() => onUpdateStage(project.id, stage.nextStage as any)}
+                          onClick={() => onUpdateStage(project.id, nextStage)}
                           className={`w-full py-3 rounded-xl border border-white/5 bg-white/5 hover:bg-white text-zinc-400 hover:text-black text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 group/btn shadow-xl shadow-black/20`}
                        >
-                          {stage.id === 'booked' && <PlayCircle className="w-3.5 h-3.5" />}
-                          {stage.id === 'event_done' && <Send className="w-3.5 h-3.5" />}
-                          {stage.id === 'selection' && <ImageIcon className="w-3.5 h-3.5" />}
-                          {stage.id === 'editing' && <CheckCircle className="w-3.5 h-3.5" />}
-                          {stage.nextAction}
+                          {(project.stage === 'booked' || normalizedStage === 'Planning') && <PlayCircle className="w-3.5 h-3.5" />}
+                          {project.stage === 'event_done' && <Send className="w-3.5 h-3.5" />}
+                          {project.stage === 'selection' && <ImageIcon className="w-3.5 h-3.5" />}
+                          {(project.stage === 'editing' || (normalizedStage === 'Editing' && project.stage !== 'selection')) && <CheckCircle className="w-3.5 h-3.5" />}
+                          {normalizedStage === 'Shoot' && project.stage !== 'event_done' && <Send className="w-3.5 h-3.5" />}
+                          {nextAction}
                        </button>
                     )}
 

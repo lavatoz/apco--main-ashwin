@@ -110,7 +110,7 @@ const AlertsPage: React.FC = () => {
      return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] animate-ios-slide-up">
            <div className="w-10 h-10 border-4 border-zinc-900 border-t-white rounded-full animate-spin mb-6" />
-           <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.4em]">Auditing System Integrity...</p>
+           <p className="text-xs font-bold uppercase text-zinc-500 tracking-[0.4em]">Auditing System Integrity...</p>
         </div>
      );
   }
@@ -121,12 +121,12 @@ const AlertsPage: React.FC = () => {
         <div>
           <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors mb-4 group">
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Back to Dashboard</span>
+            <span className="text-xs font-bold uppercase tracking-widest">Back to Dashboard</span>
           </button>
           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase leading-none flex items-center gap-6">
             System Alerts <div className="bg-red-500 text-black px-4 py-1 rounded-full text-xl">{alerts.length}</div>
           </h1>
-          <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em] mt-4">Security & Operational Intelligence Feed</p>
+          <p className="text-zinc-500 font-bold uppercase text-xs tracking-[0.3em] mt-4">Security & Operational Intelligence Feed</p>
         </div>
 
         <div className="bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5 flex gap-1">
@@ -134,7 +134,7 @@ const AlertsPage: React.FC = () => {
              <button
                key={tab}
                onClick={() => setActiveTab(tab as any)}
-               className={`px-8 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === tab ? 'bg-white text-black shadow-xl shadow-white/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
+               className={`px-8 py-3 text-xs font-bold uppercase tracking-widest rounded-xl transition-all ${activeTab === tab ? 'bg-white text-black shadow-xl shadow-white/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
              >
                {tab}
              </button>
@@ -147,7 +147,7 @@ const AlertsPage: React.FC = () => {
           <div className="bg-zinc-900/20 border border-dashed border-white/5 rounded-[3rem] p-32 text-center">
             <CheckCircle2 className="w-16 h-16 text-zinc-800 mx-auto mb-8" />
             <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Systems Nominal</h2>
-            <p className="text-zinc-500 font-bold uppercase text-[10px] tracking-widest mt-2">No alerts detected in current sector</p>
+            <p className="text-zinc-500 font-bold uppercase text-xs tracking-widest mt-2">No alerts detected in current sector</p>
           </div>
         ) : (
           filteredAlerts.map(alert => (
@@ -164,10 +164,10 @@ const AlertsPage: React.FC = () => {
 
               <div className="flex-1">
                 <div className="flex items-center gap-4 mb-2">
-                  <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-md ${alert.severity === 'critical' ? 'bg-red-500/10 text-red-500' : alert.severity === 'warning' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                  <span className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-md ${alert.severity === 'critical' ? 'bg-red-500/10 text-red-500' : alert.severity === 'warning' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'}`}>
                     {alert.severity}
                   </span>
-                  <span className="text-[10px] font-black uppercase text-zinc-600 tracking-widest">
+                  <span className="text-xs font-bold uppercase text-zinc-600 tracking-widest">
                     {alert.category} • {new Date(alert.timestamp).toLocaleDateString()}
                   </span>
                 </div>
@@ -177,7 +177,7 @@ const AlertsPage: React.FC = () => {
 
               {alert.actionPath && (
                 <div className="flex items-center gap-3 text-zinc-500 group-hover:text-white transition-colors">
-                   <span className="text-[10px] font-black uppercase tracking-widest">Resolve</span>
+                   <span className="text-xs font-bold uppercase tracking-widest">Resolve</span>
                    <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </div>
               )}

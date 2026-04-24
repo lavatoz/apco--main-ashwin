@@ -11,6 +11,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showQuickAccess, setShowQuickAccess] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +63,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             <Layout className="w-8 h-8" />
           </div>
           <h1 className="text-3xl font-black uppercase tracking-[0.2em] text-white">Artisans<span className="text-zinc-600">OS</span></h1>
-          <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-2">v5.5 Secure Identity Protocol</p>
+          <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mt-2">v5.5 Secure Identity Protocol</p>
         </div>
 
         <div className="glass-panel-dark border border-white/10 rounded-[2.5rem] p-2 shadow-2xl overflow-hidden shadow-black/80">
@@ -72,7 +73,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               <button
                 key={r}
                 onClick={() => setRole(r)}
-                className={`flex-1 py-3 rounded-[1.8rem] text-[9px] font-black uppercase tracking-widest transition-all ${
+                className={`flex-1 py-3 rounded-[1.8rem] text-xs font-bold uppercase tracking-widest transition-all ${
                   role === r ? 'bg-white text-black shadow-lg scale-100' : 'text-zinc-500 hover:text-white hover:bg-white/5 scale-95'
                 }`}
               >
@@ -102,7 +103,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             </div>
 
             {error && (
-              <p className="text-red-500 text-[9px] font-mono uppercase tracking-widest animate-pulse text-center bg-red-500/5 py-2 rounded-lg border border-red-500/10 mb-4">
+              <p className="text-red-500 text-xs font-mono uppercase tracking-widest animate-pulse text-center bg-red-500/5 py-2 rounded-lg border border-red-500/10 mb-4">
                 {error}
               </p>
             )}
@@ -111,7 +112,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-white text-black font-black py-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-zinc-200 active:scale-[0.98] transition-all shadow-xl text-[10px] uppercase tracking-[0.3em]"
+                className="w-full bg-white text-black font-bold py-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-zinc-200 active:scale-[0.98] transition-all shadow-xl text-xs uppercase tracking-[0.3em]"
               >
                 {isLoading ? (
                   <div className="flex items-center gap-3">
@@ -131,9 +132,91 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         </div>
         
         <div className="flex flex-col items-center gap-4 mt-8">
-          <p className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest text-center">
+          <p className="text-xs font-mono text-zinc-600 uppercase tracking-widest text-center">
             Authorized personnel only. Sessions are being monitored.
           </p>
+          
+          <button 
+            type="button"
+            onClick={() => setShowQuickAccess(!showQuickAccess)}
+            className="px-6 py-2 bg-white/5 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
+          >
+            {showQuickAccess ? 'Close Quick Access' : 'Developer Quick Access'}
+          </button>
+
+          {showQuickAccess && (
+            <div className="w-full max-w-2xl glass-panel-dark border border-white/10 rounded-[2.5rem] p-6 animate-ios-slide-up mt-4">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em]">User Registry Management</h3>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      const id = `staff_${Date.now()}`;
+                      const name = `Staff ${id.slice(-4)}`;
+                      const newUser = { id, name, email: `${id}@artisans.os`, password: 'staff', role: 'Staff', permissions: ['dashboard', 'tasks'], isActive: true };
+                      const updated = [...(JSON.parse(localStorage.getItem('users') || '[]')), newUser];
+                      localStorage.setItem('users', JSON.stringify(updated));
+                      window.location.reload();
+                    }}
+                    className="px-3 py-1.5 bg-emerald-500/10 text-emerald-500 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-emerald-500/20"
+                  >
+                    + Add Staff
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const id = `client_${Date.now()}`;
+                      const name = `Client ${id.slice(-4)}`;
+                      const newUser = { id, name, email: `${id}@artisans.os`, password: 'client', role: 'Client', permissions: [], isActive: true };
+                      const updated = [...(JSON.parse(localStorage.getItem('users') || '[]')), newUser];
+                      localStorage.setItem('users', JSON.stringify(updated));
+                      window.location.reload();
+                    }}
+                    className="px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-blue-500/20"
+                  >
+                    + Add Client
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
+                {JSON.parse(localStorage.getItem('users') || '[]').map((u: any) => (
+                  <div key={u.id} className="p-3 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between group hover:border-white/20 transition-all">
+                    <button 
+                      onClick={() => {
+                        const sessionUser = { id: u.id, email: u.email, name: u.name, role: u.role, permissions: u.permissions || [] };
+                        localStorage.setItem('auth_user', JSON.stringify(sessionUser));
+                        onLogin(sessionUser);
+                      }}
+                      className="flex items-center gap-3 flex-1 text-left"
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${u.role === 'Admin' ? 'bg-white text-black' : u.role === 'Staff' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'}`}>
+                        {u.name?.charAt(0) || u.email.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-white uppercase">{u.name || 'Unnamed User'}</p>
+                        <p className="text-[8px] font-mono text-zinc-500 uppercase">{u.role} • {u.email.split('@')[0]}</p>
+                      </div>
+                    </button>
+                    {u.id !== 'admin_root' && (
+                      <button 
+                        onClick={() => {
+                          if (confirm(`Remove ${u.name || u.email} from registry?`)) {
+                            const updated = JSON.parse(localStorage.getItem('users') || '[]').filter((usr: any) => usr.id !== u.id);
+                            localStorage.setItem('users', JSON.stringify(updated));
+                            window.location.reload();
+                          }
+                        }}
+                        className="p-2 text-zinc-800 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Layout className="w-3.5 h-3.5 rotate-45" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <button 
             type="button"
             onClick={() => {
@@ -143,7 +226,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 window.location.reload();
               }
             }}
-            className="text-[8px] font-mono text-zinc-800 hover:text-white uppercase tracking-[0.4em] transition-colors"
+            className="text-xs font-mono text-zinc-800 hover:text-white uppercase tracking-[0.4em] transition-colors mt-8"
           >
             Reset Access Logic
           </button>

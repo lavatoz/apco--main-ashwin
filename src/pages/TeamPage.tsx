@@ -25,8 +25,8 @@ export default function TeamPage() {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center">
         <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mb-6" />
-        <h1 className="text-xl font-black text-white uppercase tracking-widest">Verifying Identity</h1>
-        <p className="text-zinc-600 text-[10px] font-mono mt-2">SECURE PROTOCOL ACTIVE</p>
+        <h1 className="text-lg font-semibold text-white uppercase tracking-widest">Verifying Identity</h1>
+        <p className="text-zinc-400 text-xs uppercase mt-2">SECURE PROTOCOL ACTIVE</p>
       </div>
     );
   }
@@ -40,10 +40,10 @@ export default function TeamPage() {
         <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-8 border border-red-500/20">
           <span className="text-red-500 text-4xl font-black">!</span>
         </div>
-        <h1 className="text-3xl font-black text-white uppercase tracking-tighter">Access Forbidden</h1>
-        <p className="text-zinc-500 text-xs font-mono mt-4 uppercase tracking-[0.2em]">Profile Permissions Conflict</p>
+        <h1 className="text-lg font-semibold text-white uppercase tracking-tighter">Access Forbidden</h1>
+        <p className="text-zinc-400 text-xs uppercase mt-4 tracking-[0.2em]">Profile Permissions Conflict</p>
         <div className="mt-10 p-4 bg-white/5 rounded-2xl border border-white/5 max-w-xs overflow-hidden">
-           <p className="text-[9px] font-mono text-zinc-600 break-all">{debugData}</p>
+           <p className="text-sm text-zinc-300 break-all font-mono">{debugData}</p>
         </div>
       </div>
     );
@@ -58,13 +58,13 @@ export default function TeamPage() {
             {user?.email?.charAt(0).toUpperCase() || 'U'}
           </div>
           <div>
-            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Authenticated As</p>
-            <p className="text-xs font-bold text-white uppercase">{user?.email || 'Unknown Agent'}</p>
+            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest leading-none mb-1">Authenticated As</p>
+            <p className="text-lg font-bold text-white uppercase">{user?.email || 'Unknown Agent'}</p>
           </div>
         </div>
         <div className="flex gap-2">
            {user?.permissions?.map((p: string) => (
-             <span key={p} className="px-2 py-1 bg-white/5 rounded-md text-[8px] font-black uppercase text-zinc-500">{p}</span>
+             <span key={p} className="px-3 py-1 bg-white/5 rounded-md text-xs font-semibold uppercase text-zinc-400 border border-white/5">{p}</span>
            ))}
         </div>
       </div>
@@ -73,7 +73,7 @@ export default function TeamPage() {
       
       {/* Bottom Logic Safety Check */}
       <div className="pt-20 pb-10 border-t border-white/5 mt-10">
-         <p className="text-[9px] font-mono text-zinc-800 uppercase tracking-[0.4em] text-center">
+         <p className="text-xs text-zinc-500 uppercase tracking-[0.4em] text-center font-mono">
            Integrity Hash: {btoa(debugData).slice(0, 32)}
          </p>
       </div>

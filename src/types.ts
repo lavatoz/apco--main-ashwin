@@ -176,6 +176,7 @@ export interface ActiveAgreementSnapshot {
   assignedAt: string;
   status: 'pending' | 'accepted' | 'revoked';
   acceptedAt?: string;
+  linkedQuoteId?: string;
 }
 
 export interface AgreementTemplate {
@@ -189,7 +190,7 @@ export interface AgreementTemplate {
 
 export interface Client {
   id: string;
-  _id: string;
+  _id?: string;
   projectName: string;
   name?: string;
   address?: string;
@@ -217,6 +218,7 @@ export interface Client {
   eventType?: string;
   status: 'pending' | 'uploaded' | 'selected' | 'completed';
   activeAgreement?: ActiveAgreementSnapshot;
+  createdAt?: string;
 }
 
 export interface GalleryImage {
@@ -254,7 +256,14 @@ export interface Gallery {
 }
 
 export type ProjectStatus = 'pending' | 'confirmed';
-export type ProjectStage = 'booked' | 'event_done' | 'selection' | 'editing' | 'delivery';
+export type WorkflowProjectStage = 'Planning' | 'Shoot' | 'Editing' | 'Delivery';
+export type LegacyProjectStage = 'booked' | 'event_done' | 'selection' | 'editing' | 'delivery';
+export type ProjectStage = WorkflowProjectStage | LegacyProjectStage;
+
+export interface ProjectWorkflowItem {
+  name: string;
+  status: 'pending' | 'completed' | 'in-progress';
+}
 
 export interface StaffAssignment {
   id?: string;
@@ -262,6 +271,9 @@ export interface StaffAssignment {
   type: 'internal' | 'external';
   payment?: number;
   assigned_dates?: string[];
+  role?: string;
+  cost?: number;
+  price?: number;
 }
 
 export interface ProjectTeam {
@@ -270,6 +282,7 @@ export interface ProjectTeam {
   editor?: StaffAssignment;
   assistant?: StaffAssignment;
   photographers?: StaffAssignment[];
+
   videographers?: StaffAssignment[];
   editors?: StaffAssignment[];
   assistants?: StaffAssignment[];
@@ -279,6 +292,7 @@ export interface SubTask {
   id: string;
   label: string;
   isCompleted: boolean;
+  status: 'pending' | 'ongoing' | 'completed';
 }
 
 export interface Project {
@@ -291,9 +305,16 @@ export interface Project {
   type: string;
   date: string;
   status: ProjectStatus;
-  stage: ProjectStage;
-  totalAmount?: number;
-  team?: ProjectTeam;
+  stage?: ProjectStage;
+  totalAmount?: number; // Legacy
+  team?: any; // Can be ProjectTeam or array based on new logic
+  services?: InvoiceItem[];
+  financials?: {
+    total: number;
+    paid: number;
+    balance: number;
+  };
+  workflow?: ProjectWorkflowItem[];
   createdAt: string;
   description?: string;
   images?: {
@@ -302,7 +323,7 @@ export interface Project {
     isSelected: boolean;
     uploadedAt: string;
   }[];
-  subTasks?: { [key in ProjectStage]?: SubTask[] };
+  subTasks?: { [key: string]: SubTask[] };
 }
 
 export interface Booking {
@@ -322,6 +343,11 @@ export interface InvoiceItem {
   quantity: number;
   price: number;
   costPrice?: number;
+  cost?: number;
+  markup?: number;
+  rate?: number;
+  total?: number;
+  role?: string;
 }
 
 export interface PaymentRecord {
@@ -423,4 +449,18 @@ export interface GlobalSettings {
   pdfSecureRenderEnabled?: boolean;
   pdfSecretSalt?: string;
   // future global settings here
+}
+
+export interface CatalogCategory {
+  id: string;
+  name: string;
+}
+
+export interface CatalogItem {
+  id: string;
+  name: string;
+  internalCost: number;
+  sellingPrice: number;
+  categoryId: string;
+  workflowStage?: ProjectStage;
 }

@@ -1,4 +1,5 @@
 import { type ActivityLog, type Booking, type Client, type CloudConfig, type Division, type Company, type Expense, type Invoice, type Staff, type Task, type Project } from "../types";
+import { safeParse } from "../utils/storage";
 
 
 export const API_URL = "http://localhost:5000/api";
@@ -35,7 +36,7 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
  * Permission guard for administrative actions
  */
 const checkClientBlock = (action: string) => {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user = safeParse<Record<string, any>>('user', {});
   if (user.role === 'Client') {
     console.error(`[SECURITY] Blocked ${user.role} from performing administrative action: ${action}`);
     throw new Error(`Permission Denied: Clients cannot perform administrative operation '${action}'`);
@@ -99,8 +100,7 @@ const getInitialDB = (): DBStructure => ({
 });
 
 const getDB = (): DBStructure => {
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : getInitialDB();
+  return safeParse<DBStructure>(STORAGE_KEY, getInitialDB());
 };
 
 const saveDB = (db: DBStructure) => {
@@ -166,13 +166,12 @@ export const api = {
   // Clients
   getClients: async () => {
     await delay(100);
-    const data = localStorage.getItem("clients");
-    return data ? JSON.parse(data) : [];
+    return safeParse<Client[]>("clients", []);
   },
   saveClient: async (client: Client) => {
     checkClientBlock("Manage Clients");
     await delay(100);
-    const clients = JSON.parse(localStorage.getItem("clients") || "[]");
+    const clients = safeParse<Client[]>("clients", []);
     const newClient = { ...client, _id: client._id || `client-${Date.now()}` };
     const idx = clients.findIndex((c: Client) => c._id === newClient._id);
     if (idx >= 0) {
@@ -184,13 +183,13 @@ export const api = {
     return newClient;
   },
   getClientById: async (id: string) => {
-    const clients = JSON.parse(localStorage.getItem("clients") || "[]");
+    const clients = safeParse<Client[]>("clients", []);
     return clients.find((c: Client) => c._id === id || c.id === id);
   },
   deleteClient: async (id: string) => {
     checkClientBlock("Delete Client");
     await delay(100);
-    const clients = JSON.parse(localStorage.getItem("clients") || "[]");
+    const clients = safeParse<Client[]>("clients", []);
     const filtered = clients.filter((c: any) => c.id !== id && c._id !== id);
     localStorage.setItem("clients", JSON.stringify(filtered));
   },
@@ -274,6 +273,27 @@ export const api = {
     checkClientBlock("Delete Invoice");
     await delay(50);
     const invoices = JSON.parse(localStorage.getItem(INVOICE_KEY) || "[]");
+    
+    // Find the invoice to get its ID and potentially its link to a client
+    const target = invoices.find((inv: any) => String(inv.id) === String(id) || String(inv._id) === String(id));
+    
+    if (target) {
+       // Cleanup orphaned agreements on clients
+       const clients = safeParse<Client[]>("clients", []);
+       const updatedClients = clients.map((c: any) => {
+          if (c.activeAgreement?.linkedQuoteId === String(id)) {
+             return { ...c, activeAgreement: undefined };
+          }
+          return c;
+       });
+       localStorage.setItem("clients", JSON.stringify(updatedClients));
+
+       // Delete linked project
+       const projects = safeParse<Project[]>("projects", []);
+       const updatedProjects = projects.filter((p: any) => String(p.id) !== String(id));
+       localStorage.setItem("projects", JSON.stringify(updatedProjects));
+    }
+
     const filtered = invoices.filter((inv: any) => String(inv.id) !== String(id) && String(inv._id) !== String(id));
     localStorage.setItem(INVOICE_KEY, JSON.stringify(filtered));
   },
@@ -338,18 +358,23 @@ export const api = {
     };
   },
 
-  // Quotes
   getQuoteById: async (id: string) => {
+    console.log('[API] Looking for Quote:', id);
     // Attempt real backend call first
     try {
-      return await fetchApi(`/quotes/${id}`);
+      const resp = await fetchApi(`/quotes/${id}`);
+      console.log('[API] Found in Backend:', resp);
+      return resp;
     } catch (err) {
-      // Fallback to localStorage if backend is not implemented/available
-      console.warn("Backend /quotes/:id not found, falling back to ledger", err);
-      const ledger = JSON.parse(localStorage.getItem("ledger") || "[]");
-      const found = ledger.find((i: Invoice) => (String(i.id) === id || String(i._id) === id) && i.isQuotation);
+      // Fallback to unified storage (artisans_invoices)
+      console.warn("Backend /quotes/:id not found, falling back to local unified store", err);
+      const invoices = JSON.parse(localStorage.getItem(INVOICE_KEY) || "[]");
+      const found = invoices.find((i: Invoice) => (String(i.id) === id || String(i._id) === id) && (i.isQuotation || i.type === 'quotation'));
+      
+      console.log('[API] Local Lookup result:', found ? 'FOUND' : 'NOT FOUND', found);
+      
       if (!found) {
-        throw new Error("404: Quotation not found in ledger cluster.");
+        throw new Error(`404: Quotation record '${id}' not found in local cluster.`);
       }
       return found;
     }
@@ -364,9 +389,11 @@ export const api = {
         brandId: quote.brandId || 'All'
     };
     
+    console.log('[API] Saving Quote:', quoteData);
     // Always save to unified store
-    await api.saveInvoice(quoteData as any);
-    return quoteData;
+    const saved = await api.saveInvoice(quoteData as any);
+    console.log('[API] Quote Saved Successfully:', saved);
+    return saved;
   },
 
   // Divisions (Enterprise Units)

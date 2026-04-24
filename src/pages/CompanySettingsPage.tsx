@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import { type CompanyProfile } from '../types';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { 
   Building, Palette, CreditCard, FileText, Upload, Trash2, 
   CheckCircle2, Plus, X, 
@@ -18,6 +19,13 @@ const CompanySettingsPage: React.FC = () => {
   const [showPdfPassword, setShowPdfPassword] = useState(false);
   const [isEditingPdfPassword, setIsEditingPdfPassword] = useState(false);
   const [tempPassword, setTempPassword] = useState(globalSettings.pdfOwnerPassword || '');
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    tone: 'default' | 'danger';
+    onConfirm: () => void;
+  } | null>(null);
   const [dismissedTip, setDismissedTip] = useState(() => localStorage.getItem('artisans_dismissed_pdf_tip') === 'true');
   const [selectedGlobalColor, setSelectedGlobalColor] = useState(() => localStorage.getItem('artisans_primary_color') || '#3B82F6');
 
@@ -107,16 +115,21 @@ const CompanySettingsPage: React.FC = () => {
       alert("You must have at least one company profile.");
       return;
     }
-    if (confirm(`Are you sure you want to delete "${name}"? Existing invoices using this project type will fallback to the default company.`)) {
-      const filtered = companies.filter(c => c.id !== id);
-      // Ensure one is default
-      if (!filtered.some(c => c.isDefault)) {
-        filtered[0].isDefault = true;
+    setPendingConfirm({
+      title: 'Delete Company',
+      message: `Delete "${name}"? Existing invoices using this project type will fallback to the default company.`,
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: () => {
+        const filtered = companies.filter(c => c.id !== id);
+        if (!filtered.some(c => c.isDefault) && filtered[0]) {
+          filtered[0].isDefault = true;
+        }
+        saveCompanies(filtered);
+        setSuccessMsg("Company removed ✓");
+        setTimeout(() => setSuccessMsg(null), 3000);
       }
-      saveCompanies(filtered);
-      setSuccessMsg("Company removed ✓");
-      setTimeout(() => setSuccessMsg(null), 3000);
-    }
+    });
   };
 
   const handleSetDefault = (id: string) => {
@@ -126,6 +139,13 @@ const CompanySettingsPage: React.FC = () => {
     }));
     saveCompanies(updated);
     setSuccessMsg("Default company updated ✓");
+    setTimeout(() => setSuccessMsg(null), 3000);
+  };
+
+  const savePdfPassword = () => {
+    saveGlobalSettings({ ...globalSettings, pdfOwnerPassword: tempPassword.trim() });
+    setIsEditingPdfPassword(false);
+    setSuccessMsg("Security protocol updated ✓");
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 
@@ -147,6 +167,20 @@ const CompanySettingsPage: React.FC = () => {
   const projectTypes = Array.from(new Set(companies.map(c => c.projectType))).filter(Boolean);
 
   return (
+    <>
+    <ConfirmDialog
+      isOpen={!!pendingConfirm}
+      title={pendingConfirm?.title || ''}
+      message={pendingConfirm?.message || ''}
+      confirmLabel={pendingConfirm?.confirmLabel || 'Confirm'}
+      tone={pendingConfirm?.tone || 'default'}
+      onCancel={() => setPendingConfirm(null)}
+      onConfirm={() => {
+        const action = pendingConfirm?.onConfirm;
+        setPendingConfirm(null);
+        action?.();
+      }}
+    />
     <div className="max-w-7xl mx-auto pb-32 animate-ios-fade-in font-sans">
       
       {/* Header */}
@@ -155,14 +189,14 @@ const CompanySettingsPage: React.FC = () => {
            <h1 className="text-5xl font-black text-white uppercase tracking-tighter mb-3 transition-colors hover:text-blue-400">
               Settings
            </h1>
-           <p className="text-[12px] font-black text-zinc-500 uppercase tracking-[0.3em]">
+           <p className="text-xs font-bold text-zinc-500 uppercase tracking-[0.3em]">
               Central Multi-Brand Configuration & Ecology
            </p>
         </div>
         {successMsg && (
           <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 px-6 py-4 rounded-[2rem] animate-ios-slide-up shadow-2xl">
             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-            <span className="text-[12px] font-black text-emerald-500 uppercase tracking-widest">{successMsg}</span>
+            <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">{successMsg}</span>
           </div>
         )}
       </div>
@@ -172,7 +206,7 @@ const CompanySettingsPage: React.FC = () => {
         <div className="flex items-center gap-4 border-b border-white/5 pb-6">
            <Building className="w-6 h-6 text-blue-500" />
            <h2 className="text-xl font-black text-white uppercase tracking-widest">Brand Portals</h2>
-           <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[10px] font-black text-zinc-400 uppercase">{companies.length} Active</span>
+           <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-zinc-400 uppercase">{companies.length} Active</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -188,7 +222,7 @@ const CompanySettingsPage: React.FC = () => {
                 {company.isDefault && (
                   <div className="absolute -top-3 -right-3 px-4 py-2 bg-emerald-500 text-black rounded-full shadow-2xl flex items-center gap-2 transform group-hover:scale-110 transition-transform cursor-help" title="Primary platform entity">
                     <Star className="w-3 h-3 fill-black" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Default</span>
+                    <span className="text-xs font-bold uppercase tracking-widest">Default</span>
                   </div>
                 )}
 
@@ -210,10 +244,10 @@ const CompanySettingsPage: React.FC = () => {
                    </div>
                    <div className="flex-1 min-w-0">
                       <h3 className="text-xl font-black text-white uppercase tracking-tighter truncate leading-tight mb-1">{company.companyName}</h3>
-                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest truncate">{company.tagline || 'No tagline set'}</p>
+                      <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest truncate">{company.tagline || 'No tagline set'}</p>
                       <div className="mt-4 flex flex-wrap gap-2">
-                         <span className="px-2 py-1 bg-white/5 rounded-md text-[8px] font-black text-zinc-400 uppercase tracking-widest border border-white/5">TYPE: {company.projectType}</span>
-                         <span className="px-2 py-1 bg-white/5 rounded-md text-[8px] font-black text-zinc-400 uppercase tracking-widest border border-white/5">PFX: {company.invoicePrefix}</span>
+                         <span className="px-2 py-1 bg-white/5 rounded-md text-[10px] font-bold text-zinc-400 uppercase tracking-widest border border-white/5">TYPE: {company.projectType}</span>
+                         <span className="px-2 py-1 bg-white/5 rounded-md text-[10px] font-bold text-zinc-400 uppercase tracking-widest border border-white/5">PFX: {company.invoicePrefix}</span>
                       </div>
                    </div>
                 </div>
@@ -238,7 +272,7 @@ const CompanySettingsPage: React.FC = () => {
                    {!company.isDefault && (
                       <button 
                         onClick={() => handleSetDefault(company.id)}
-                        className="px-5 py-3 bg-white/5 hover:bg-emerald-500 hover:text-black text-[10px] font-black text-zinc-400 uppercase tracking-widest rounded-xl transition-all active:scale-95"
+                        className="px-5 py-3 bg-white/5 hover:bg-emerald-500 hover:text-black text-xs font-bold text-zinc-400 uppercase tracking-widest rounded-xl transition-all active:scale-95"
                       >
                          Make Default
                       </button>
@@ -308,11 +342,11 @@ const CompanySettingsPage: React.FC = () => {
                          onChange={(e) => handleGlobalColorChange(e.target.value)}
                          className="w-10 h-10 bg-transparent border-none cursor-pointer outline-none overflow-hidden rounded-lg"
                        />
-                       <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-white text-black text-[8px] font-black uppercase rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Custom Picker</div>
+                       <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-white text-black text-[10px] font-bold uppercase rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Custom Picker</div>
                     </div>
                     <div className="hidden sm:block">
-                       <p className="text-[9px] font-black text-white uppercase tracking-widest leading-none">Custom</p>
-                       <p className="text-[8px] font-bold text-zinc-500 uppercase mt-1">{selectedGlobalColor}</p>
+                       <p className="text-xs font-bold text-white uppercase tracking-widest leading-none">Custom</p>
+                       <p className="text-[10px] font-bold text-zinc-500 uppercase mt-1">{selectedGlobalColor}</p>
                     </div>
                  </div>
               </div>
@@ -327,7 +361,7 @@ const CompanySettingsPage: React.FC = () => {
                     <Shield className="w-5 h-5 text-blue-400" />
                  </div>
                  <div>
-                    <p className="text-[10px] font-black text-white uppercase tracking-widest leading-none mb-2">Security Hub Protocol</p>
+                    <p className="text-xs font-bold text-white uppercase tracking-widest leading-none mb-2">Security Hub Protocol</p>
                     <p className="text-xs font-bold text-zinc-400">Set a personal password for your invoice PDFs. Default is 'Artisans@2026'.</p>
                  </div>
               </div>
@@ -336,7 +370,7 @@ const CompanySettingsPage: React.FC = () => {
                    localStorage.setItem('artisans_dismissed_pdf_tip', 'true');
                    setDismissedTip(true);
                 }}
-                className="px-6 py-3 bg-white/5 hover:bg-white/10 text-[9px] font-black text-white uppercase tracking-widest rounded-xl transition-all"
+                className="px-6 py-3 bg-white/5 hover:bg-white/10 text-xs font-bold text-white uppercase tracking-widest rounded-xl transition-all"
               >
                  Got it
               </button>
@@ -363,8 +397,8 @@ const CompanySettingsPage: React.FC = () => {
                     <div className="flex items-start gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
                        <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
                        <div>
-                          <p className="text-[10px] font-black text-white uppercase tracking-widest mb-1">Ecology Rules</p>
-                          <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.15em] leading-relaxed">
+                          <p className="text-xs font-bold text-white uppercase tracking-widest mb-1">Ecology Rules</p>
+                          <p className="text-xs font-bold text-zinc-500 uppercase tracking-[0.15em] leading-relaxed">
                              This password protects the integrity of your finances. Clients do NOT need this to view or pay.
                           </p>
                        </div>
@@ -375,14 +409,14 @@ const CompanySettingsPage: React.FC = () => {
               <div className="flex-1 max-w-md w-full">
                  <div className="space-y-4">
                     <div className="flex items-center justify-between px-1">
-                       <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest block">PDF Owner Password</label>
+                       <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest block">PDF Owner Password</label>
                        {!isEditingPdfPassword && (
                           <button 
                             onClick={() => {
                                setTempPassword(globalSettings.pdfOwnerPassword || '');
                                setIsEditingPdfPassword(true);
                             }}
-                            className="text-[10px] font-black text-blue-500 hover:text-blue-400 uppercase tracking-widest flex items-center gap-1.5 transition-colors"
+                            className="text-xs font-bold text-blue-500 hover:text-blue-400 uppercase tracking-widest flex items-center gap-1.5 transition-colors"
                           >
                              <Edit3 className="w-3 h-3" />
                              Change
@@ -428,8 +462,8 @@ const CompanySettingsPage: React.FC = () => {
                           {/* Strength Meter */}
                           <div className="space-y-2">
                              <div className="flex justify-between items-center px-1">
-                                <span className="text-[8px] font-black uppercase text-zinc-600 tracking-widest">Entropy Score</span>
-                                <span className={`text-[8px] font-black uppercase tracking-widest ${
+                                <span className="text-[10px] font-bold uppercase text-zinc-600 tracking-widest">Entropy Score</span>
+                                <span className={`text-[10px] font-bold uppercase tracking-widest ${
                                    tempPassword.length === 0 ? 'text-zinc-600' :
                                    tempPassword.length < 6 ? 'text-red-500' : 
                                    tempPassword.length < 10 ? 'text-amber-500' : 'text-emerald-500'
@@ -451,19 +485,19 @@ const CompanySettingsPage: React.FC = () => {
                           {/* Validation Warnings */}
                           <div className="space-y-2">
                              {tempPassword && tempPassword.length < 6 && (
-                                <div className="flex gap-2 text-red-400 text-[9px] font-bold uppercase tracking-widest bg-red-400/5 p-3 rounded-xl border border-red-400/10">
+                                <div className="flex gap-2 text-red-400 text-xs font-bold uppercase tracking-widest bg-red-400/5 p-3 rounded-xl border border-red-400/10">
                                    <AlertTriangle className="w-3 h-3 shrink-0" />
                                    <span>Password is too short for peak security.</span>
                                 </div>
                              )}
                              {tempPassword && ['password', 'admin', '1234', 'test'].some(w => tempPassword.toLowerCase().includes(w)) && (
-                                <div className="flex gap-2 text-amber-500 text-[9px] font-bold uppercase tracking-widest bg-amber-500/5 p-3 rounded-xl border border-amber-500/10">
+                                <div className="flex gap-2 text-amber-500 text-xs font-bold uppercase tracking-widest bg-amber-500/5 p-3 rounded-xl border border-amber-500/10">
                                    <AlertTriangle className="w-3 h-3 shrink-0" />
                                    <span>Common pattern detected. Use a unique sequence.</span>
                                 </div>
                              )}
                              {!tempPassword && (
-                                <div className="flex gap-2 text-amber-600 text-[9px] font-bold uppercase tracking-widest bg-amber-600/5 p-3 rounded-xl border border-amber-600/10">
+                                <div className="flex gap-2 text-amber-600 text-xs font-bold uppercase tracking-widest bg-amber-600/5 p-3 rounded-xl border border-amber-600/10">
                                    <Shield className="w-3 h-3 shrink-0 opacity-50" />
                                    <span>Clear field to disable PDF encryption entirely.</span>
                                 </div>
@@ -474,21 +508,28 @@ const CompanySettingsPage: React.FC = () => {
                              <button 
                                onClick={() => {
                                   if (!tempPassword.trim()) {
-                                     if (!confirm("Disable PDF security entirely? Invoices will no longer be encrypted.")) return;
+                                      setPendingConfirm({
+                                        title: 'Disable PDF Security',
+                                        message: 'Invoices will no longer be encrypted if PDF security is disabled.',
+                                        confirmLabel: 'Disable',
+                                        tone: 'danger',
+                                        onConfirm: savePdfPassword
+                                      });
+                                      return;
                                   }
                                   saveGlobalSettings({...globalSettings, pdfOwnerPassword: tempPassword.trim()});
                                   setIsEditingPdfPassword(false);
                                   setSuccessMsg("Security protocol updated ✓");
                                   setTimeout(() => setSuccessMsg(null), 3000);
                                }}
-                               className="flex-1 py-4 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2"
+                               className="flex-1 py-4 bg-white text-black text-xs font-bold uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2"
                              >
                                 <Save className="w-3 h-3" />
                                 Save Protocol
                              </button>
                              <button 
                                onClick={() => setIsEditingPdfPassword(false)}
-                               className="px-6 py-4 bg-white/5 text-zinc-500 text-[10px] font-black uppercase tracking-widest rounded-2xl"
+                               className="px-6 py-4 bg-white/5 text-zinc-500 text-xs font-bold uppercase tracking-widest rounded-2xl"
                              >
                                 Cancel
                              </button>
@@ -499,8 +540,8 @@ const CompanySettingsPage: React.FC = () => {
                     {!isEditingPdfPassword && (
                        <div className="animate-ios-fade-in space-y-6 pt-4 border-t border-white/5">
                           <div className="flex items-center justify-between px-1">
-                             <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Defensive Layers</p>
-                             <span className="text-[8px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full uppercase tracking-widest">Active Protection</span>
+                             <p className="text-xs font-bold uppercase text-zinc-500 tracking-widest">Defensive Layers</p>
+                             <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full uppercase tracking-widest">Active Protection</span>
                           </div>
                           
                           <div className="grid grid-cols-2 gap-4">
@@ -511,8 +552,8 @@ const CompanySettingsPage: React.FC = () => {
                              >
                                 <Palette className={`w-4 h-4 ${globalSettings.pdfWatermarkEnabled ? 'text-amber-500' : 'text-zinc-600'}`} />
                                 <div>
-                                   <p className="text-[10px] font-black text-white uppercase tracking-widest">Watermark</p>
-                                   <p className="text-[8px] font-bold text-zinc-500 uppercase">Diagonal Brand Trace</p>
+                                   <p className="text-xs font-bold text-white uppercase tracking-widest">Watermark</p>
+                                   <p className="text-[10px] font-bold text-zinc-500 uppercase">Diagonal Brand Trace</p>
                                 </div>
                              </button>
 
@@ -523,8 +564,8 @@ const CompanySettingsPage: React.FC = () => {
                              >
                                 <QrCode className={`w-4 h-4 ${globalSettings.pdfQrEnabled ? 'text-blue-500' : 'text-zinc-600'}`} />
                                 <div>
-                                   <p className="text-[10px] font-black text-white uppercase tracking-widest">QR Verify</p>
-                                   <p className="text-[8px] font-bold text-zinc-500 uppercase">Live Authenticity Link</p>
+                                   <p className="text-xs font-bold text-white uppercase tracking-widest">QR Verify</p>
+                                   <p className="text-[10px] font-bold text-zinc-500 uppercase">Live Authenticity Link</p>
                                 </div>
                              </button>
 
@@ -535,8 +576,8 @@ const CompanySettingsPage: React.FC = () => {
                              >
                                 <Hash className={`w-4 h-4 ${globalSettings.pdfHashEnabled ? 'text-emerald-500' : 'text-zinc-600'}`} />
                                 <div>
-                                   <p className="text-[10px] font-black text-white uppercase tracking-widest">Data Hash</p>
-                                   <p className="text-[8px] font-bold text-zinc-500 uppercase">Unique Data Fingerprint</p>
+                                   <p className="text-xs font-bold text-white uppercase tracking-widest">Data Hash</p>
+                                   <p className="text-[10px] font-bold text-zinc-500 uppercase">Unique Data Fingerprint</p>
                                 </div>
                              </button>
 
@@ -547,22 +588,22 @@ const CompanySettingsPage: React.FC = () => {
                              >
                                 <FileImage className={`w-4 h-4 ${globalSettings.pdfSecureRenderEnabled ? 'text-emerald-500' : 'text-zinc-600'}`} />
                                 <div>
-                                   <p className="text-[10px] font-black text-white uppercase tracking-widest">Secure Render</p>
-                                   <p className="text-[8px] font-bold text-zinc-500 uppercase">Image-based PDF (Fortress)</p>
+                                   <p className="text-xs font-bold text-white uppercase tracking-widest">Secure Render</p>
+                                   <p className="text-[10px] font-bold text-zinc-500 uppercase">Image-based PDF (Fortress)</p>
                                 </div>
                              </button>
                           </div>
                           
                           <div className="flex items-start gap-2 px-2 opacity-60">
                              <Info className="w-3 h-3 text-zinc-500 mt-0.5" />
-                             <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest leading-relaxed">
+                             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-relaxed">
                                 Note: Enabling 'Secure Render' creates larger files (~300-500KB) and renders text unselectable to prevent extraction.
                              </p>
                           </div>
                           
                           <div className="flex items-center gap-2 px-2">
                              <Shield className="w-3 h-3 text-emerald-500" />
-                             <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">
+                             <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
                                 {globalSettings.pdfOwnerPassword ? '128-bit AES Encryption Active' : 'Encryption Bypass Active (Insecure)'}
                              </span>
                           </div>
@@ -589,7 +630,7 @@ const CompanySettingsPage: React.FC = () => {
                        <h2 className="text-2xl font-black text-white uppercase tracking-tighter">
                           {editingCompany ? 'Recalibrate Brand' : 'Deploy Brand Instance'}
                        </h2>
-                       <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Portal ID: {formData.id}</p>
+                       <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Portal ID: {formData.id}</p>
                     </div>
                  </div>
                  <button onClick={closeModal} className="p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all">
@@ -609,18 +650,18 @@ const CompanySettingsPage: React.FC = () => {
                              ) : (
                                 <div className="text-center space-y-4 opacity-50">
                                    <Upload className="w-10 h-10 mx-auto text-zinc-500" />
-                                   <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">No Asset Staged</p>
+                                   <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">No Asset Staged</p>
                                 </div>
                              )}
                              <input type="file" id="logo-up" className="hidden" accept="image/*" onChange={handleLogoUpload} />
                              <label htmlFor="logo-up" className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 cursor-pointer">
                                 <Plus className="w-10 h-10 text-white" />
-                                <span className="text-[10px] font-black uppercase tracking-widest text-white">Select New Icon</span>
+                                <span className="text-xs font-bold uppercase tracking-widest text-white">Select New Icon</span>
                              </label>
                           </div>
                        </div>
                        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl">
-                          <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest leading-relaxed">
+                          <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest leading-relaxed">
                              Asset Constraints: <br/>
                              <span className="text-white mt-1 block">PNG / SVG / JPG (Max 2MB)</span>
                              <span className="text-zinc-600 block mt-1">Recommended: 1:1 Aspect Ratio</span>
@@ -630,7 +671,7 @@ const CompanySettingsPage: React.FC = () => {
 
                     <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-8">
                        <div className="space-y-3">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-[0.2em] px-1">Brand Designation *</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-[0.2em] px-1">Brand Designation *</label>
                           <input 
                             required 
                             type="text" 
@@ -641,7 +682,7 @@ const CompanySettingsPage: React.FC = () => {
                           />
                        </div>
                        <div className="space-y-3">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-[0.2em] px-1">Communication Tagline</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-[0.2em] px-1">Communication Tagline</label>
                           <input 
                             type="text" 
                             className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-blue-500 outline-none transition-all" 
@@ -651,7 +692,7 @@ const CompanySettingsPage: React.FC = () => {
                           />
                        </div>
                        <div className="space-y-3">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-[0.2em] px-1">Vector Link (Project Type) *</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-[0.2em] px-1">Vector Link (Project Type) *</label>
                           <div className="relative group">
                              <input 
                                required 
@@ -665,11 +706,11 @@ const CompanySettingsPage: React.FC = () => {
                              <datalist id="projectTypes">
                                 {projectTypes.map(t => <option key={t} value={t} />)}
                              </datalist>
-                             <p className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-2">Links clients with this brand automatically</p>
+                             <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mt-2">Links clients with this brand automatically</p>
                           </div>
                        </div>
                        <div className="space-y-3">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-[0.2em] px-1">Invoice Prefix *</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-[0.2em] px-1">Invoice Prefix *</label>
                           <input 
                             required 
                             type="text" 
@@ -678,7 +719,7 @@ const CompanySettingsPage: React.FC = () => {
                             onChange={e => setFormData(p => ({...p, invoicePrefix: e.target.value.toUpperCase()}))}
                             placeholder="e.g. AK"
                           />
-                          <p className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest mt-2">{formData.invoicePrefix || 'XX'}-0001-2026</p>
+                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mt-2">{formData.invoicePrefix || 'XX'}-0001-2026</p>
                        </div>
                     </div>
                  </div>
@@ -691,33 +732,33 @@ const CompanySettingsPage: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">Professional Email</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Professional Email</label>
                           <input type="email" className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} />
                        </div>
                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">Support Phone</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Support Phone</label>
                           <input type="text" className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} />
                        </div>
                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">Website Vector</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Website Vector</label>
                           <input type="text" className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none" value={formData.website} onChange={e => setFormData(p => ({...p, website: e.target.value}))} placeholder="www.domain.com" />
                        </div>
                        <div className="md:col-span-3 space-y-2">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">Base Operational Address</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Base Operational Address</label>
                           <textarea rows={3} className="w-full bg-black border border-white/10 rounded-[2rem] p-6 text-sm font-bold text-white focus:border-white/20 outline-none resize-none" value={formData.address} onChange={e => setFormData(p => ({...p, address: e.target.value}))} />
                        </div>
                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">Taxation Index (GSTIN)</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Taxation Index (GSTIN)</label>
                           <input type="text" className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none uppercase" value={formData.gstin} onChange={e => setFormData(p => ({...p, gstin: e.target.value.toUpperCase()}))} />
                        </div>
                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">Permanent Account (PAN)</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Permanent Account (PAN)</label>
                           <input type="text" className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none uppercase" value={formData.pan} onChange={e => setFormData(p => ({...p, pan: e.target.value.toUpperCase()}))} />
                        </div>
                        <div className="space-y-2 flex flex-col justify-end">
                           <div className="bg-black/60 border border-white/5 rounded-2xl p-3 flex items-center justify-between">
                              <div>
-                                <label className="text-[10px] font-black uppercase text-white tracking-widest block">Palette Index</label>
+                                <label className="text-xs font-bold uppercase text-white tracking-widest block">Palette Index</label>
                              </div>
                              <input type="color" className="w-10 h-10 bg-transparent border-none cursor-pointer outline-none" value={formData.primaryColor} onChange={e => setFormData(p => ({...p, primaryColor: e.target.value}))} />
                           </div>
@@ -733,23 +774,23 @@ const CompanySettingsPage: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                        <div className="lg:col-span-2 space-y-2">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">UPI ID (VPA)</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">UPI ID (VPA)</label>
                           <input type="text" className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none" value={formData.upiId} onChange={e => setFormData(p => ({...p, upiId: e.target.value}))} placeholder="business@vpa" />
                        </div>
                        <div className="lg:col-span-2 space-y-2">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">Bank Name</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Bank Name</label>
                           <input type="text" className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none" value={formData.bankDetails?.bankName} onChange={e => setFormData(p => ({...p, bankDetails: {...(p.bankDetails as any), bankName: e.target.value}}))} />
                        </div>
                        <div className="lg:col-span-2 space-y-2">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">Account Holder Designation</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Account Holder Designation</label>
                           <input type="text" className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none" value={formData.bankDetails?.accountName} onChange={e => setFormData(p => ({...p, bankDetails: {...(p.bankDetails as any), accountName: e.target.value}}))} />
                        </div>
                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">Account Number</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Account Number</label>
                           <input type="text" className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none" value={formData.bankDetails?.accountNumber} onChange={e => setFormData(p => ({...p, bankDetails: {...(p.bankDetails as any), accountNumber: e.target.value}}))} />
                        </div>
                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">Routing Index (IFSC)</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Routing Index (IFSC)</label>
                           <input type="text" className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none uppercase" value={formData.bankDetails?.ifsc} onChange={e => setFormData(p => ({...p, bankDetails: {...(p.bankDetails as any), ifsc: e.target.value.toUpperCase()}}))} />
                        </div>
                     </div>
@@ -763,7 +804,7 @@ const CompanySettingsPage: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                        <div className="space-y-3">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">Baseline Payment Terms</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Baseline Payment Terms</label>
                           <select 
                             className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none cursor-pointer appearance-none"
                             value={formData.paymentTerms}
@@ -778,7 +819,7 @@ const CompanySettingsPage: React.FC = () => {
                           </select>
                        </div>
                        <div className="space-y-3">
-                          <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-1">Base Document Notes</label>
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Base Document Notes</label>
                           <input type="text" className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none" value={formData.invoiceNotes} onChange={e => setFormData(p => ({...p, invoiceNotes: e.target.value}))} />
                        </div>
                     </div>
@@ -799,8 +840,8 @@ const CompanySettingsPage: React.FC = () => {
                           </div>
                        </div>
                        <div>
-                          <p className="text-[10px] font-black text-white uppercase tracking-widest">Set as Primary Brand</p>
-                          <p className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">Only one brand can be primary across the ecosystem</p>
+                          <p className="text-xs font-bold text-white uppercase tracking-widest">Set as Primary Brand</p>
+                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Only one brand can be primary across the ecosystem</p>
                        </div>
                     </label>
 
@@ -808,13 +849,13 @@ const CompanySettingsPage: React.FC = () => {
                        <button 
                          type="button" 
                          onClick={closeModal}
-                         className="px-8 py-5 bg-white/5 text-zinc-400 hover:text-white rounded-3xl text-[12px] font-black uppercase tracking-widest transition-all"
+                         className="px-8 py-5 bg-white/5 text-zinc-400 hover:text-white rounded-3xl text-xs font-bold uppercase tracking-widest transition-all"
                        >
                           Abort
                        </button>
                        <button 
                          type="submit"
-                         className="px-12 py-5 bg-white text-black font-black uppercase text-[12px] tracking-[0.2em] rounded-3xl shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3"
+                         className="px-12 py-5 bg-white text-black font-black uppercase text-xs tracking-[0.2em] rounded-3xl shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3"
                        >
                           Deploy Settings
                        </button>
@@ -839,6 +880,7 @@ const CompanySettingsPage: React.FC = () => {
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
     </div>
+    </>
   );
 };
 

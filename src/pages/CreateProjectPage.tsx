@@ -68,7 +68,7 @@ const SmartRoleDropdown: React.FC<{
      <div className={`relative flex-1 ${isOpen ? 'z-[9999]' : 'z-10'}`} ref={wrapperRef}>
         <div 
           onClick={() => setIsOpen(!isOpen)} 
-          className={`w-full bg-white/5 border ${isBusyFn(selectedId) ? 'border-amber-500/50' : 'border-white/5'} rounded-xl p-3 flex justify-between items-center text-[10px] font-black text-white hover:bg-white/10 transition-all cursor-pointer shadow-sm`}
+          className={`w-full bg-white/5 border ${isBusyFn(selectedId) ? 'border-amber-500/50' : 'border-white/5'} rounded-xl p-3 flex justify-between items-center text-sm font-medium text-white hover:bg-white/10 transition-all cursor-pointer shadow-sm`}
         >
            <span className="truncate">{displayValue || 'Select Personnel...'}</span>
            <Search className="w-3 h-3 text-zinc-500 shrink-0" />
@@ -85,7 +85,7 @@ const SmartRoleDropdown: React.FC<{
                  <input 
                    type="text"
                    autoFocus
-                   className="w-full bg-black/50 border border-white/5 rounded-lg p-2.5 pl-8 text-[10px] font-bold text-white placeholder:text-zinc-600 outline-none focus:border-white/20"
+                   className="w-full bg-black/50 border border-white/5 rounded-lg p-2.5 pl-8 text-sm font-medium text-white placeholder:text-zinc-600 outline-none focus:border-white/20"
                    placeholder="Search database..."
                    value={search}
                    onChange={e => setSearch(e.target.value)}
@@ -100,34 +100,34 @@ const SmartRoleDropdown: React.FC<{
                       className="p-3 bg-white/5 hover:bg-white/10 rounded-lg cursor-pointer flex justify-between items-center"
                     >
                        <div className="flex items-center gap-3 overflow-hidden">
-                         <div className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 text-[9px] font-black uppercase shrink-0">
+                         <div className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 text-[10px] font-bold uppercase shrink-0">
                             {(s.name || s.email || '?').charAt(0)}
                          </div>
                          <div className="truncate">
-                           <p className="text-[10px] font-bold text-white uppercase truncate">{s.name || s.email}</p>
-                           <p className="text-[8px] font-mono text-zinc-500 truncate">{s.staffRole}</p>
+                           <p className="text-sm font-semibold text-white uppercase truncate">{s.name || s.email}</p>
+                           <p className="text-xs font-medium text-zinc-500 truncate">{s.staffRole}</p>
                          </div>
                        </div>
-                       {isBusyFn(s.id) && <span className="text-[7px] text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full uppercase shrink-0 ml-2">Busy</span>}
+                       {isBusyFn(s.id) && <span className="text-xs text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full font-bold uppercase shrink-0 ml-2">Busy</span>}
                     </div>
                  ))}
                  
                  {filteredOpts.length === 0 && (
-                    <p className="text-center text-[9px] text-zinc-600 p-3 lowercase opacity-50">no matches found</p>
+                    <p className="text-center text-xs font-bold p-3 uppercase opacity-50">no matches found</p>
                  )}
                  
                  <div className="h-px bg-white/5 my-1 shrink-0" />
                  
                  <div 
                     onClick={() => { onChange(''); setIsOpen(false); setSearch(''); }}
-                    className="p-3 bg-white/5 hover:bg-white/10 rounded-lg cursor-pointer flex items-center justify-center text-[9px] font-black text-zinc-500 uppercase"
+                    className="p-3 bg-white/5 hover:bg-white/10 rounded-lg cursor-pointer flex items-center justify-center text-xs font-bold text-zinc-500 uppercase tracking-widest"
                  >
                     Clear Assignment
                  </div>
               </div>
               
               <div className="border-t border-white/5 bg-black/20 p-2 shrink-0">
-                 <button type="button" onClick={() => { onAddNew(); setIsOpen(false); setSearch(''); }} className="w-full py-2.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-[9px] font-bold uppercase transition-all">+ Add New Member</button>
+                 <button type="button" onClick={() => { onAddNew(); setIsOpen(false); setSearch(''); }} className="w-full py-2.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-xs font-bold uppercase tracking-widest transition-all">+ Add New Member</button>
               </div>
            </div>,
            document.body
@@ -334,10 +334,10 @@ const CreateProjectPage: React.FC = () => {
            <Info className="w-8 h-8 text-red-400" />
         </div>
         <h1 className="text-3xl font-black text-white uppercase tracking-tighter">Identity Match Failed</h1>
-        <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.2em] mt-2 mb-10">Target Client ID {clientId} is missing from active memory</p>
+        <p className="text-sm text-zinc-300 mt-2 mb-10">Target Client ID {clientId} is missing from active memory</p>
         <button 
           onClick={() => navigate('/directory')}
-          className="px-8 py-4 bg-white text-black font-black uppercase text-[10px] rounded-xl tracking-widest active:scale-95"
+          className="px-8 py-4 bg-white text-black font-bold uppercase text-xs rounded-xl tracking-widest active:scale-95"
         >
           Return to Hub
         </button>
@@ -351,7 +351,7 @@ const CreateProjectPage: React.FC = () => {
         <button onClick={() => navigate('/directory')} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-zinc-500 hover:text-white transition-all"><ArrowLeft className="w-5 h-5" /></button>
         <div>
           <h1 className="text-3xl font-black text-white tracking-tight uppercase">New Project Initiation</h1>
-          <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em] mt-1 italic">Client: {client.name}</p>
+          <p className="text-xs font-semibold uppercase text-zinc-400 tracking-[0.3em] mt-1 italic">Client: {client.name}</p>
         </div>
       </div>
 
@@ -359,7 +359,7 @@ const CreateProjectPage: React.FC = () => {
         <div className="absolute top-0 left-0 w-full h-1 bg-white/10" />
         
         <div className="space-y-2">
-          <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Project Identifier (Name)</label>
+          <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Project Identifier (Name)</label>
           <div className="relative">
             <LayoutDashboard className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600" />
             <input 
@@ -374,11 +374,11 @@ const CreateProjectPage: React.FC = () => {
 
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-2">
-            <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Engagement Type</label>
+            <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Engagement Type</label>
             <div className="relative">
               <Briefcase className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
               <select 
-                className="w-full bg-white/5 border border-white/5 rounded-2xl p-5 pl-14 text-xs font-black text-white outline-none appearance-none"
+                className="w-full bg-white/5 border border-white/5 rounded-2xl p-5 pl-14 text-sm font-medium text-white outline-none appearance-none"
                 value={projectType}
                 onChange={e => setProjectType(e.target.value)}
               >
@@ -390,13 +390,13 @@ const CreateProjectPage: React.FC = () => {
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Target Date</label>
+            <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Target Date</label>
             <div className="relative">
               <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
               <input 
                 type="date"
                 required
-                className="w-full bg-white/5 border border-white/5 rounded-2xl p-5 pl-14 text-xs font-black text-white outline-none"
+                className="w-full bg-white/5 border border-white/5 rounded-2xl p-5 pl-14 text-sm font-medium text-white outline-none"
                 value={date}
                 onChange={e => setDate(e.target.value)}
               />
@@ -405,7 +405,7 @@ const CreateProjectPage: React.FC = () => {
         </div>
 
         <div className="space-y-6 pt-4 border-t border-white/5">
-          <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-2 flex justify-between">
+          <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-2 flex justify-between">
             <span>Personnel Assignment & Logistics</span>
           </label>
           
@@ -416,7 +416,7 @@ const CreateProjectPage: React.FC = () => {
               return (
                 <div key={role} className="p-6 bg-white/2 border border-white/5 rounded-3xl space-y-4 hover:border-white/10 transition-all">
                   <div className="flex justify-between items-center mb-2">
-                     <p className="text-[9px] font-black uppercase text-zinc-500 tracking-widest flex items-center gap-2">
+                     <p className="text-xs font-bold uppercase text-zinc-400 tracking-widest flex items-center gap-2">
                         <RoleIcon className="w-3 h-3" /> {role} Manifest
                      </p>
                      <button 
@@ -437,7 +437,7 @@ const CreateProjectPage: React.FC = () => {
                         <div key={idx} className="space-y-4 pt-4 border-t border-white/5 first:border-0 first:pt-0">
                           <div className="flex justify-between items-start gap-4">
                             <div className="flex-1 space-y-1">
-                              <p className="text-[8px] font-black uppercase text-zinc-600 tracking-widest">Select Expert</p>
+                              <p className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Select Expert</p>
                               <div className="flex gap-2">
                                 <SmartRoleDropdown 
                                    role={role}
@@ -464,13 +464,13 @@ const CreateProjectPage: React.FC = () => {
                             </div>
 
                             <div className="space-y-1 w-32 shrink-0">
-                               <p className="text-[8px] font-black uppercase text-zinc-600 tracking-widest text-right">Payment</p>
+                               <p className="text-xs font-bold uppercase text-zinc-400 tracking-widest text-right">Payment</p>
                                <div className="relative mt-1">
                                   <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-500" />
                                   <input 
                                     type="number"
                                     placeholder="0"
-                                    className="bg-white/5 border border-white/5 rounded-xl p-3 pl-8 text-[10px] font-black text-white outline-none w-full focus:border-blue-500/30"
+                                    className="bg-white/5 border border-white/5 rounded-xl p-3 pl-8 text-sm font-bold text-white outline-none w-full focus:border-blue-500/30"
                                     value={row.payment || ''}
                                     onChange={e => {
                                       const updated = [...teamData[role]];
@@ -486,13 +486,13 @@ const CreateProjectPage: React.FC = () => {
                             <div className="animate-ios-slide-up bg-amber-500/5 p-4 rounded-xl border border-amber-500/20 flex items-center justify-between">
                                <div className="flex items-center gap-3">
                                   <AlertTriangle className="w-4 h-4 text-amber-500" />
-                                  <div>
-                                    <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest leading-none">Double Booking Conflict</p>
-                                    <p className="text-[7px] text-zinc-600 font-bold uppercase mt-1">Assigned to another unit on this date.</p>
+                                   <div>
+                                    <p className="text-xs font-bold text-amber-500 uppercase tracking-widest leading-none">Double Booking Conflict</p>
+                                    <p className="text-xs text-zinc-400 mt-1 uppercase tracking-widest">Assigned to another unit on this date.</p>
                                   </div>
                                </div>
                                <label className="flex items-center gap-3 cursor-pointer group">
-                                  <span className="text-[7px] font-black text-zinc-500 uppercase group-hover:text-white transition-all">Confirm Override</span>
+                                  <span className="text-xs font-bold text-zinc-400 uppercase group-hover:text-white transition-all tracking-widest">Confirm Override</span>
                                   <input 
                                     type="checkbox" 
                                     className="w-4 h-4 rounded border-white/10 bg-white/5 text-amber-500 outline-none"
@@ -517,11 +517,11 @@ const CreateProjectPage: React.FC = () => {
         </div>
 
         <div className="space-y-2">
-          <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Initial Status</label>
+          <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Initial Status</label>
           <div className="relative">
             <Info className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
             <select 
-              className="w-full bg-white/5 border border-white/5 rounded-2xl p-5 pl-14 text-xs font-black text-white outline-none appearance-none"
+              className="w-full bg-white/5 border border-white/5 rounded-2xl p-5 pl-14 text-sm font-medium text-white outline-none appearance-none"
               value={status}
               onChange={e => setStatus(e.target.value as any)}
             >
@@ -535,7 +535,7 @@ const CreateProjectPage: React.FC = () => {
           <button 
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-5 bg-white text-black rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-2xl hover:bg-zinc-200 transition-all active:scale-95 flex items-center justify-center gap-3"
+            className="w-full py-5 bg-white text-black rounded-2xl font-bold uppercase text-xs tracking-widest shadow-2xl hover:bg-zinc-200 transition-all active:scale-95 flex items-center justify-center gap-3"
           >
             {isSubmitting ? (
               <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
@@ -554,15 +554,15 @@ const CreateProjectPage: React.FC = () => {
                   <X className="w-4 h-4 text-zinc-400" />
                </button>
                <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Add Personnel</h3>
-               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-6">Initialize new registry vector</p>
+               <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">Initialize new registry vector</p>
                
                <form onSubmit={handleAddNewStaffSubmit} className="space-y-4">
                   <div className="space-y-1">
-                     <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest px-1">Expert Name</label>
+                     <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest px-1">Expert Name</label>
                      <input required autoFocus className="w-full bg-black/50 border border-white/5 rounded-xl p-4 text-sm font-bold text-white outline-none focus:border-white/20" value={newStaffForm.name} onChange={e => setNewStaffForm(f => ({...f, name: e.target.value}))} placeholder="Jane Doe" />
                   </div>
                   <div className="space-y-1">
-                     <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest px-1">Specialty Class</label>
+                     <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest px-1">Specialty Class</label>
                      <select className="w-full bg-black/50 border border-white/5 rounded-xl p-4 text-sm font-bold text-white outline-none focus:border-white/20 appearance-none" value={newStaffForm.role} onChange={e => setNewStaffForm(f => ({...f, role: e.target.value}))}>
                         <option value="photographer">Photographer</option>
                         <option value="videographer">Videographer</option>
@@ -571,10 +571,10 @@ const CreateProjectPage: React.FC = () => {
                      </select>
                   </div>
                   <div className="space-y-1">
-                     <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest px-1">Contact Reference (Optional)</label>
+                     <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest px-1">Contact Reference (Optional)</label>
                      <input className="w-full bg-black/50 border border-white/5 rounded-xl p-4 text-sm font-bold text-white outline-none focus:border-white/20" value={newStaffForm.contact} onChange={e => setNewStaffForm(f => ({...f, contact: e.target.value}))} placeholder="jane@studio.com" />
                   </div>
-                  <button type="submit" className="w-full py-4 mt-6 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all active:scale-95">Commit Record</button>
+                  <button type="submit" className="w-full py-4 mt-6 bg-white text-black rounded-xl font-bold uppercase text-xs tracking-widest hover:bg-zinc-200 transition-all active:scale-95">Commit Record</button>
                </form>
             </div>
          </div>

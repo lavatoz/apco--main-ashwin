@@ -429,7 +429,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-4xl font-black text-white tracking-tight">Access Control</h1>
-          <p className="text-zinc-500 font-medium tracking-tight uppercase text-[10px] tracking-[0.2em] mt-1">Managed Identity & Permission Registry</p>
+          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-[0.2em] mt-1">Managed Identity & Permission Registry</p>
         </div>
         <div className="flex-1 max-w-md mx-8 hidden md:block">
           <div className="relative">
@@ -438,20 +438,20 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               placeholder="Search by name or email..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-6 text-xs font-medium text-white outline-none focus:border-white/20 transition-all"
+              className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-6 text-sm font-medium text-white outline-none focus:border-white/20 transition-all placeholder:text-zinc-600"
             />
           </div>
         </div>
         <div className="flex gap-4">
           <button
             onClick={() => setIsAddingClient(true)}
-            className="bg-white/5 text-white border border-white/10 px-6 py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-white/10 transition-all active:scale-95"
+            className="bg-white/5 text-white border border-white/10 px-6 py-3.5 rounded-2xl font-bold uppercase text-xs tracking-widest flex items-center gap-3 hover:bg-white/10 transition-all active:scale-95"
           >
             Add Client
           </button>
           <button
             onClick={() => setIsAddingStaff(true)}
-            className="bg-white text-black px-8 py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-zinc-200 shadow-2xl transition-all active:scale-95"
+            className="bg-white text-black px-8 py-3.5 rounded-2xl font-bold uppercase text-xs tracking-widest flex items-center gap-3 hover:bg-zinc-200 shadow-2xl transition-all active:scale-95"
           >
             <Plus className="w-4 h-4" /> Add Staff
           </button>
@@ -462,14 +462,14 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
       <div className="flex items-center gap-8 border-b border-white/5 px-2">
         <button 
           onClick={() => setActiveTab('team')}
-          className={`pb-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative ${activeTab === 'team' ? 'text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
+          className={`pb-4 text-xs font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'team' ? 'text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
         >
           Team ({staffUsers.length})
           {activeTab === 'team' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white rounded-full" />}
         </button>
         <button 
           onClick={() => setActiveTab('clients')}
-          className={`pb-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative ${activeTab === 'clients' ? 'text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
+          className={`pb-4 text-xs font-bold uppercase tracking-[0.2em] transition-all relative ${activeTab === 'clients' ? 'text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
         >
           Clients ({clientUsers.length})
           {activeTab === 'clients' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white rounded-full" />}
@@ -489,14 +489,14 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                 <button
                   key={filter.id}
                   onClick={() => setRoleFilter(filter.id)}
-                  className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border ${
+                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 border ${
                     roleFilter === filter.id 
                       ? "bg-white text-black border-white" 
                       : "bg-white/5 text-zinc-500 border-white/5 hover:bg-white/10"
                   }`}
                 >
                   {filter.label} 
-                  <span className={`px-1.5 py-0.5 rounded-md text-[8px] ${roleFilter === filter.id ? "bg-black/10 text-black" : "bg-white/5 text-zinc-600"}`}>
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${roleFilter === filter.id ? "bg-black/10 text-black" : "bg-white/5 text-zinc-600"}`}>
                     {filter.count}
                   </span>
                 </button>
@@ -507,7 +507,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
             <div className="space-y-12">
               {staffGroups.filter(g => roleFilter === 'all' || g.id === roleFilter).length === 0 && searchQuery && (
                  <div className="p-20 border border-dashed border-white/10 rounded-[3rem] text-center">
-                    <p className="text-[10px] font-black uppercase text-zinc-700 tracking-widest">No staff members found matching "{searchQuery}"</p>
+                    <p className="text-xs font-bold uppercase text-zinc-700 tracking-widest">No staff members found matching "{searchQuery}"</p>
                  </div>
               )}
               
@@ -517,7 +517,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                 <div key={group.label} className="space-y-8 animate-ios-slide-up">
                   {roleFilter === 'all' && (
                     <div className="flex items-center gap-4 px-2">
-                      <h3 className="text-[11px] font-black uppercase text-zinc-600 tracking-[0.2em] flex items-center gap-2">
+                      <h3 className="text-xs font-bold uppercase text-zinc-400 tracking-[0.2em] flex items-center gap-2">
                         {group.label} ({group.items.length})
                       </h3>
                       <div className="h-px flex-1 bg-white/5" />
@@ -543,9 +543,9 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                           </div>
                           <div className="flex-1 overflow-hidden">
                             <div className="flex items-center gap-2 mb-1">
-                              <h3 className="text-lg font-black uppercase tracking-tight leading-none truncate">{user?.name || user?.email?.split('@')[0] || "N/A"}</h3>
+                              <h3 className="text-lg font-semibold uppercase tracking-tight leading-none truncate">{user?.name || user?.email?.split('@')[0] || "N/A"}</h3>
                             </div>
-                            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 truncate">
+                            <p className="text-xs font-medium uppercase tracking-widest text-zinc-500 truncate">
                               {user?.email || "No Email"}
                             </p>
                           </div>
@@ -554,7 +554,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                         {emailCounts[(user.email || "").toLowerCase()] > 1 && (
                           <div className="mb-4 bg-amber-500/10 border border-amber-500/20 text-amber-500 px-3 py-2 rounded-lg flex items-center gap-2 animate-pulse">
                             <AlertCircle className="w-3 h-3" />
-                            <span className="text-[8px] font-black uppercase tracking-widest">⚠️ Duplicate Email Identified</span>
+                            <span className="text-xs font-bold uppercase tracking-widest">⚠️ Duplicate Email Identified</span>
                           </div>
                         )}
 
@@ -563,7 +563,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                             <button
                               key={p}
                               onClick={() => updateUserPermissions(user.id, p)}
-                              className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${
                                 user?.permissions?.includes(p)
                                   ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-500"
                                   : "bg-white/5 border border-white/5 text-zinc-700"
@@ -578,20 +578,20 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                           {user.divisionIds?.map((divId) => {
                             const div = divisions.find((d) => d.id === divId);
                             return (
-                              <span key={divId} className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded text-[7px] font-black uppercase tracking-widest">
+                              <span key={divId} className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded text-xs font-bold uppercase tracking-widest">
                                 {div?.name || "Unmapped Div"}
                               </span>
                             );
                           })}
                           {(!user.divisionIds || user.divisionIds.length === 0) && user.role === "Staff" && (
-                              <span className="text-[7px] font-black uppercase tracking-widest text-zinc-700 italic">No Operational Units Linked</span>
+                              <span className="text-xs font-bold uppercase tracking-widest text-zinc-700 italic">No Operational Units Linked</span>
                           )}
                         </div>
 
                         <div className="flex gap-2 mt-auto pt-4 border-t border-white/5">
                           <button
                             onClick={() => openEditModal(user)}
-                            className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                            className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2"
                           >
                             <Edit2 className="w-3.5 h-3.5" /> Edit
                           </button>
@@ -608,7 +608,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
           <div className="space-y-10 animate-ios-slide-up">
             {filteredClients.length === 0 && searchQuery && (
                <div className="p-20 border border-dashed border-white/10 rounded-[3rem] text-center">
-                  <p className="text-[10px] font-black uppercase text-zinc-700 tracking-widest">No clients found matching "{searchQuery}"</p>
+                  <p className="text-xs font-bold uppercase text-zinc-700 tracking-widest">No clients found matching "{searchQuery}"</p>
                </div>
             )}
 
@@ -617,7 +617,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               <div className="space-y-6">
                 <div className="flex items-center gap-2 px-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <h4 className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Active ({clientActiveItems.length})</h4>
+                  <h4 className="text-xs font-bold uppercase text-zinc-500 tracking-widest">Active ({clientActiveItems.length})</h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {clientActiveItems.map(user => (
@@ -633,10 +633,10 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                           </button>
                       )}
 
-                      <h4 className="text-sm font-black text-white truncate max-w-[85%]">{user.name || 'Client User'}</h4>
-                      <p className="text-[9px] font-bold text-zinc-500 truncate mb-4">{user.email}</p>
+                      <h4 className="text-sm font-bold text-white truncate max-w-[85%]">{user.name || 'Client User'}</h4>
+                      <p className="text-xs font-medium text-zinc-400 truncate mb-4">{user.email}</p>
                       <div className="flex items-center gap-2">
-                         <span className="px-2 py-1 rounded text-[7px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500">
+                         <span className="px-2 py-1 rounded text-xs font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-500">
                            Active
                          </span>
                       </div>
@@ -651,7 +651,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               <div className="space-y-6">
                 <div className="flex items-center gap-2 px-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                  <h4 className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Pending ({clientPendingItems.length})</h4>
+                  <h4 className="text-xs font-bold uppercase text-zinc-500 tracking-widest">Pending ({clientPendingItems.length})</h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {clientPendingItems.map(user => (
@@ -667,10 +667,10 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                           </button>
                       )}
 
-                      <h4 className="text-sm font-black text-white truncate max-w-[85%]">{user.name || 'Client User'}</h4>
-                      <p className="text-[9px] font-bold text-zinc-500 truncate mb-4">{user.email}</p>
+                      <h4 className="text-sm font-bold text-white truncate max-w-[85%]">{user.name || 'Client User'}</h4>
+                      <p className="text-xs font-medium text-zinc-400 truncate mb-4">{user.email}</p>
                       <div className="flex items-center gap-2">
-                         <span className="px-2 py-1 rounded text-[7px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500">
+                         <span className="px-2 py-1 rounded text-xs font-bold uppercase tracking-widest bg-amber-500/10 text-amber-500">
                            Pending
                          </span>
                       </div>
@@ -682,7 +682,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
 
             {filteredClients.length === 0 && !searchQuery && (
                 <div className="p-8 border border-dashed border-white/5 rounded-[2rem] text-center col-span-full">
-                    <p className="text-[9px] font-black uppercase text-zinc-800 tracking-widest">No clients provisioned</p>
+                    <p className="text-xs font-bold uppercase text-zinc-800 tracking-widest">No clients provisioned</p>
                 </div>
             )}
           </div>
@@ -697,7 +697,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
             <div className="flex justify-between items-center mb-10">
               <div>
                 <h2 className="text-3xl font-black text-white tracking-tight uppercase">Provision Client</h2>
-                <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mt-2 italic">Client Identity Generation</p>
+                <p className="text-xs font-semibold uppercase text-zinc-400 tracking-[0.2em] mt-2 italic">Client Identity Generation</p>
               </div>
               <button
                 onClick={() => setIsAddingClient(false)}
@@ -709,7 +709,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
 
             <form onSubmit={handleAddClientAccess} className="space-y-8">
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Subject Email</label>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Subject Email</label>
                   <input
                     required
                     type="email"
@@ -721,14 +721,14 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Base Permission Profile</label>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Base Permission Profile</label>
                   <div className="grid grid-cols-2 gap-2">
                     {availablePermissions.map((p) => (
                       <button
                         key={p}
                         type="button"
                         onClick={() => togglePermissionInClientForm(p)}
-                        className={`py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${clientForm.permissions.includes(p) ? "bg-blue-600/10 border-blue-600/20 text-blue-500" : "bg-white/5 border-white/5 text-zinc-700 hover:bg-white/10"}`}
+                        className={`py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border ${clientForm.permissions.includes(p) ? "bg-blue-600/10 border-blue-600/20 text-blue-500" : "bg-white/5 border-white/5 text-zinc-700 hover:bg-white/10"}`}
                       >
                         {p}
                       </button>
@@ -737,8 +737,8 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                 </div>
 
                 <div className="flex gap-4 pt-6">
-                  <button type="button" onClick={() => setIsAddingClient(false)} className="flex-1 py-5 bg-white/5 text-zinc-500 hover:text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all">Discard</button>
-                  <button type="submit" className="flex-1 py-5 bg-white text-black hover:bg-zinc-200 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-2xl transition-all active:scale-95">Initialize Profile</button>
+                  <button type="button" onClick={() => setIsAddingClient(false)} className="flex-1 py-5 bg-white/5 text-zinc-500 hover:text-white rounded-2xl text-xs font-bold uppercase tracking-widest transition-all">Discard</button>
+                  <button type="submit" className="flex-1 py-5 bg-white text-black hover:bg-zinc-200 rounded-2xl text-xs font-bold uppercase tracking-widest shadow-2xl transition-all active:scale-95">Initialize Profile</button>
                 </div>
             </form>
           </div>
@@ -752,30 +752,30 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
             <div className="p-6 border-b border-white/5 relative shrink-0">
                <button onClick={() => setIsClientPanelOpen(false)} className="absolute top-5 right-5 p-2 bg-white/5 text-zinc-500 rounded-full hover:text-white transition-all"><X className="w-4 h-4"/></button>
                <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Client Terminal</h2>
-               <p className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Identity Management</p>
+               <p className="text-xs font-bold text-zinc-400 uppercase tracking-[0.2em]">Identity Management</p>
             </div>
 
             <div className="p-6 overflow-y-auto flex-1 space-y-6 no-scrollbar">
                <div className="p-5 bg-white/5 rounded-2xl border border-white/5">
-                   <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Subject Entity</p>
-                   <h3 className="text-base font-black text-white truncate max-w-[200px]">{selectedClientUser.name || 'Unknown Client'}</h3>
-                   <p className="text-[9px] font-bold text-zinc-400 mt-1">{selectedClientUser.email}</p>
+                   <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Subject Entity</p>
+                   <h3 className="text-lg font-semibold text-white truncate max-w-[200px]">{selectedClientUser.name || 'Unknown Client'}</h3>
+                   <p className="text-sm font-medium text-zinc-400 mt-1">{selectedClientUser.email}</p>
                    
                    <div className="mt-4 pt-4 border-t border-white/5">
-                      <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-2">Registration Status</p>
-                      <span className={`px-2.5 py-1.5 rounded-lg text-[7px] font-black uppercase tracking-widest inline-block ${selectedClientUser.password ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                      <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Registration Status</p>
+                      <span className={`px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest inline-block ${selectedClientUser.password ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
                         {selectedClientUser.password ? 'Active (Authenticated)' : 'Pending (Invited)'}
                       </span>
                    </div>
                </div>
 
                <div className="space-y-3 pb-2">
-                  <h4 className="text-[10px] font-black uppercase text-zinc-600 tracking-widest">Authentication Link</h4>
+                  <h4 className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Authentication Link</h4>
                   {selectedClientUser.inviteLink ? (
-                      <textarea readOnly value={selectedClientUser.inviteLink} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[9px] font-mono text-zinc-400 outline-none resize-none h-20 leading-relaxed" />
+                      <textarea readOnly value={selectedClientUser.inviteLink} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm font-mono text-zinc-400 outline-none resize-none h-20 leading-relaxed" />
                   ) : (
                       <div className="p-6 border border-dashed border-white/10 rounded-xl text-center">
-                         <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">No Link Provisioned</p>
+                         <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">No Link Provisioned</p>
                       </div>
                   )}
                </div>
@@ -784,28 +784,28 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
             <div className="p-6 border-t border-white/5 bg-black/90 shrink-0 space-y-3 backdrop-blur-xl">
                {selectedClientUser.inviteLink ? (
                   <div className="flex gap-2">
-                     <button onClick={() => manageClientLink('copy')} className="flex-1 py-3 bg-white text-black font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-zinc-200 transition-all flex justify-center items-center gap-2 active:scale-95">
+                     <button onClick={() => manageClientLink('copy')} className="flex-1 py-3 bg-white text-black font-bold text-xs uppercase tracking-widest rounded-xl hover:bg-zinc-200 transition-all flex justify-center items-center gap-2 active:scale-95">
                         {copied ? <Check className="w-3.5 h-3.5"/> : <Copy className="w-3.5 h-3.5" />} Copy
                      </button>
-                     <button onClick={() => manageClientLink('regenerate')} className="flex-1 py-3 bg-white/5 text-zinc-400 hover:text-white font-black text-[9px] uppercase tracking-widest rounded-xl transition-all flex justify-center items-center gap-2 border border-white/5 active:scale-95">
+                     <button onClick={() => manageClientLink('regenerate')} className="flex-1 py-3 bg-white/5 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all flex justify-center items-center gap-2 border border-white/5 active:scale-95">
                         <RefreshCw className="w-3.5 h-3.5" /> Regenerate
                      </button>
                   </div>
                ) : (
-                  <button onClick={() => manageClientLink('generate')} className="w-full py-3 bg-blue-600 text-white font-black text-[9px] uppercase tracking-widest rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.2)] hover:scale-[0.98] transition-all flex items-center justify-center gap-2 active:scale-95">
+                  <button onClick={() => manageClientLink('generate')} className="w-full py-3 bg-blue-600 text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.2)] hover:scale-[0.98] transition-all flex items-center justify-center gap-2 active:scale-95">
                      <LinkIcon className="w-3.5 h-3.5" /> Generate Link
                   </button>
                )}
                <button 
                   onClick={() => { setUserToDelete(selectedClientUser); setIsDeleteModalOpen(true); }}
-                  className="w-full py-3 text-red-500 hover:bg-red-500/10 border border-red-500/20 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all gap-2 flex items-center justify-center active:scale-95"
+                  className="w-full py-3 text-red-500 hover:bg-red-500/10 border border-red-500/20 rounded-xl font-bold uppercase text-xs tracking-widest transition-all gap-2 flex items-center justify-center active:scale-95"
                >
                   <Trash2 className="w-3.5 h-3.5" /> Revoke Access
                </button>
             </div>
             
             {successMsg && (
-               <div className="absolute top-6 right-1/2 translate-x-1/2 whitespace-nowrap bg-emerald-500 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest animate-fade-in-down z-[400] shadow-2xl border border-white/20">
+               <div className="absolute top-6 right-1/2 translate-x-1/2 whitespace-nowrap bg-emerald-500 text-white px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest animate-fade-in-down z-[400] shadow-2xl border border-white/20">
                  {successMsg}
                </div>
             )}
@@ -820,7 +820,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
             <div className="flex justify-between items-center mb-10">
               <div>
                 <h2 className="text-3xl font-black text-white tracking-tight uppercase">Strategic Onboarding</h2>
-                <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mt-2 italic">Manual Personnel Provisioning</p>
+                <p className="text-xs font-semibold uppercase text-zinc-400 tracking-[0.2em] mt-2 italic">Manual Personnel Provisioning</p>
               </div>
               <button
                 onClick={() => setIsAddingStaff(false)}
@@ -833,21 +833,21 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
             <form onSubmit={handleAddStaff} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Full Name</label>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Full Name</label>
                   <input
                     required
-                    className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-black text-white outline-none focus:border-white/20 transition-all"
+                    className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-white/20 transition-all"
                     placeholder="Rahul S"
                     value={staffForm.name}
                     onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Email ID</label>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Email ID</label>
                   <input
                     required
                     type="email"
-                    className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-black text-white outline-none focus:border-white/20 transition-all"
+                    className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-white/20 transition-all"
                     placeholder="rahul@artisans.os"
                     value={staffForm.email}
                     onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
@@ -856,14 +856,14 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Designated Role</label>
+                <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Designated Role</label>
                 <div className="grid grid-cols-2 gap-3">
                   {availableRoles.map((sr) => (
                     <div key={sr.id} className="relative group/role">
                       {editingRoleId === sr.id ? (
                         <input 
                           autoFocus
-                          className="w-full bg-white text-black rounded-xl py-4 px-4 text-[9px] font-black uppercase outline-none"
+                          className="w-full bg-white text-black rounded-xl py-4 px-4 text-xs font-bold uppercase outline-none"
                           value={roleInputName}
                           onChange={e => setRoleInputName(e.target.value)}
                           onKeyDown={e => {
@@ -876,7 +876,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                         <button
                           type="button"
                           onClick={() => setStaffForm({ ...staffForm, staffRole: sr.id })}
-                          className={`w-full py-4 pr-12 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-left px-4 ${staffForm.staffRole === sr.id ? "bg-white text-black" : "bg-white/5 text-zinc-600 hover:bg-white/10"}`}
+                          className={`w-full py-4 pr-12 rounded-xl text-xs font-bold uppercase tracking-widest transition-all text-left px-4 ${staffForm.staffRole === sr.id ? "bg-white text-black" : "bg-white/5 text-zinc-600 hover:bg-white/10"}`}
                         >
                           {sr.name}
                         </button>
@@ -903,7 +903,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                   {isCreatingRole ? (
                      <input 
                        autoFocus
-                       className="w-full bg-white/5 border border-white/20 text-white rounded-xl py-4 px-4 text-[9px] font-black uppercase outline-none"
+                       className="w-full bg-white/5 border border-white/20 text-white rounded-xl py-4 px-4 text-xs font-bold uppercase outline-none"
                        placeholder="Enter role name..."
                        value={roleInputName}
                        onChange={e => setRoleInputName(e.target.value)}
@@ -917,7 +917,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                     <button
                       type="button"
                       onClick={() => { setIsCreatingRole(true); setRoleInputName(""); }}
-                      className="w-full py-4 rounded-xl text-[9px] font-black uppercase tracking-widest border border-dashed border-white/10 text-zinc-700 hover:border-white/20 hover:text-zinc-500 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-4 rounded-xl text-xs font-bold uppercase tracking-widest border border-dashed border-white/10 text-zinc-700 hover:border-white/20 hover:text-zinc-500 transition-all flex items-center justify-center gap-2"
                     >
                       <Plus className="w-3 h-3" /> Add New Role
                     </button>
@@ -926,14 +926,14 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               </div>
 
               <div className="space-y-4">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Infrastructure Permissions</label>
+                <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Infrastructure Permissions</label>
                 <div className="grid grid-cols-4 gap-2">
                   {availablePermissions.map((p) => (
                     <button
                       key={p}
                       type="button"
                       onClick={() => togglePermissionInStaffForm(p)}
-                      className={`py-2 px-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${staffForm.permissions.includes(p) ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : "bg-white/5 border-white/5 text-zinc-700 hover:bg-white/10"}`}
+                      className={`py-2 px-1 rounded-lg text-xs font-bold uppercase tracking-widest transition-all border ${staffForm.permissions.includes(p) ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : "bg-white/5 border-white/5 text-zinc-700 hover:bg-white/10"}`}
                     >
                       {p}
                     </button>
@@ -942,14 +942,14 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               </div>
 
               <div className="space-y-4">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Unit Assignment (Divisions)</label>
+                <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Unit Assignment (Divisions)</label>
                 <div className="grid grid-cols-2 gap-2">
                   {divisions.map((d) => (
                     <button
                       key={d.id}
                       type="button"
                       onClick={() => toggleDivisionInStaffForm(d.id)}
-                      className={`py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${staffForm.divisionIds?.includes(d.id) ? "bg-blue-600/10 border-blue-600/20 text-blue-500" : "bg-white/5 border-white/5 text-zinc-700 hover:bg-white/10"}`}
+                      className={`py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border ${staffForm.divisionIds?.includes(d.id) ? "bg-blue-600/10 border-blue-600/20 text-blue-500" : "bg-white/5 border-white/5 text-zinc-700 hover:bg-white/10"}`}
                     >
                       {d.name}
                     </button>
@@ -960,7 +960,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               <div className="pt-6">
                 <button
                   type="submit"
-                  className="w-full py-5 bg-white text-black font-black rounded-2xl text-[11px] uppercase tracking-widest shadow-2xl transition-all hover:bg-zinc-200 active:scale-95"
+                  className="w-full py-5 bg-white text-black font-bold rounded-2xl text-xs uppercase tracking-widest shadow-2xl transition-all hover:bg-zinc-200 active:scale-95"
                 >
                   Initialize Personnel
                 </button>
@@ -979,7 +979,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
             <div className="flex justify-between items-center mb-8">
               <div>
                 <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Edit Personnel Profile</h2>
-                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Registry ID: {selectedUser.id}</p>
+                <p className="text-xs font-semibold uppercase text-zinc-400 tracking-widest mt-1">Registry ID: {selectedUser.id}</p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -992,7 +992,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
             <div className="space-y-6 max-h-[500px] overflow-y-auto no-scrollbar pr-1">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase text-zinc-500 tracking-[0.2em] px-1">Name</label>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-[0.2em] px-1">Name</label>
                   <input
                     className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-xs font-bold text-white outline-none focus:border-white/20 transition-all"
                     value={selectedUser.name || ""}
@@ -1000,7 +1000,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase text-zinc-500 tracking-[0.2em] px-1">Email</label>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-[0.2em] px-1">Email</label>
                   <input
                     className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-xs font-bold text-white outline-none focus:border-white/20 transition-all"
                     value={selectedUser.email || ""}
@@ -1010,7 +1010,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase text-zinc-500 tracking-[0.2em] px-1">Security Token (Password)</label>
+                <label className="text-xs font-bold uppercase text-zinc-400 tracking-[0.2em] px-1">Security Token (Password)</label>
                 <input
                   type="password"
                   placeholder="••••••••"
@@ -1021,14 +1021,14 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-zinc-500 tracking-[0.2em] px-1">Designated Role</label>
+                <label className="text-xs font-bold uppercase text-zinc-400 tracking-[0.2em] px-1">Designated Role</label>
                 <div className="grid grid-cols-2 gap-3">
                   {availableRoles.map((sr) => (
                     <div key={sr.id} className="relative group/role">
                        {editingRoleId === sr.id ? (
                          <input 
                            autoFocus
-                           className="w-full bg-white text-black rounded-xl py-4 px-4 text-[9px] font-black uppercase outline-none"
+                           className="w-full bg-white text-black rounded-xl py-4 px-4 text-xs font-bold uppercase outline-none"
                            value={roleInputName}
                            onChange={e => setRoleInputName(e.target.value)}
                            onKeyDown={e => {
@@ -1041,7 +1041,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                          <button
                            type="button"
                            onClick={() => setSelectedUser({ ...selectedUser, staffRole: sr.id })}
-                           className={`w-full py-4 pr-12 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-left px-4 ${selectedUser.staffRole === sr.id ? "bg-white text-black" : "bg-white/5 text-zinc-600 hover:bg-white/10"}`}
+                           className={`w-full py-4 pr-12 rounded-xl text-xs font-bold uppercase tracking-widest transition-all text-left px-4 ${selectedUser.staffRole === sr.id ? "bg-white text-black" : "bg-white/5 text-zinc-600 hover:bg-white/10"}`}
                          >
                            {sr.name}
                          </button>
@@ -1068,7 +1068,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                   {isCreatingRole ? (
                      <input 
                        autoFocus
-                       className="w-full bg-white/5 border border-white/20 text-white rounded-xl py-4 px-4 text-[9px] font-black uppercase outline-none"
+                       className="w-full bg-white/5 border border-white/20 text-white rounded-xl py-4 px-4 text-xs font-bold uppercase outline-none"
                        placeholder="Enter role name..."
                        value={roleInputName}
                        onChange={e => setRoleInputName(e.target.value)}
@@ -1082,7 +1082,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                     <button
                       type="button"
                       onClick={() => { setIsCreatingRole(true); setRoleInputName(""); }}
-                      className="w-full py-4 rounded-xl text-[9px] font-black uppercase tracking-widest border border-dashed border-white/10 text-zinc-700 hover:border-white/20 hover:text-zinc-500 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-4 rounded-xl text-xs font-bold uppercase tracking-widest border border-dashed border-white/10 text-zinc-700 hover:border-white/20 hover:text-zinc-500 transition-all flex items-center justify-center gap-2"
                     >
                       <Plus className="w-3 h-3" /> Add New Role
                     </button>
@@ -1091,7 +1091,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               </div>
 
               <div className="space-y-4 pt-4 border-t border-white/5 mt-4">
-                <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] px-1">Operational Domain (Divisions)</label>
+                <label className="text-xs font-bold uppercase text-zinc-400 tracking-[0.2em] px-1">Operational Domain (Divisions)</label>
                 <div className="grid grid-cols-1 gap-2">
                   {divisions.map((div) => (
                     <label
@@ -1102,7 +1102,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                           : "bg-white/5 border-white/5 text-zinc-600 hover:bg-white/10"
                       }`}
                     >
-                      <span className="text-[10px] font-black uppercase tracking-widest">{div.name}</span>
+                      <span className="text-xs font-bold uppercase tracking-widest">{div.name}</span>
                       <div className="relative flex items-center">
                         <input
                           type="checkbox"
@@ -1131,7 +1131,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                   savePermissions();
                   showSuccess("Registry Updated Successfully");
                 }}
-                className="w-full py-5 bg-white text-black rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-2xl hover:bg-zinc-200 transition-all active:scale-95"
+                className="w-full py-5 bg-white text-black rounded-2xl font-bold uppercase text-xs tracking-[0.2em] shadow-2xl hover:bg-zinc-200 transition-all active:scale-95"
               >
                 Synchronize Data
               </button>
@@ -1155,7 +1155,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               <Trash2 className="w-8 h-8 text-red-500" />
             </div>
             <h2 className="text-3xl font-black text-white tracking-tight uppercase mb-4">Delete User?</h2>
-            <p className="text-sm text-zinc-500 font-medium mb-10 pb-4 border-b border-white/5 leading-relaxed">
+            <p className="text-sm text-zinc-300 font-medium mb-10 pb-4 border-b border-white/5 leading-relaxed">
               This will permanently remove access for <span className="text-white font-black">{userToDelete.email}</span>. This protocol is irreversible.
             </p>
 
@@ -1165,14 +1165,14 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                   setIsDeleteModalOpen(false);
                   setUserToDelete(null);
                 }}
-                className="flex-1 py-5 bg-white/5 text-zinc-500 hover:text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border border-white/5"
+                className="flex-1 py-5 bg-white/5 text-zinc-500 hover:text-white rounded-2xl text-xs font-bold uppercase tracking-widest transition-all border border-white/5"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
                 disabled={isDeleting}
-                className="flex-1 py-5 bg-red-600 text-white hover:bg-red-500 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-5 bg-red-600 text-white hover:bg-red-500 rounded-2xl text-xs font-bold uppercase tracking-widest shadow-xl shadow-red-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isDeleting ? (
                    <>
@@ -1195,12 +1195,12 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               <AlertTriangle className="w-8 h-8 text-amber-500" />
             </div>
             <h2 className="text-2xl font-black text-white uppercase mb-4">Delete Role '{roleToReassign.name}'?</h2>
-            <p className="text-[10px] text-zinc-500 font-bold leading-relaxed mb-8 px-4">
+            <p className="text-xs text-zinc-500 font-bold leading-relaxed mb-8 px-4">
               WARNING: <span className="text-white">{roleToReassign.count}</span> personnel have this role assigned. You must pick a replacement role before deleting.
             </p>
             
             <div className="space-y-4 mb-10">
-              <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block text-left px-2">Select Replacement Role</label>
+              <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest block text-left px-2">Select Replacement Role</label>
               <select 
                 className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-bold text-white outline-none appearance-none cursor-pointer"
                 value={replacementRoleId}
@@ -1214,11 +1214,11 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
             </div>
 
             <div className="flex gap-4">
-              <button onClick={() => { setRoleToReassign(null); setReplacementRoleId(""); }} className="flex-1 py-5 bg-white/5 text-zinc-500 hover:text-white rounded-2xl text-[11px] font-black uppercase transition-all">Cancel</button>
+              <button onClick={() => { setRoleToReassign(null); setReplacementRoleId(""); }} className="flex-1 py-5 bg-white/5 text-zinc-500 hover:text-white rounded-2xl text-xs font-bold uppercase transition-all">Cancel</button>
               <button 
                 onClick={confirmReassignAndDelete}
                 disabled={!replacementRoleId}
-                className="flex-1 py-5 bg-red-600 text-white rounded-2xl text-[11px] font-black uppercase transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex-1 py-5 bg-red-600 text-white rounded-2xl text-xs font-black uppercase transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Reassign & Delete
               </button>

@@ -89,7 +89,7 @@ const BrandDetailPage: React.FC = () => {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] animate-pulse">
                 <div className="w-12 h-12 border-4 border-zinc-900 border-t-white rounded-full animate-spin mb-4" />
-                <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Synchronizing Brand Data...</p>
+                <p className="text-xs font-bold uppercase text-zinc-500 tracking-widest">Synchronizing Brand Data...</p>
             </div>
         );
     }
@@ -98,7 +98,7 @@ const BrandDetailPage: React.FC = () => {
         return (
             <div className="p-20 text-center animate-ios-slide-up">
                 <h2 className="text-2xl font-black text-white uppercase mb-4">Brand Prototype Not Found</h2>
-                <button onClick={() => navigate('/ecosystem')} className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-all underline">Return to System Core</button>
+                <button onClick={() => navigate('/ecosystem')} className="text-xs font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition-all underline">Return to System Core</button>
             </div>
         );
     }
@@ -117,17 +117,17 @@ const BrandDetailPage: React.FC = () => {
                 <div>
                     <button 
                         onClick={() => navigate('/ecosystem')} 
-                        className="text-[10px] font-black uppercase text-zinc-600 tracking-widest hover:text-zinc-400 transition-all mb-2 block"
+                        className="text-xs font-bold uppercase text-zinc-600 tracking-widest hover:text-zinc-400 transition-all mb-2 block"
                     >
                         ← Back to Ecosystem
                     </button>
                     <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase leading-none">{division.name}</h1>
-                    <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em] mt-3 italic">{division.description || `${division.type} Vertical Production`}</p>
+                    <p className="text-zinc-500 font-bold uppercase text-xs tracking-[0.3em] mt-3 italic">{division.description || `${division.type} Vertical Production`}</p>
                 </div>
             </div>
 
             <div className="space-y-8">
-                <h2 className="text-[11px] font-black uppercase text-zinc-600 tracking-[0.3em] px-2">Operational Overview</h2>
+                <h2 className="text-xs font-bold uppercase text-zinc-600 tracking-[0.3em] px-2">Operational Overview</h2>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="glass-panel p-8 border border-white/5 squircle-xl bg-white/[0.02] relative overflow-hidden group">
@@ -141,7 +141,7 @@ const BrandDetailPage: React.FC = () => {
                         </div>
                         <div>
                             <h3 className="text-4xl font-black text-white mb-1">{total}</h3>
-                            <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Total Projects</p>
+                            <p className="text-xs font-bold uppercase text-zinc-500 tracking-widest">Total Projects</p>
                         </div>
                     </div>
 
@@ -156,7 +156,7 @@ const BrandDetailPage: React.FC = () => {
                         </div>
                         <div>
                             <h3 className="text-4xl font-black text-white mb-1">{activeCount}</h3>
-                            <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Active (In Progress)</p>
+                            <p className="text-xs font-bold uppercase text-zinc-500 tracking-widest">Active (In Progress)</p>
                         </div>
                     </div>
 
@@ -171,7 +171,7 @@ const BrandDetailPage: React.FC = () => {
                         </div>
                         <div>
                             <h3 className="text-4xl font-black text-white mb-1">{completedCount}</h3>
-                            <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Completed</p>
+                            <p className="text-xs font-bold uppercase text-zinc-500 tracking-widest">Completed</p>
                         </div>
                     </div>
 
@@ -186,14 +186,14 @@ const BrandDetailPage: React.FC = () => {
                         </div>
                         <div>
                             <h3 className="text-4xl font-black text-white mb-1">{pendingCount}</h3>
-                            <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Pending (Needs Attention)</p>
+                            <p className="text-xs font-bold uppercase text-zinc-500 tracking-widest">Pending (Needs Attention)</p>
                         </div>
                     </div>
                 </div>
 
                 {total === 0 && (
                     <div className="py-20 text-center border border-dashed border-white/5 rounded-[3rem] bg-white/[0.01] animate-ios-slide-up">
-                        <p className="text-[10px] font-black uppercase text-zinc-800 tracking-[0.2em]">No operational records for {division.name}</p>
+                        <p className="text-xs font-bold uppercase text-zinc-800 tracking-[0.2em]">No operational records for {division.name}</p>
                     </div>
                 )}
             </div>

@@ -8,6 +8,8 @@ import {
 import { type Invoice, InvoiceStatus, type Client } from '../types';
 import { api } from '../services/api';
 import { useCompanySettings } from '../hooks/useCompanySettings';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { safeParse } from '../utils/storage';
 
 const AgreementPage: React.FC = () => {
   const { quoteId } = useParams<{ quoteId: string }>();
@@ -15,17 +17,27 @@ const AgreementPage: React.FC = () => {
   
   const [quote, setQuote] = useState<Invoice | null>(null);
   const [client, setClient] = useState<Client | null>(null);
+  const [isOrphaned, setIsOrphaned] = useState(false);
   const { settings } = useCompanySettings();
-  const [agreed, setAgreed] = useState(false);
+  const [isAgreed, setIsAgreed] = useState(false);
   const [idFile, setIdFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
       if (!quoteId) return;
+      console.log('[AgreementPage] Initializing lookup for URL ID:', quoteId);
+      
+      // Explicit debug check of storage
+      const allInvoices = safeParse<any[]>('artisans_invoices', []);
+      console.log('[AgreementPage] Storage Check - Total Records:', allInvoices.length);
+      console.log('[AgreementPage] Storage Check - Matching ID?:', allInvoices.find((i: any) => String(i.id) === quoteId || String(i._id) === quoteId));
+
       try {
         const foundQuote = await api.getQuoteById(quoteId);
+        console.log('[AgreementPage] API Lookup Success:', foundQuote);
         setQuote(foundQuote);
         
         if (foundQuote.clientId) {
@@ -33,12 +45,38 @@ const AgreementPage: React.FC = () => {
            if (foundClient) {
               setClient(foundClient);
               if (foundClient.activeAgreement?.status === 'accepted') {
-                 setAgreed(true);
+                 // Removed auto-agree to force explicit interaction as per requirements
+              }
+
+              // Auto-link this quote to the agreement if not already linked (to handle orphaned state later)
+              if (foundClient.activeAgreement && foundClient.activeAgreement.linkedQuoteId !== quoteId) {
+                 const updatedClient = {
+                    ...foundClient,
+                    activeAgreement: {
+                       ...foundClient.activeAgreement,
+                       linkedQuoteId: quoteId
+                    }
+                 };
+                 await api.saveClient(updatedClient);
               }
            }
         }
       } catch (err: any) {
         console.error("Load Failure:", err);
+        if (err.message.includes("404")) {
+           // Search for orphaned agreement
+           try {
+              const allClients = await api.getClients();
+              const orphan = allClients.find((c: Client) => c.activeAgreement?.linkedQuoteId === quoteId);
+              if (orphan) {
+                 setClient(orphan);
+                 setIsOrphaned(true);
+                 return;
+              }
+           } catch (searchErr) {
+              console.error("Orphan Search Failure:", searchErr);
+           }
+        }
         setError(err.message.includes("404") ? "404: Quotation record not found." : "Failed to connect to ledger service.");
       }
     };
@@ -63,7 +101,7 @@ const AgreementPage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    if (!agreed || !idFile || !quote || !client) return;
+    if (!isAgreed || !idFile || !quote || !client) return;
     
     setIsSubmitting(true);
     setError(null);
@@ -81,7 +119,7 @@ const AgreementPage: React.FC = () => {
          };
          
          // Persist back to clients storage
-         const storedClients = JSON.parse(localStorage.getItem('clients') || '[]');
+         const storedClients = safeParse<Client[]>('clients', []);
          const newClients = storedClients.map((c: any) => (c.id === client.id || c._id === client.id) ? updatedClient : c);
          localStorage.setItem('clients', JSON.stringify(newClients));
          setClient(updatedClient);
@@ -126,6 +164,50 @@ const AgreementPage: React.FC = () => {
     }
   };
 
+  const handleDeleteOrphan = async () => {
+    if (!client) return;
+    try {
+      const updatedClient = { ...client, activeAgreement: undefined };
+      await api.saveClient(updatedClient);
+      setIsDeleteConfirmOpen(false);
+      navigate('/ledger');
+    } catch (err) {
+      console.error("Deletion Failure:", err);
+      setError("Failed to delete orphaned agreement.");
+    }
+  };
+
+  if (error && error.includes("404")) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
+        <div className="w-24 h-24 bg-amber-500/10 rounded-[2.5rem] flex items-center justify-center mb-8 border border-amber-500/10 shadow-2xl shadow-amber-500/5">
+          <AlertCircle className="text-amber-500 w-12 h-12" />
+        </div>
+        <h1 className="text-4xl font-black text-white uppercase tracking-tighter mb-4">Quotation not found</h1>
+        <div className="max-w-md">
+           <p className="text-zinc-500 font-bold uppercase text-[10px] tracking-[0.2em] mb-12 leading-relaxed">
+             The quotation <span className="text-white">'{quoteId}'</span> may have been deleted, moved, or the secure link has expired. Please check your registry or contact support.
+           </p>
+        </div>
+        
+        <div className="flex flex-col md:flex-row gap-4">
+           <button 
+              onClick={() => navigate('/dashboard')} 
+              className="px-10 py-5 bg-white text-black font-black uppercase text-xs rounded-2xl tracking-widest active:scale-95 transition-all outline-none"
+           >
+             Back to Dashboard
+           </button>
+           <button 
+              onClick={() => navigate('/ledger?filter=quotations')} 
+              className="px-10 py-5 bg-white/5 border border-white/10 text-white font-black uppercase text-xs rounded-2xl tracking-widest active:scale-95 transition-all outline-none hover:bg-white/10"
+           >
+             View All Quotations
+           </button>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
@@ -134,17 +216,45 @@ const AgreementPage: React.FC = () => {
         </div>
         <h1 className="text-4xl font-black text-white uppercase tracking-tighter mb-4">Verification Error</h1>
         <p className="text-zinc-500 font-black text-[10px] uppercase tracking-[0.2em] mb-10">{error}</p>
-        <button onClick={() => navigate(-1)} className="px-10 py-5 bg-white text-black font-black uppercase text-[11px] rounded-2xl tracking-widest active:scale-95 transition-all outline-none">
+        <button onClick={() => navigate(-1)} className="px-10 py-5 bg-white text-black font-black uppercase text-xs rounded-2xl tracking-widest active:scale-95 transition-all outline-none">
           Return to Portal
         </button>
       </div>
     );
   }
 
-  if (!quote) return <div className="min-h-screen bg-black flex items-center justify-center"><div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>;
+  if (!quote && !isOrphaned) return <div className="min-h-screen bg-black flex items-center justify-center"><div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>;
 
   return (
     <div className="min-h-screen bg-black text-white p-6 md:p-12 font-sans selection:bg-blue-500 selection:text-white animate-ios-fade-in">
+      <ConfirmDialog
+        isOpen={isDeleteConfirmOpen}
+        title="Delete Orphaned Agreement"
+        message="This orphaned agreement record will be permanently removed."
+        confirmLabel="Delete"
+        tone="danger"
+        onCancel={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleDeleteOrphan}
+      />
+      {isOrphaned && (
+         <div className="mb-10 p-6 bg-amber-500/10 border border-amber-500/20 rounded-[2rem] flex items-center justify-between gap-6 animate-ios-slide-up">
+            <div className="flex items-center gap-4">
+               <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center">
+                  <AlertCircle className="text-amber-500 w-6 h-6" />
+               </div>
+               <div>
+                  <p className="text-sm font-black text-white uppercase tracking-widest leading-none">Linked quotation was deleted</p>
+                  <p className="text-xs font-bold text-amber-500/60 uppercase tracking-widest mt-1.5">This agreement is orphaned and no longer linked to a valid billable record.</p>
+               </div>
+            </div>
+            <button 
+               onClick={() => setIsDeleteConfirmOpen(true)}
+               className="px-6 py-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-rose-500 hover:text-white transition-all active:scale-95"
+            >
+               Delete Orphan
+            </button>
+         </div>
+      )}
       <style>{`
         @media print {
           .agreement-body { display: none !important; }
@@ -196,12 +306,14 @@ const AgreementPage: React.FC = () => {
               <div className="glass-panel p-10 squircle-lg border border-white/5 bg-white/[0.02] flex flex-col md:flex-row md:items-center justify-between gap-8">
                  <div>
                     <label className="text-xs font-black text-zinc-600 uppercase tracking-[0.2em] mb-2 block">Project Reference</label>
-                    <h4 className="text-3xl font-black text-white uppercase tracking-tighter">{quote.client?.name || 'Private Client'}</h4>
-                    <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest mt-2">Project ID: {quote.id}</p>
+                    <h4 className="text-3xl font-black text-white uppercase tracking-tighter">{quote?.client?.name || client?.projectName || 'Private Client'}</h4>
+                    <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest mt-2">Project ID: {quote?.id || 'NO_LINKED_ID'}</p>
                  </div>
                  <div className="text-right">
                     <label className="text-xs font-black text-zinc-600 uppercase tracking-[0.2em] mb-2 block">Total Bound Vector</label>
-                    <p className="text-4xl font-black text-emerald-400 font-mono tracking-tighter">₹{(quote.totalAmount || quote.amount || 0).toLocaleString('en-IN')}</p>
+                    <p className="text-4xl font-black text-emerald-400 font-mono tracking-tighter">
+                       {quote ? `₹${(quote.totalAmount || quote.amount || 0).toLocaleString('en-IN')}` : '₹0.00 (ORPHANED)'}
+                    </p>
                  </div>
               </div>
 
@@ -223,46 +335,54 @@ const AgreementPage: React.FC = () => {
                         <div className="py-20 text-center space-y-4 opacity-50">
                            <AlertCircle className="w-12 h-12 mx-auto text-zinc-600" />
                            <p className="text-sm font-black uppercase tracking-[0.2em] text-zinc-500">No active agreement has been assigned yet.</p>
-                           <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">Please contact your account manager to initialize terms.</p>
+                           <p className="text-xs font-bold uppercase tracking-widest text-zinc-600">Please contact your account manager to initialize terms.</p>
                         </div>
                      )}
                   </div>
 
                   <div className="mt-4 text-center">
-                    <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest flex items-center justify-center gap-2">
+                    <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest flex items-center justify-center gap-2">
                        <Lock size={10} className="opacity-50" /> 🔒 This agreement is view-only and securely stored on Artisans. For a copy, please contact your account manager.
                     </p>
                   </div>
 
                  {/* Checkbox / Status */}
                  <div className="mt-10 pt-10 border-t border-white/10 shrink-0">
-                    {client?.activeAgreement?.status === 'accepted' ? (
-                       <div className="flex items-center gap-6 p-6 bg-emerald-500/5 border border-emerald-500/10 rounded-3xl">
-                          <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                          <div>
-                             <p className="text-lg font-black text-white uppercase tracking-widest">Agreement Accepted</p>
-                             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Confirmed on: {new Date(client.activeAgreement.acceptedAt || '').toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-                          </div>
-                       </div>
-                    ) : (
-                       <label className={`flex items-start gap-5 transition-all ${!client?.activeAgreement?.body ? 'opacity-20 cursor-not-allowed grayscale' : 'cursor-pointer group'}`}>
-                          <div className="relative mt-1">
-                             <input 
-                               type="checkbox" 
-                               className="peer appearance-none w-6 h-6 bg-black border border-white/20 rounded-lg checked:bg-blue-500 checked:border-blue-500 transition-all disabled:cursor-not-allowed"
-                               checked={agreed}
-                               onChange={(e) => setAgreed(e.target.checked)}
-                               disabled={!client?.activeAgreement?.body}
-                             />
-                             <CheckCircle2 className="absolute top-1 left-1 w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
-                          </div>
-                          <div>
-                             <p className={`text-lg font-black text-white uppercase tracking-widest transition-colors ${client?.activeAgreement?.body ? 'group-hover:text-blue-400' : ''}`}>I agree to the terms and conditions</p>
-                             <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest mt-2">{client?.activeAgreement?.body ? 'Legally binding digital signature required to initialize production' : 'Waiting for administration to assign active terms.'}</p>
-                          </div>
-                       </label>
-                    )}
-                 </div>
+                     {isAgreed ? (
+                        <div className="flex flex-col gap-4 animate-ios-slide-up">
+                           <div className="flex items-center gap-6 p-6 bg-emerald-500/5 border border-emerald-500/10 rounded-3xl">
+                              <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                              <div>
+                                 <p className="text-lg font-black text-white uppercase tracking-widest">Agreement Accepted</p>
+                                 <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mt-1">Confirmed on: {new Date(client?.activeAgreement?.acceptedAt || new Date()).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                              </div>
+                           </div>
+                           <button 
+                              onClick={() => setIsAgreed(false)} 
+                              className="text-[10px] font-black text-zinc-600 uppercase tracking-widest hover:text-white transition-all text-left px-6"
+                           >
+                              Change Agreement Selection
+                           </button>
+                        </div>
+                     ) : (
+                        <label className={`flex items-start gap-5 transition-all ${!client?.activeAgreement?.body ? 'opacity-20 cursor-not-allowed grayscale' : 'cursor-pointer group'}`}>
+                           <div className="relative mt-1">
+                              <input 
+                                type="checkbox" 
+                                className="peer appearance-none w-6 h-6 bg-black border border-white/20 rounded-lg checked:bg-blue-500 checked:border-blue-500 transition-all disabled:cursor-not-allowed"
+                                checked={isAgreed}
+                                onChange={(e) => setIsAgreed(e.target.checked)}
+                                disabled={!client?.activeAgreement?.body}
+                              />
+                              <CheckCircle2 className="absolute top-1 left-1 w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
+                           </div>
+                           <div>
+                              <p className={`text-lg font-black text-white uppercase tracking-widest transition-colors ${client?.activeAgreement?.body ? 'group-hover:text-blue-400' : ''}`}>I agree to the terms and conditions</p>
+                              <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest mt-2">{client?.activeAgreement?.body ? 'Legally binding digital signature required to initialize production' : 'Waiting for administration to assign active terms.'}</p>
+                           </div>
+                        </label>
+                     )}
+                  </div>
               </div>
            </div>
 
@@ -295,20 +415,20 @@ const AgreementPage: React.FC = () => {
                              <>
                                 <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
                                 <p className="text-[10px] font-black text-white uppercase tracking-widest mb-1">{idFile.name}</p>
-                                <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest">{(idFile.size / 1024 / 1024).toFixed(2)} MB • File Staged</p>
+                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{(idFile.size / 1024 / 1024).toFixed(2)} MB • File Staged</p>
                              </>
                           ) : (
                              <>
                                 <Upload className="w-8 h-8 text-zinc-700 mb-2" />
                                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Click to Upload ID Proof</p>
-                                <p className="text-[8px] font-bold text-zinc-700 uppercase tracking-widest">PDF, JPG, PNG Limit 10MB</p>
+                                <p className="text-[10px] font-bold text-zinc-700 uppercase tracking-widest">PDF, JPG, PNG Limit 10MB</p>
                              </>
                           )}
                        </label>
                     </div>
 
                     {idFile && (
-                       <button onClick={() => setIdFile(null)} className="text-[8px] font-black text-zinc-600 uppercase tracking-widest hover:text-red-500 transition-colors w-full text-center">
+                       <button onClick={() => setIdFile(null)} className="text-[10px] font-black text-zinc-600 uppercase tracking-widest hover:text-red-500 transition-colors w-full text-center">
                           Change Document
                        </button>
                     )}
@@ -316,17 +436,17 @@ const AgreementPage: React.FC = () => {
 
                  <div className="pt-8 border-t border-white/5">
                     <div className="mb-6">
-                       <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-2 flex items-center gap-2 italic">
+                       <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-2 flex items-center gap-2 italic">
                           <Info size={10} /> Data Integrity Note
                        </p>
-                       <p className="text-[8px] font-bold text-zinc-600 uppercase leading-snug">
+                       <p className="text-[10px] font-bold text-zinc-600 uppercase leading-snug">
                           All uploaded documents are encrypted and stored in nuestra secure vault. Documents will be purged automatically after project completion.
                        </p>
                     </div>
 
                     <button 
                       onClick={handleSubmit}
-                      disabled={!agreed || !idFile || isSubmitting || !client?.activeAgreement?.body || client?.activeAgreement?.status === 'accepted'}
+                      disabled={!isAgreed || !idFile || isSubmitting || !client?.activeAgreement?.body}
                       className="w-full py-5 bg-white text-black font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-2xl active:scale-95 transition-all disabled:opacity-20 disabled:cursor-not-allowed group flex items-center justify-center gap-3"
                     >
                        {isSubmitting ? (
@@ -351,7 +471,7 @@ const AgreementPage: React.FC = () => {
 
               {/* Secure Footer Card */}
               <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl flex justify-between items-center text-zinc-600">
-                 <p className="text-[8px] font-black uppercase tracking-widest">End-to-End Encryption Enabled</p>
+                 <p className="text-[10px] font-black uppercase tracking-widest">End-to-End Encryption Enabled</p>
                  <ShieldCheck className="w-4 h-4 opacity-30" />
               </div>
            </div>

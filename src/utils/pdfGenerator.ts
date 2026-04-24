@@ -202,8 +202,8 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
     index + 1,
     item.description,
     item.quantity,
-    `₹${item.price.toLocaleString('en-IN')}`,
-    `₹${(item.quantity * item.price).toLocaleString('en-IN')}`
+    `Rs. ${item.price.toLocaleString('en-IN')}`,
+    `Rs. ${(item.quantity * item.price).toLocaleString('en-IN')}`
   ]);
 
   autoTable(doc, {
@@ -250,29 +250,29 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
 
   doc.text('Subtotal:', totalsX - 40, currentY);
-  doc.text(`₹${subtotal.toLocaleString('en-IN')}`, totalsX, currentY, { align: 'right' });
+  doc.text(`Rs. ${subtotal.toLocaleString('en-IN')}`, totalsX, currentY, { align: 'right' });
   currentY += 7;
 
   if (invoice.taxPercent) {
     const cgst = taxAmount / 2;
     const sgst = taxAmount / 2;
     doc.text(`CGST (${invoice.taxPercent / 2}%):`, totalsX - 40, currentY);
-    doc.text(`₹${cgst.toLocaleString('en-IN')}`, totalsX, currentY, { align: 'right' });
+    doc.text(`Rs. ${cgst.toLocaleString('en-IN')}`, totalsX, currentY, { align: 'right' });
     currentY += 7;
     doc.text(`SGST (${invoice.taxPercent / 2}%):`, totalsX - 40, currentY);
-    doc.text(`₹${sgst.toLocaleString('en-IN')}`, totalsX, currentY, { align: 'right' });
+    doc.text(`Rs. ${sgst.toLocaleString('en-IN')}`, totalsX, currentY, { align: 'right' });
     currentY += 7;
   }
 
   if (invoice.discountValue) {
     doc.text('Discount:', totalsX - 40, currentY);
-    doc.text(`-₹${invoice.discountValue.toLocaleString('en-IN')}`, totalsX, currentY, { align: 'right' });
+    doc.text(`-Rs. ${invoice.discountValue.toLocaleString('en-IN')}`, totalsX, currentY, { align: 'right' });
     currentY += 7;
   }
 
   if (invoice.shippingCost) {
     doc.text('Shipping:', totalsX - 40, currentY);
-    doc.text(`₹${invoice.shippingCost.toLocaleString('en-IN')}`, totalsX, currentY, { align: 'right' });
+    doc.text(`Rs. ${invoice.shippingCost.toLocaleString('en-IN')}`, totalsX, currentY, { align: 'right' });
     currentY += 7;
   }
 
@@ -284,7 +284,7 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
   doc.text('TOTAL:', totalsX - 40, currentY);
-  doc.text(`₹${grandTotal.toLocaleString('en-IN')}`, totalsX, currentY, { align: 'right' });
+  doc.text(`Rs. ${grandTotal.toLocaleString('en-IN')}`, totalsX, currentY, { align: 'right' });
 
   // 5. PAYMENT DETAILS (Hash & Disclaimer)
   let paymentY = finalY;

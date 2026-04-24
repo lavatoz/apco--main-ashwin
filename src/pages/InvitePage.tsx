@@ -114,18 +114,18 @@ const InvitePage: React.FC<InvitePageProps> = ({ onLogin }) => {
             <Layout className="w-8 h-8" />
           </div>
           <h1 className="text-3xl font-black uppercase tracking-[0.2em] text-white">Initialize Account</h1>
-          <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-2">
-            Secure Onboarding Protcol
+          <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mt-2">
+            Secure Onboarding Protocol
           </p>
         </div>
 
         {invite ? (
           <div className="glass-panel-dark border border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
             <div className="mb-8 p-4 bg-white/5 rounded-2xl border border-white/5 space-y-2">
-              <p className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Invited Identity</p>
+              <p className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Invited Identity</p>
               <p className="text-sm font-bold text-white uppercase">{invite.email}</p>
               <div className="flex gap-2 pt-2">
-                <span className="px-3 py-1 bg-white/10 rounded-full text-[9px] font-black uppercase tracking-widest text-zinc-400">
+                <span className="px-3 py-1 bg-white/10 rounded-full text-xs font-bold uppercase tracking-widest text-zinc-400">
                   {invite.role}
                 </span>
               </div>
@@ -150,7 +150,7 @@ const InvitePage: React.FC<InvitePageProps> = ({ onLogin }) => {
               />
 
               {error && (
-                <p className="text-red-500 text-[9px] font-mono uppercase tracking-widest animate-pulse text-center bg-red-500/5 py-2 rounded-lg border border-red-500/10">
+                <p className="text-red-500 text-xs font-mono uppercase tracking-widest animate-pulse text-center bg-red-500/5 py-2 rounded-lg border border-red-500/10">
                   {error}
                 </p>
               )}
@@ -158,7 +158,7 @@ const InvitePage: React.FC<InvitePageProps> = ({ onLogin }) => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-white text-black font-black py-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-zinc-200 transition-all shadow-xl text-[10px] uppercase tracking-[0.3em]"
+                className="w-full bg-white text-black font-bold py-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-zinc-200 transition-all shadow-xl text-xs uppercase tracking-[0.3em]"
               >
                 {isLoading ? <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> : <Command className="w-4 h-4" />}
                 Complete Setup
@@ -168,7 +168,7 @@ const InvitePage: React.FC<InvitePageProps> = ({ onLogin }) => {
         ) : (
           <div className="glass-panel-dark border border-white/10 rounded-[2.5rem] p-12 text-center">
             <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <p className="text-red-500 text-[9px] font-mono uppercase tracking-widest">{error || 'Access Denied'}</p>
+            <p className="text-red-500 text-xs font-mono uppercase tracking-widest">{error || 'Access Denied'}</p>
           </div>
         )}
       </div>

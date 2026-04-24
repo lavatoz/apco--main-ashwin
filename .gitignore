@@ -64,3 +64,5 @@ coverage/
 # Misc
 # =========================
 *.tsbuildinfo
+scratch/
+*.broken

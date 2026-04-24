@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { type Client, type Task, TaskStatus, type Project, type ProjectStage, type CompanyProfile } from '../types';
 import ProjectBoard from './ProjectBoard';
+import { safeParse } from '../utils/storage';
 
 interface ProductionHubProps {
   clients: Client[];
@@ -44,14 +45,8 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
 
   // Unified Project Store
   const [projectRegistry, setProjectRegistry] = useState<Project[]>(() => {
-    try {
-      const stored = localStorage.getItem('projects');
-      const allProjects: Project[] = stored ? JSON.parse(stored) : [];
-      // Only show confirmed projects in Operations
-      return allProjects.filter(p => p.status === 'confirmed');
-    } catch {
-      return [];
-    }
+    const allProjects = safeParse<Project[]>('projects', []);
+    return allProjects.filter(p => p.status === 'confirmed');
   });
 
   const handleCreateProject = (e: React.FormEvent) => {
@@ -67,12 +62,14 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
        status: 'confirmed', // Requirement 6
        stage: 'booked',
        totalAmount: newProject.totalAmount,
+       services: [],
+       financials: { total: newProject.totalAmount, paid: 0, balance: newProject.totalAmount },
+       workflow: [],
        createdAt: new Date().toISOString()
     };
     
     // Add to main projects store
-    const stored = localStorage.getItem('projects');
-    const allProjects = stored ? JSON.parse(stored) : [];
+    const allProjects = safeParse<Project[]>('projects', []);
     const updatedAll = [...allProjects, project];
     localStorage.setItem('projects', JSON.stringify(updatedAll));
     
@@ -92,8 +89,7 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
   };
 
   const updateProjectStage = (id: string, stage: ProjectStage) => {
-    const stored = localStorage.getItem('projects');
-    const allProjects: Project[] = stored ? JSON.parse(stored) : [];
+    const allProjects = safeParse<Project[]>('projects', []);
     const updated = allProjects.map(p => p.id === id ? { ...p, stage } : p);
     localStorage.setItem('projects', JSON.stringify(updated));
     setProjectRegistry(updated.filter(p => p.status === 'confirmed'));
@@ -113,8 +109,7 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
     await new Promise(r => setTimeout(r, 300));
     
     try {
-      const stored = localStorage.getItem('projects');
-      const allProjects: Project[] = stored ? JSON.parse(stored) : [];
+      const allProjects = safeParse<Project[]>('projects', []);
       const updated = allProjects.filter(p => p.id !== targetId);
       localStorage.setItem('projects', JSON.stringify(updated));
       setProjectRegistry(updated.filter(p => p.status === 'confirmed'));

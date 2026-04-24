@@ -38,6 +38,7 @@ import { type UserPermission, type CompanyProfile } from './types';
 import { usePermissions } from './hooks/usePermissions';
 
 import { api } from './services/api';
+import { safeParse } from './utils/storage';
 
 type AuthRole = 'none' | 'Admin' | 'Staff' | 'Client';
 
@@ -254,7 +255,7 @@ const App: React.FC = () => {
 
   // Seed Default Admin if missing
   useEffect(() => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const users = safeParse<any[]>('users', []);
     const adminExists = users.some((u: any) => u.id === 'admin_root' || u.email === 'admin@artisans.os');
     
     // Seed Default Admin if missing
@@ -274,7 +275,7 @@ const App: React.FC = () => {
     }
 
     // Seed Mock Staff Data for Team Assignment demonstration
-    const currentUsers = JSON.parse(localStorage.getItem('users') || '[]');
+    const currentUsers = safeParse<any[]>('users', []);
     const mockStaff = [
       { id: "s1", name: "Roshan", email: "roshan@apco.com", staffRole: "photographer" },
       { id: "s2", name: "Arun", email: "arun@apco.com", staffRole: "photographer" },
@@ -499,7 +500,7 @@ const App: React.FC = () => {
                 setClients(prev => prev.filter(cl => cl.id !== id));
                 await api.deleteClient(id); 
                 fetchData(true);
-              }} selectedDivisionId={selectedCompanyId} onOpenPortal={(client) => navigate(authRole === 'Client' ? `/portal/${client.id}` : `/client/${client.id}`)} userRole={authRole} userId={JSON.parse(localStorage.getItem('auth_user') || '{}').id} /></PermissionRoute>} />
+              }} selectedDivisionId={selectedCompanyId} onOpenPortal={(client) => navigate(authRole === 'Client' ? `/portal/${client.id}` : `/client/${client.id}`)} userRole={authRole} userId={safeParse<Record<string, any>>('auth_user', {}).id} /></PermissionRoute>} />
               <Route path="/ecosystem" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><SettingsView onOpenTeam={() => navigate('/team')} isAdmin={authRole === 'Admin'} /></PermissionRoute>} />
               <Route path="/ecosystem/brand/:brandId" element={<PermissionRoute allowedRoles={['Admin', 'Staff']} permission="system"><BrandDetailPage /></PermissionRoute>} />
               <Route path="/system" element={<Navigate to="/ecosystem" replace />} />

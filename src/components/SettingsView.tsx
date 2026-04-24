@@ -3,6 +3,7 @@ import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { Shield, Users, History, Trash2, Edit2, Plus, X, AlertTriangle } from 'lucide-react';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import { type User } from '../types';
+import { safeParse } from '../utils/storage';
 
 interface Role {
   id: string;
@@ -82,7 +83,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onOpenTeam, isAdmin }) => {
   };
 
   const getUsersWithRole = (roleId: string) => {
-    const users: User[] = JSON.parse(localStorage.getItem('users') || '[]');
+    const users: User[] = safeParse<User[]>('users', []);
     return users.filter(u => u.staffRole === roleId);
   };
 

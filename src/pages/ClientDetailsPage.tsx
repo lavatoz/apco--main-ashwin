@@ -2,7 +2,8 @@ import * as React from 'react';
 import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Mail, Phone, Calendar, Briefcase, Plus, ArrowLeft, FileText, IndianRupee, Activity, X, CheckCircle2, Trash2, Edit2, Copy, Download, CreditCard, ChevronRight, Search, Camera, Video, Edit3, Users, AlertTriangle, Clock, Package, Check } from 'lucide-react';
+import { Mail, Phone, Calendar, Briefcase, Plus, ArrowLeft, FileText, IndianRupee, Activity, X, CheckCircle2, Trash2, Edit2, Copy, Download, CreditCard, ChevronRight, Search, Camera, Video, Edit3, Users, AlertTriangle, Clock, Package, Send, Check } from 'lucide-react';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { type Client, type Invoice, type PaymentRecord, type User as UserType, type ClientAgreement, type IdDocument, type Project, type ProjectStage, type AgreementTemplate, type ActiveAgreementSnapshot, InvoiceStatus } from '../types';
 import { api } from '../services/api';
 import { useCompanySettings, useCompanyForClient } from '../hooks/useCompanySettings';
@@ -423,6 +424,24 @@ const ClientDetailsPage: React.FC = () => {
    const [newStaffForm, setNewStaffForm] = useState({ name: '', role: 'photographer', contact: '' });
    const [pendingDropdownAssign, setPendingDropdownAssign] = useState<{ role: string, idx: number } | null>(null);
 
+   const [pendingConfirm, setPendingConfirm] = useState<{
+       title: string;
+       message: string;
+       tone?: 'default' | 'danger';
+       onConfirm: () => void;
+       confirmLabel?: string;
+   } | null>(null);
+
+   const requestConfirmation = (config: {
+       title: string;
+       message: string;
+       tone?: 'default' | 'danger';
+       onConfirm: () => void;
+       confirmLabel?: string;
+   }) => {
+       setPendingConfirm(config);
+   };
+
 
 
    const handleAddArtisanMember = (m: UserType) => {
@@ -730,6 +749,36 @@ const ClientDetailsPage: React.FC = () => {
       }
       setSuccessMsg(null);
       setIsModalOpen(true);
+   };
+
+   const handleDeleteQuote = (quoteId: string) => {
+      requestConfirmation({
+         title: "Delete Quote",
+         message: "Are you sure you want to delete this quotation? This action cannot be undone.",
+         tone: "danger",
+         onConfirm: () => {
+            setClientQuotes(prev => prev.filter(q => q.id !== quoteId));
+            const stored = JSON.parse(localStorage.getItem("quotes") || "[]");
+            const updated = stored.filter((q: any) => q.id !== quoteId);
+            localStorage.setItem("quotes", JSON.stringify(updated));
+            window.dispatchEvent(new Event("finance-updated"));
+         }
+      });
+   };
+
+   const handleDeleteInvoice = (invoiceId: string) => {
+      requestConfirmation({
+         title: "Delete Invoice",
+         message: "Are you sure you want to delete this invoice? This action cannot be undone.",
+         tone: "danger",
+         onConfirm: () => {
+            setClientInvoices(prev => prev.filter(i => i.id !== invoiceId));
+            const stored = JSON.parse(localStorage.getItem("invoices") || "[]");
+            const updated = stored.filter((i: any) => i.id !== invoiceId);
+            localStorage.setItem("invoices", JSON.stringify(updated));
+            window.dispatchEvent(new Event("finance-updated"));
+         }
+      });
    };
 
    const handleDuplicate = async (e: React.MouseEvent, doc: Invoice) => {
@@ -1465,7 +1514,7 @@ const ClientDetailsPage: React.FC = () => {
                      </div>
                   ) : (
                      clientQuotes.map(quote => (
-                        <div key={quote.id} onClick={() => setPreviewDoc(quote)} className="p-5 glass-panel border border-white/5 squircle-sm hover:bg-white/5 cursor-pointer flex items-center justify-between group transition-all">
+                         <div key={quote.id} onClick={(e) => { const target = e.target as HTMLElement; if (target.closest("[data-action-button]")) return; setPreviewDoc(quote); }} className="p-5 glass-panel border border-white/5 squircle-sm hover:bg-white/5 cursor-pointer flex items-center justify-between group transition-all">
                            <div className="flex items-center gap-4">
                               <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center flex-shrink-0">
                                  <FileText className="w-5 h-5 text-zinc-400" />
@@ -1479,15 +1528,16 @@ const ClientDetailsPage: React.FC = () => {
                                  </p>
                               </div>
                            </div>
-                           <div className="flex flex-col items-end gap-2 relative">
-                              <div className="flex items-center gap-4 absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-900 pl-4 py-2 drop-shadow-2xl">
-                                 <button onClick={(e) => handleDuplicate(e, quote)} className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 active:scale-90"><Copy className="w-4 h-4" /></button>
-                                 <button onClick={(e) => { e.stopPropagation(); openModal('quotation', quote); }} className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 active:scale-90"><Edit2 className="w-4 h-4" /></button>
-                              </div>
-                              <p className="text-lg tracking-tighter font-black text-white group-hover:opacity-0 transition-opacity flex items-center gap-1">
-                                 <span className="text-zinc-600 font-sans text-xs">₹</span>{(quote.totalAmount || quote.amount || 0).toLocaleString()}
-                              </p>
-                           </div>
+                                                       <div className="flex items-center gap-4">
+                               <p className="text-lg tracking-tighter font-black text-white flex items-center gap-1">
+                                  <span className="text-zinc-600 font-sans text-xs">₹</span>{(quote.totalAmount || quote.amount || 0).toLocaleString()}
+                               </p>
+                               <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button data-action-button onClick={(e) => { e.stopPropagation(); handleDuplicate(e, quote); }} className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 active:scale-90"><Copy className="w-4 h-4" /></button>
+                                  <button data-action-button onClick={(e) => { e.stopPropagation(); openModal('quotation', quote); }} className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 active:scale-90"><Edit2 className="w-4 h-4" /></button>
+                                  <button data-action-button onClick={(e) => { e.stopPropagation(); handleDeleteQuote(quote.id); }} className="p-2 rounded-lg transition active:scale-90 bg-red-500/10 text-red-400 hover:bg-red-500/30 hover:text-red-300"><Trash2 className="w-4 h-4" /></button>
+                               </div>
+                            </div>
                         </div>
                      ))
                   )}
@@ -1515,7 +1565,7 @@ const ClientDetailsPage: React.FC = () => {
                         else if (invoice.status === 'Partial') { markerClass = 'bg-blue-500/50'; badgeClass = 'bg-blue-500/10 text-blue-500'; }
 
                         return (
-                           <div key={invoice.id} onClick={() => setPreviewDoc(invoice)} className="p-5 glass-panel border border-white/5 squircle-sm hover:bg-white/5 cursor-pointer flex items-center justify-between group transition-all overflow-hidden relative">
+                           <div key={invoice.id} onClick={(e) => { const target = e.target as HTMLElement; if (target.closest("[data-action-button]")) return; setPreviewDoc(invoice); }} className="p-5 glass-panel border border-white/5 squircle-sm hover:bg-white/5 cursor-pointer flex items-center justify-between group transition-all overflow-hidden relative">
                               <div className={`absolute left-0 top-0 bottom-0 w-1 ${markerClass}`} />
                               <div className="flex flex-col md:flex-row md:items-center justify-between w-full pl-3 gap-6">
 
@@ -1541,16 +1591,17 @@ const ClientDetailsPage: React.FC = () => {
                                     <div className="flex flex-col items-end relative min-w-[120px]">
                                        <div className="flex items-center gap-2 absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-900 shrink-0 pl-6 drop-shadow-2xl z-10 hidden md:flex">
                                           {!isPaid && (
-                                             <button onClick={(e) => {
+                                             <button data-action-button onClick={(e) => {
                                                 if (clientAgreement?.status !== 'accepted') { e.stopPropagation(); alert("Cannot log payment. Agreement pending or expired."); return; }
                                                 markAsPaid(e, invoice);
                                              }} className={`text-[9px] font-black uppercase tracking-widest py-2 px-3 rounded mr-2 transition-all ${clientAgreement?.status !== 'accepted' ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 active:scale-95'}`}>Mark Paid</button>
                                           )}
-                                          <button onClick={(e) => { e.stopPropagation(); openModal('invoice', invoice); }} className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 active:scale-90"><Edit2 className="w-4 h-4" /></button>
-                                          <button onClick={(e) => {
+                                          <button data-action-button onClick={(e) => { e.stopPropagation(); openModal('invoice', invoice); }} className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 active:scale-90"><Edit2 className="w-4 h-4" /></button>
+                                          <button data-action-button onClick={(e) => {
                                              e.stopPropagation();
                                              if (clientAgreement?.status !== 'accepted') { alert("Cannot download. Agreement pending or expired."); return; }
                                           }} className={`p-2 rounded-lg transition-all ${clientAgreement?.status !== 'accepted' ? 'text-zinc-600 cursor-not-allowed' : 'text-zinc-400 hover:text-white hover:bg-white/10 active:scale-90'}`}><Download className="w-4 h-4" /></button>
+                                          <button data-action-button onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(invoice.id); }} className="p-2 rounded-lg transition active:scale-90 bg-red-500/10 text-red-400 hover:bg-red-500/30 hover:text-red-300"><Trash2 className="w-4 h-4" /></button>
                                        </div>
                                        <p className="text-lg tracking-tighter font-black text-white group-hover:opacity-0 transition-opacity md:group-hover:opacity-100! flex items-center gap-1">
                                           <span className="text-zinc-600 font-sans text-xs">₹</span>{total.toLocaleString()}
@@ -1931,14 +1982,15 @@ const ClientDetailsPage: React.FC = () => {
                                        <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] block mb-1">Completion Vector</span>
                                        <span className="text-3xl font-black text-emerald-500 font-mono">
                                           {(() => {
+                                             if (!project || !project.stage) return 0;
                                              const weights: Record<string, number> = { booked: 10, event_done: 30, selection: 55, editing: 80, delivery: 100 };
                                              const stageOrder: ProjectStage[] = ['booked', 'event_done', 'selection', 'editing', 'delivery'];
-                                             const currentWeight = weights[project.stage];
-                                             const currentIndex = stageOrder.indexOf(project.stage);
+                                             const currentWeight = (weights as any)[project.stage || ""] || 0;
+                                             const currentIndex = stageOrder.indexOf(project.stage as any);
                                              if (currentIndex === stageOrder.length - 1) return 100;
-                                             const nextWeight = weights[stageOrder[currentIndex + 1]];
+                                             const nextWeight = (weights as any)[stageOrder[currentIndex + 1] || ""] || currentWeight;
                                              const gap = nextWeight - currentWeight;
-                                             const tasks = project.subTasks?.[project.stage] || [];
+                                             const tasks = project?.subTasks?.[project?.stage as any] || [];
                                              if (tasks.length === 0) return currentWeight;
                                              const completed = tasks.filter((t: any) => t.isCompleted).length;
                                              return Math.floor(currentWeight + (completed / tasks.length) * gap);
@@ -1952,14 +2004,15 @@ const ClientDetailsPage: React.FC = () => {
                                        className="h-full bg-gradient-to-r from-blue-600 via-indigo-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(16,185,129,0.2)]"
                                        style={{
                                           width: `${(() => {
+                                             if (!project || !project.stage) return 0;
                                              const weights: Record<string, number> = { booked: 10, event_done: 30, selection: 55, editing: 80, delivery: 100 };
                                              const stageOrder: ProjectStage[] = ['booked', 'event_done', 'selection', 'editing', 'delivery'];
-                                             const currentWeight = weights[project.stage];
-                                             const currentIndex = stageOrder.indexOf(project.stage);
+                                             const currentWeight = (weights as any)[project?.stage || ""];
+                                             const currentIndex = stageOrder.indexOf(project?.stage as any);
                                              if (currentIndex === stageOrder.length - 1) return 100;
                                              const nextWeight = weights[stageOrder[currentIndex + 1]];
                                              const gap = nextWeight - currentWeight;
-                                             const tasks = project.subTasks?.[project.stage] || [];
+                                             const tasks = project?.subTasks?.[project?.stage as any] || [];
                                              if (tasks.length === 0) return currentWeight;
                                              const completed = tasks.filter((t: any) => t.isCompleted).length;
                                              return Math.floor(currentWeight + (completed / tasks.length) * gap);
@@ -1975,7 +2028,7 @@ const ClientDetailsPage: React.FC = () => {
                               <div className="flex flex-col md:flex-row gap-4 items-stretch">
                                  {['booked', 'event_done', 'selection', 'editing', 'delivery'].map((sId, idx, arr) => {
                                     const stageOrder = ['booked', 'event_done', 'selection', 'editing', 'delivery'];
-                                    const currentIdx = stageOrder.indexOf(project.stage);
+                                    const currentIdx = stageOrder.indexOf(project?.stage as any);
                                     const sIdx = stageOrder.indexOf(sId as ProjectStage);
 
                                     const isCompleted = sIdx < currentIdx;
@@ -2005,7 +2058,7 @@ const ClientDetailsPage: React.FC = () => {
                                           key={sId}
                                           onClick={() => {
                                              if (isActive && idx < arr.length - 1) {
-                                                const tasks = project.subTasks?.[project.stage] || [];
+                                                const tasks = project?.subTasks?.[project?.stage as any] || [];
                                                 const allDone = tasks.length === 0 || tasks.every((t: any) => t.isCompleted);
                                                 if (!allDone) {
                                                    alert("Please complete all operational prerequisites for this stage before advancing.");
@@ -2052,12 +2105,12 @@ const ClientDetailsPage: React.FC = () => {
                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 border-y border-white/5 py-10">
                                     <div className="space-y-6">
                                        <h4 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-3">
-                                          <Activity className="w-4 h-4 text-emerald-500" /> Operational Requirements • {project.stage.toUpperCase().replace('_', ' ')}
+                                          <Activity className="w-4 h-4 text-emerald-500" /> Operational Requirements • {(project?.stage || "").toUpperCase().replace('_', ' ')}
                                        </h4>
                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                           {(() => {
-                                             const stageTasks = DEFAULT_SUBTASKS[project.stage] || [];
-                                             const currentTasks = project.subTasks?.[project.stage] || stageTasks.map((label, i) => ({ id: `st_${i}`, label, isCompleted: false }));
+                                             const stageTasks = (DEFAULT_SUBTASKS as any)[project?.stage || ""] || [];
+                                             const currentTasks = project?.subTasks?.[project?.stage as any] || stageTasks.map((label: string, i: number) => ({ id: `st_${i}`, label, isCompleted: false }));
 
                                              if (currentTasks.length === 0) {
                                                 return <p className="col-span-full py-4 text-center text-[10px] font-black text-zinc-700 uppercase tracking-widest italic">No prerequisites defined for this stage</p>;
@@ -2072,7 +2125,7 @@ const ClientDetailsPage: React.FC = () => {
                                                          ...project,
                                                          subTasks: {
                                                             ...(project.subTasks || {}),
-                                                            [project.stage]: updatedSubTasks
+                                                            [project?.stage as any]: updatedSubTasks
                                                          }
                                                       };
                                                       setProject(updatedProject);
@@ -2103,7 +2156,7 @@ const ClientDetailsPage: React.FC = () => {
                                           <h5 className="text-[12px] font-black text-white uppercase tracking-[0.2em]">Deployment Readiness</h5>
                                           <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mt-1">
                                              {(() => {
-                                                const tasks = project.subTasks?.[project.stage] || [];
+                                                const tasks = project?.subTasks?.[project?.stage as any] || [];
                                                 const done = tasks.filter((t: any) => t.isCompleted).length;
                                                 if (tasks.length === 0) return 'Optimized Vector';
                                                 return `${done} / ${tasks.length} Phases Verified`;
@@ -2115,7 +2168,7 @@ const ClientDetailsPage: React.FC = () => {
                                              <span>Current Velocity</span>
                                              <span className="text-emerald-500">
                                                 {(() => {
-                                                   const tasks = project.subTasks?.[project.stage] || [];
+                                                   const tasks = project?.subTasks?.[project?.stage as any] || [];
                                                    if (tasks.length === 0) return '100%';
                                                    return `${Math.floor((tasks.filter((t: any) => t.isCompleted).length / tasks.length) * 100)}%`;
                                                 })()}
@@ -2126,7 +2179,7 @@ const ClientDetailsPage: React.FC = () => {
                                                 className="h-full bg-emerald-500 transition-all duration-1000 shadow-[0_0_15px_rgba(16,185,129,0.5)]"
                                                 style={{
                                                    width: (() => {
-                                                      const tasks = project.subTasks?.[project.stage] || [];
+                                                      const tasks = project?.subTasks?.[project?.stage as any] || [];
                                                       if (tasks.length === 0) return '100%';
                                                       return `${(tasks.filter((t: any) => t.isCompleted).length / tasks.length) * 100}%`;
                                                    })()
@@ -2970,6 +3023,20 @@ const ClientDetailsPage: React.FC = () => {
             document.body
          )}
 
+          {pendingConfirm && (
+            <ConfirmDialog
+              isOpen={!!pendingConfirm}
+              title={pendingConfirm.title}
+              message={pendingConfirm.message}
+              confirmLabel={pendingConfirm.confirmLabel}
+              tone={pendingConfirm.tone}
+              onConfirm={() => {
+                pendingConfirm.onConfirm();
+                setPendingConfirm(null);
+              }}
+              onCancel={() => setPendingConfirm(null)}
+            />
+          )}
       </div>
    );
 };

@@ -41,7 +41,7 @@ const PackagesPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
         </div>
 
         <div className="flex items-center gap-10">
-          <div className="hidden md:flex items-center gap-8 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400">
+          <div className="hidden md:flex items-center gap-8 text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">
             <NavLink to="/#work" className="hover:text-white hover:scale-105 transition-all duration-300">Portfolio</NavLink>
             <NavLink to="/#divisions" className="hover:text-white hover:scale-105 transition-all duration-300">Divisions</NavLink>
             <NavLink to="/#philosophy" className="hover:text-white hover:scale-105 transition-all duration-300">Studio</NavLink>
@@ -61,7 +61,7 @@ const PackagesPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
           </div>
           <button
             onClick={onLogin}
-            className="group flex items-center gap-3 px-6 py-3 glass-panel rounded-full text-white text-[9px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-500 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]"
+            className="group flex items-center gap-3 px-6 py-3 glass-panel rounded-full text-white text-xs font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-500 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]"
           >
             <span>Client Portal</span>
             <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
