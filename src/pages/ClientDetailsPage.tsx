@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Mail, Phone, Calendar, Briefcase, Plus, ArrowLeft, FileText, IndianRupee, Activity, X, CheckCircle2, Trash2, Edit2, Copy, Download, CreditCard, ChevronRight, Search, Camera, Video, Edit3, Users, AlertTriangle, Clock, Package, Send, Check } from 'lucide-react';
+import { Mail, Phone, Calendar, Briefcase, Plus, ArrowLeft, FileText, IndianRupee, Activity, X, CheckCircle2, Trash2, Edit2, Copy, Download, CreditCard, ChevronRight, Search, Camera, Video, Edit3, Users, AlertTriangle, Clock, Check, Package } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { type Client, type Invoice, type PaymentRecord, type User as UserType, type ClientAgreement, type IdDocument, type Project, type ProjectStage, type AgreementTemplate, type ActiveAgreementSnapshot, InvoiceStatus } from '../types';
 import { api } from '../services/api';
@@ -412,13 +412,8 @@ const ClientDetailsPage: React.FC = () => {
    const [project, setProject] = useState<Project | null>(null);
 
    // Team Assignment State
-   const [allStaff, setAllStaff] = useState<UserType[]>([]);
-   const [teamSelection, setTeamSelection] = useState<Record<string, { memberId: string, assigned_dates: string[] }[]>>({
-      photographer: [{ memberId: '', assigned_dates: [] }],
-      videographer: [{ memberId: '', assigned_dates: [] }],
-      editor: [{ memberId: '', assigned_dates: [] }],
-      assistant: [{ memberId: '', assigned_dates: [] }]
-   });
+    const [allStaff, setAllStaff] = useState<UserType[]>([]);
+    const [teamCategories, setTeamCategories] = useState<{ id: string, name: string, members: { memberId: string, assigned_dates: string[] }[] }[]>([]);
    const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
    const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
    const [newStaffForm, setNewStaffForm] = useState({ name: '', role: 'photographer', contact: '' });
@@ -1191,20 +1186,36 @@ const ClientDetailsPage: React.FC = () => {
 
             const cTeam = JSON.parse(localStorage.getItem(`client_team_${id}`) || 'null');
             if (cTeam && isMounted) {
-               const migratedTeam: any = { photographer: [], videographer: [], editor: [], assistant: [] };
-               for (const role in cTeam) {
-                  if (cTeam[role] && cTeam[role].length > 0) {
-                     migratedTeam[role] = typeof cTeam[role][0] === 'string'
-                        ? cTeam[role].map((str: string) => ({ memberId: str, assigned_dates: [] }))
-                        : cTeam[role].map((item: any) => ({
-                           memberId: item.memberId || '',
-                           assigned_dates: item.assigned_dates || (item.assigned_date ? [item.assigned_date] : [])
-                        }));
-                  } else {
-                     migratedTeam[role] = [{ memberId: '', assigned_dates: [] }];
+               if (Array.isArray(cTeam)) {
+                  // New dynamic format
+                  setTeamCategories(cTeam);
+               } else {
+                  // Legacy object format migration
+                  const migrated: any[] = [];
+                  for (const role in cTeam) {
+                     const members = (cTeam[role] && cTeam[role].length > 0)
+                        ? (typeof cTeam[role][0] === 'string'
+                           ? cTeam[role].map((str: string) => ({ memberId: str, assigned_dates: [] }))
+                           : cTeam[role].map((item: any) => ({
+                              memberId: item.memberId || '',
+                              assigned_dates: item.assigned_dates || (item.assigned_date ? [item.assigned_date] : [])
+                           })))
+                        : [{ memberId: '', assigned_dates: [] }];
+                     
+                     migrated.push({
+                        id: `cat_${role}`,
+                        name: role.charAt(0).toUpperCase() + role.slice(1),
+                        members
+                     });
                   }
+                  setTeamCategories(migrated);
                }
-               setTeamSelection(migratedTeam);
+            } else if (isMounted) {
+               // Default categories if nothing in storage
+               setTeamCategories([
+                  { id: 'cat_photo', name: 'Photographer', members: [{ memberId: '', assigned_dates: [] }] },
+                  { id: 'cat_video', name: 'Videographer', members: [{ memberId: '', assigned_dates: [] }] }
+               ]);
             }
 
             const storedProjects = localStorage.getItem('projects');
@@ -1229,12 +1240,11 @@ const ClientDetailsPage: React.FC = () => {
       localStorage.setItem('users', JSON.stringify(updated));
       setAllStaff(updated.filter((u: any) => u.role === 'Staff'));
 
-      // Clean up assignments
-      setTeamSelection(prev => {
-         const next = { ...prev };
-         for (const role in next) {
-            next[role] = next[role].map(row => row.memberId === staffId ? { ...row, memberId: '' } : row);
-         }
+      setTeamCategories(prev => {
+         const next = prev.map(cat => ({
+            ...cat,
+            members: cat.members.map(m => m.memberId === staffId ? { ...m, memberId: '' } : m)
+         }));
          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
          syncToProjects(next);
          return next;
@@ -1277,115 +1287,180 @@ const ClientDetailsPage: React.FC = () => {
          setAllStaff(updatedUsers.filter((u: any) => u.role === 'Staff'));
 
          if (pendingDropdownAssign) {
-            handleRoleChange(pendingDropdownAssign.role, pendingDropdownAssign.idx, newUser.id);
+            handleMemberChange(pendingDropdownAssign.role, pendingDropdownAssign.idx, newUser.id);
          }
       }
       setIsAddStaffModalOpen(false);
       setNewStaffForm({ name: '', role: 'photographer', contact: '' });
    };
-   const syncToProjects = (team: any) => {
-      const stored = localStorage.getItem('projects');
-      if (!stored) return;
-      const projects: any[] = JSON.parse(stored);
-      const pIdx = projects.findIndex(p => p.clientId === id || p.id === project?.id);
-      if (pIdx >= 0) {
-         const projectTeam: any = {};
-         for (const role in team) {
-            projectTeam[`${role}s`] = team[role].map((item: any) => {
-               const staff = allStaff.find(s => s.id === item.memberId);
-               return {
-                  id: item.memberId,
-                  name: staff?.name || 'Unassigned',
-                  type: staff?.role === 'Staff' ? 'internal' : staff?.role === 'Admin' ? 'internal' : 'external',
-                  assigned_dates: item.assigned_dates || []
-               };
-            });
-         }
-         projects[pIdx].team = projectTeam;
-         localStorage.setItem('projects', JSON.stringify(projects));
-         setProject(projects[pIdx]);
-      }
-   };
-   const handleRoleChange = (role: string, index: number, value: string) => {
-      setTeamSelection(prev => {
-         const nextRowList = [...prev[role]];
-         nextRowList[index] = { ...nextRowList[index], memberId: value };
-         const nextState = { ...prev, [role]: nextRowList };
-
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(nextState));
-         syncToProjects(nextState);
-         return nextState;
-      });
-   };
-
-   const handleAddDate = (role: string, index: number, date: string) => {
-      if (!date) return;
-      setTeamSelection(prev => {
-         const nextRowList = [...prev[role]];
-         const currentDates = nextRowList[index].assigned_dates || [];
-         if (currentDates.includes(date)) return prev;
-
-         nextRowList[index] = {
-            ...nextRowList[index],
-            assigned_dates: [...currentDates, date].sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-         };
-         const nextState = { ...prev, [role]: nextRowList };
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(nextState));
-         syncToProjects(nextState);
-         return nextState;
-      });
-   };
-
-   const handleUpdateDate = (role: string, rowIndex: number, dateIndex: number, newDate: string) => {
-      if (!newDate) return;
-      setTeamSelection(prev => {
-         const nextRowList = [...prev[role]];
-         const nextDates = [...(nextRowList[rowIndex].assigned_dates || [])];
-         nextDates[dateIndex] = newDate;
-
-         nextRowList[rowIndex] = {
-            ...nextRowList[rowIndex],
-            assigned_dates: Array.from(new Set(nextDates)).sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-         };
-         const nextState = { ...prev, [role]: nextRowList };
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(nextState));
-         syncToProjects(nextState);
-         return nextState;
-      });
-   };
-
-   const handleRemoveDate = (role: string, rowIndex: number, dateIndex: number) => {
-      setTeamSelection(prev => {
-         const nextRowList = [...prev[role]];
-         nextRowList[rowIndex] = {
-            ...nextRowList[rowIndex],
-            assigned_dates: (nextRowList[rowIndex].assigned_dates || []).filter((_, i) => i !== dateIndex)
-         };
-         const nextState = { ...prev, [role]: nextRowList };
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(nextState));
-         syncToProjects(nextState);
-         return nextState;
-      });
-   };
-
-   const addRow = (role: string) => {
-      setTeamSelection(prev => {
-         const nextState = { ...prev, [role]: [...prev[role], { memberId: '', assigned_dates: [] }] };
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(nextState));
-         syncToProjects(nextState);
-         return nextState;
-      });
-   };
-
-   const removeRow = (role: string, index: number) => {
-      if (teamSelection[role].length <= 1) return;
-      setTeamSelection(prev => {
-         const nextState = { ...prev, [role]: prev[role].filter((_, i) => i !== index) };
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(nextState));
-         syncToProjects(nextState);
-         return nextState;
-      });
-   };
+   const syncToProjects = (categories: any[]) => {
+       const stored = localStorage.getItem('projects');
+       if (!stored) return;
+       const projects: any[] = JSON.parse(stored);
+       const pIdx = projects.findIndex(p => p.clientId === id || p.id === project?.id);
+       if (pIdx >= 0) {
+          const projectTeam: any = {};
+          categories.forEach(cat => {
+             const key = cat.name.toLowerCase().replace(/\s/g, '') + 's';
+             projectTeam[key] = cat.members.map((item: any) => {
+                const staff = allStaff.find(s => s.id === item.memberId);
+                return {
+                   id: item.memberId,
+                   name: staff?.name || 'Unassigned',
+                   type: staff?.role === 'Staff' ? 'internal' : staff?.role === 'Admin' ? 'internal' : 'external',
+                   assigned_dates: item.assigned_dates || []
+                };
+             });
+          });
+          projects[pIdx].team = projectTeam;
+          localStorage.setItem('projects', JSON.stringify(projects));
+          setProject(projects[pIdx]);
+       }
+    };
+   const handleMemberChange = (catId: string, mIdx: number, val: string) => {
+       setTeamCategories(prev => {
+          const next = prev.map(cat => {
+             if (cat.id !== catId) return cat;
+             const nextMembers = [...cat.members];
+             nextMembers[mIdx] = { ...nextMembers[mIdx], memberId: val };
+             return { ...cat, members: nextMembers };
+          });
+          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+          syncToProjects(next);
+          return next;
+       });
+    };
+ 
+    const handleAddDate = (catId: string, mIdx: number, date?: string) => {
+       const targetDate = date || new Date().toISOString().split('T')[0];
+       setTeamCategories(prev => {
+          const next = prev.map(cat => {
+             if (cat.id !== catId) return cat;
+             const nextMembers = [...cat.members];
+             const currentDates = nextMembers[mIdx].assigned_dates || [];
+             if (currentDates.includes(targetDate)) return cat;
+             nextMembers[mIdx] = {
+                ...nextMembers[mIdx],
+                assigned_dates: [...currentDates, targetDate].sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+             };
+             return { ...cat, members: nextMembers };
+          });
+          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+          syncToProjects(next);
+          return next;
+       });
+    };
+ 
+    const handleUpdateDate = (catId: string, mIdx: number, dIdx: number, newDate: string) => {
+       if (!newDate) return;
+       setTeamCategories(prev => {
+          const next = prev.map(cat => {
+             if (cat.id !== catId) return cat;
+             const nextMembers = [...cat.members];
+             const nextDates = [...(nextMembers[mIdx].assigned_dates || [])];
+             nextDates[dIdx] = newDate;
+             nextMembers[mIdx] = {
+                ...nextMembers[mIdx],
+                assigned_dates: Array.from(new Set(nextDates)).sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+             };
+             return { ...cat, members: nextMembers };
+          });
+          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+          syncToProjects(next);
+          return next;
+       });
+    };
+ 
+    const handleRemoveDate = (catId: string, mIdx: number, dIdx: number) => {
+       const performDelete = () => {
+          setTeamCategories(prev => {
+             const next = prev.map(cat => {
+                if (cat.id !== catId) return cat;
+                const nextMembers = [...cat.members];
+                nextMembers[mIdx] = {
+                   ...nextMembers[mIdx],
+                   assigned_dates: (nextMembers[mIdx].assigned_dates || []).filter((_, i) => i !== dIdx)
+                };
+                return { ...cat, members: nextMembers };
+             });
+             localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+             syncToProjects(next);
+             return next;
+          });
+       };
+ 
+       const cat = teamCategories.find(c => c.id === catId);
+       const dates = cat?.members[mIdx]?.assigned_dates || [];
+ 
+       if (dates.length > 1) {
+          performDelete();
+       } else {
+          requestConfirmation({
+             title: "Remove Assignment Date",
+             message: "This is the only date assigned to this staff member. Are you sure you want to remove it?",
+             tone: "danger",
+             onConfirm: performDelete
+          });
+       }
+    };
+ 
+    const addMemberRow = (catId: string) => {
+       setTeamCategories(prev => {
+          const next = prev.map(cat => {
+             if (cat.id !== catId) return cat;
+             return { ...cat, members: [...cat.members, { memberId: '', assigned_dates: [] }] };
+          });
+          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+          syncToProjects(next);
+          return next;
+       });
+    };
+ 
+    const removeMemberRow = (catId: string, mIdx: number) => {
+       setTeamCategories(prev => {
+          const next = prev.map(cat => {
+             if (cat.id !== catId) return cat;
+             if (cat.members.length <= 1) return cat;
+             return { ...cat, members: cat.members.filter((_, i) => i !== mIdx) };
+          });
+          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+          syncToProjects(next);
+          return next;
+       });
+    };
+ 
+    const handleAddCategory = () => {
+       const name = prompt("Enter category name (e.g. Photographer, Drone Pilot)");
+       if (!name) return;
+       setTeamCategories(prev => {
+          const next = [...prev, { id: `cat_${Date.now()}`, name, members: [{ memberId: '', assigned_dates: [] }] }];
+          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+          syncToProjects(next);
+          return next;
+       });
+    };
+ 
+    const handleEditCategory = (id: string) => {
+       const cat = teamCategories.find(c => c.id === id);
+       const name = prompt("Edit category name", cat?.name);
+       if (!name) return;
+       setTeamCategories(prev => {
+          const next = prev.map(c => c.id === id ? { ...c, name } : c);
+          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+          syncToProjects(next);
+          return next;
+       });
+    };
+ 
+    const handleDeleteCategory = (id: string) => {
+       if (!confirm("Delete this category and all its assignments?")) return;
+       setTeamCategories(prev => {
+          const next = prev.filter(c => c.id !== id);
+          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+          syncToProjects(next);
+          return next;
+       });
+    };
 
    if (loading) {
       return (
@@ -1812,46 +1887,59 @@ const ClientDetailsPage: React.FC = () => {
                   <div className="glass-panel p-8 squircle-md border border-white/5 space-y-6">
                      <div className="flex justify-between items-center bg-black/20 p-4 border border-white/5 rounded-2xl mb-4">
                         <div>
-                           <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                           <h3 className="text-base font-bold text-white uppercase tracking-tight flex items-center gap-2">
                               <Users className="w-4 h-4 text-emerald-500" /> Team Assignment
                            </h3>
-                           <p className="text-[12px] text-zinc-500 font-bold uppercase tracking-widest mt-1">Assign and manage operational staff for this client</p>
+                           <p className="text-sm font-medium text-zinc-400 uppercase tracking-wide mt-1">Assign and manage operational staff for this client</p>
                         </div>
+                        <button
+                           onClick={handleAddCategory}
+                           className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-semibold text-white hover:bg-white/10 transition-all active:scale-95"
+                        >
+                           <Plus size={16} /> Add Category
+                        </button>
                      </div>
 
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {['photographer', 'videographer', 'editor', 'assistant'].map(role => {
-                           const RoleIcon = role === 'photographer' ? Camera : role === 'videographer' ? Video : role === 'editor' ? Edit3 : Users;
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {teamCategories.map(category => {
+                           const role = category.name.toLowerCase();
+                           const RoleIcon = role.includes('photo') ? Camera : role.includes('video') ? Video : role.includes('edit') ? Edit3 : Users;
 
                            return (
-                              <div key={role} className="p-4 bg-white/2 border border-white/5 rounded-2xl space-y-4 hover:border-white/10 transition-all shadow-xl">
-                                 <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                                    <p className="text-[9px] font-black uppercase text-zinc-500 tracking-widest flex items-center gap-2">
-                                       <RoleIcon className="w-3 h-3 text-zinc-400" /> {role} Manifest
-                                    </p>
+                              <div key={category.id} className="p-5 bg-white/2 border border-white/5 rounded-2xl space-y-5 hover:border-white/10 transition-all shadow-xl relative group/cat">
+                                 <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                                    <div className="flex items-center gap-3">
+                                       <p className="text-sm font-semibold uppercase text-zinc-300 tracking-wide flex items-center gap-2">
+                                          <RoleIcon className="w-4 h-4 text-zinc-400" /> {category.name} Manifest
+                                       </p>
+                                       <div className="flex gap-1 opacity-0 group-hover/cat:opacity-100 transition-opacity">
+                                          <button onClick={() => handleEditCategory(category.id)} className="p-1.5 text-zinc-500 hover:text-white transition-colors"><Edit2 size={12} /></button>
+                                          <button onClick={() => handleDeleteCategory(category.id)} className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+                                       </div>
+                                    </div>
                                     <button
                                        type="button"
-                                       onMouseDown={(e) => { e.preventDefault(); addRow(role); }}
-                                       className="w-6 h-6 rounded-full bg-white/5 border border-white/5 flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/10 transition-all active:scale-95"
-                                       title={`Add ${role}`}
+                                       onMouseDown={(e) => { e.preventDefault(); addMemberRow(category.id); }}
+                                       className="w-8 h-8 rounded-full bg-white/5 border border-white/5 flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/10 transition-all active:scale-95"
+                                       title={`Add Member to ${category.name}`}
                                     >
-                                       <Plus size={12} />
+                                       <Plus size={14} />
                                     </button>
                                  </div>
 
-                                 <div className="space-y-4">
-                                    {teamSelection[role] && teamSelection[role].map((rowVal, idx) => (
-                                       <div key={idx} className="flex flex-col gap-3 p-4 bg-black/20 rounded-xl border border-white/5 shadow-inner group">
+                                 <div className="space-y-5">
+                                    {category.members.map((rowVal, idx) => (
+                                       <div key={idx} className="flex flex-col gap-4 p-5 bg-black/20 rounded-xl border border-white/5 shadow-inner group/row">
                                           <div className="w-full">
                                              <SmartRoleDropdown
-                                                role={role}
+                                                role={category.name}
                                                 allStaff={allStaff}
                                                 selectedId={rowVal?.memberId || ''}
-                                                onChange={val => handleRoleChange(role, idx, val)}
+                                                onChange={val => handleMemberChange(category.id, idx, val)}
                                                 onAddNew={() => {
                                                    setEditingStaffId(null);
-                                                   setPendingDropdownAssign({ role, idx });
-                                                   setNewStaffForm({ name: '', role: role, contact: '' });
+                                                   setPendingDropdownAssign({ role: category.id, idx });
+                                                   setNewStaffForm({ name: '', role: category.name, contact: '' });
                                                    setIsAddStaffModalOpen(true);
                                                 }}
                                                 onDelete={handleDeleteStaff}
@@ -1860,58 +1948,57 @@ const ClientDetailsPage: React.FC = () => {
                                              />
                                           </div>
 
-                                          <div className="space-y-3">
-                                             <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">
-                                                {role === 'editor' ? 'Work Schedule' : 'Shoot Dates'}
+                                          <div className="space-y-4">
+                                             <p className="text-sm font-semibold uppercase text-zinc-300 tracking-wide px-1">
+                                                {role.includes('edit') ? 'Work Schedule' : 'Shoot Dates'}
                                              </p>
-                                             <div className="flex flex-wrap gap-2">
+                                             <div className="flex flex-wrap gap-3">
                                                 {(rowVal.assigned_dates || []).map((d, dIdx) => (
-                                                   <div key={dIdx} className={`flex items-center gap-2 px-3 py-1.5 bg-white/5 border ${d === new Date().toISOString().split('T')[0] ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/5'} rounded-lg group/chip hover:border-white/20 transition-all shadow-sm`}>
-                                                      <Calendar className={`w-3 h-3 ${d === new Date().toISOString().split('T')[0] ? 'text-emerald-400' : 'text-emerald-500/70'}`} />
+                                                   <div key={dIdx} className={`relative flex items-center gap-2 px-4 py-2 bg-white/5 border ${d === new Date().toISOString().split('T')[0] ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-white/10'} rounded-full group/chip hover:border-white/20 transition-all shadow-sm`}>
+                                                      <Calendar className={`w-3 h-3 ${d === new Date().toISOString().split('T')[0] ? 'text-emerald-400' : 'text-zinc-500'}`} />
                                                       <label className="cursor-pointer flex items-center">
-                                                         <span className="text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">
+                                                         <span className="text-sm font-medium text-zinc-200 uppercase tracking-widest whitespace-nowrap">
                                                             {new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                          </span>
                                                          <input
                                                             type="date"
-                                                            className="hidden"
+                                                            className="absolute inset-0 opacity-0 cursor-pointer"
                                                             value={d}
-                                                            onChange={e => handleUpdateDate(role, idx, dIdx, e.target.value)}
+                                                            onChange={e => handleUpdateDate(category.id, idx, dIdx, e.target.value)}
                                                          />
                                                       </label>
                                                       <button
                                                          type="button"
-                                                         onClick={() => handleRemoveDate(role, idx, dIdx)}
-                                                         className="p-1 text-zinc-600 hover:text-red-500 transition-colors"
+                                                         onClick={(e) => { e.stopPropagation(); handleRemoveDate(category.id, idx, dIdx); }}
+                                                         className="relative z-10 ml-2 flex items-center justify-center w-6 h-6 rounded-full text-zinc-400 hover:text-red-400 hover:bg-red-500/20 transition duration-200 active:scale-90"
                                                       >
-                                                         <X size={10} />
+                                                         <X size={14} />
                                                       </button>
                                                    </div>
                                                 ))}
-                                                <label className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/5 border-dashed rounded-lg cursor-pointer hover:bg-white/10 hover:border-white/20 transition-all group">
-                                                   <Plus size={10} className="text-zinc-500 group-hover:text-emerald-500" />
-                                                   <span className="text-[12px] font-black text-zinc-500 uppercase tracking-widest group-hover:text-white">+ Add Date</span>
-                                                   <input
-                                                      type="date"
-                                                      className="hidden"
-                                                      onChange={e => handleAddDate(role, idx, e.target.value)}
-                                                   />
-                                                </label>
+                                                 <button
+                                                    type="button"
+                                                    onClick={() => handleAddDate(category.id, idx)}
+                                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/5 border-dashed rounded-lg cursor-pointer hover:bg-white/10 hover:border-white/20 transition-all group"
+                                                 >
+                                                    <Plus size={10} className="text-zinc-500 group-hover:text-emerald-500" />
+                                                    <span className="text-sm font-medium text-zinc-300 uppercase tracking-widest group-hover:text-white">+ Add Date</span>
+                                                 </button>
                                              </div>
 
-                                             {teamSelection[role].length > 1 && (
+                                             {category.members.length > 1 && (
                                                 <button
                                                    type="button"
-                                                   onClick={() => removeRow(role, idx)}
-                                                   className="w-full py-2 bg-red-500/5 text-red-500/60 text-[8px] font-black uppercase tracking-widest rounded-xl hover:bg-red-500/10 hover:text-red-500 transition-all border border-red-500/5 flex items-center justify-center gap-2"
+                                                   onClick={() => removeMemberRow(category.id, idx)}
+                                                   className="w-full py-2.5 bg-red-500/5 text-red-500/60 text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-red-500/10 hover:text-red-500 transition-all border border-red-500/5 flex items-center justify-center gap-2"
                                                    title="Remove Assignment Segment"
                                                 >
-                                                   <Trash2 size={10} /> Remove Member Segment
+                                                   <Trash2 size={12} /> Remove Member Segment
                                                 </button>
                                              )}
                                           </div>
                                        </div>
-                                     ))}
+                                    ))}
                                  </div>
                               </div>
                            );
