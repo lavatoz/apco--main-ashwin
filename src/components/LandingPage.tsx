@@ -98,21 +98,21 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                {/* Cinematic Camera/Production Shot representing Artisans Co */}
                <img
                   src="https://images.unsplash.com/photo-1527011046414-4781f1f94f8c?q=80&w=2670&auto=format&fit=crop"
-                  className="w-full h-full object-cover opacity-80 scale-105 animate-[pulse_10s_ease-in-out_infinite]"
+                  className="w-full h-full object-cover opacity-60 grayscale hover:grayscale-0 transition-all duration-[2s] scale-105 animate-[pulse_10s_ease-in-out_infinite]"
                   alt="Cinematic Production"
                />
             </div>
 
             <div className="relative z-20 max-w-[1800px] mx-auto w-full mb-10 pl-4 md:pl-10">
-               <h1 className="text-[12vw] leading-[0.8] font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-b from-white to-white/50 animate-ios-slide-up" style={{ animationDelay: '0.2s' }}>
-                  Crafting<br />Memories
+               <h1 className="text-[12vw] leading-[0.8] font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-b from-white to-white/30 animate-ios-slide-up" style={{ animationDelay: '0.2s' }}>
+                  CRAFTING<br />MEMORIES
                </h1>
             </div>
 
             <div className="relative z-20 max-w-[1800px] mx-auto w-full flex flex-col md:flex-row justify-between items-end pl-4 md:pl-10 pr-4 md:pr-10 animate-ios-slide-up" style={{ animationDelay: '0.4s' }}>
-               <div className="max-w-xl p-8 rounded-[2.5rem] glass-panel backdrop-blur-xl border border-white/10">
+               <div className="max-w-xl p-8 rounded-[2.5rem] bg-black/60 border border-white/10 backdrop-blur-xl hover:border-white/20 transition-all duration-300">
                   <p className="text-lg md:text-xl text-zinc-200 font-medium leading-relaxed">
-                     We are <span className="text-white font-bold">Artisans Production Company</span>. A boutique house for fine-art wedding cinematography & lifestyle portraiture.
+                     Enterprise-grade wedding workflow & secure documentation platform.
                   </p>
                </div>
                <div className="flex gap-12 mt-10 md:mt-0">
@@ -189,41 +189,41 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
             <div className="max-w-[1800px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8">
                {/* Item 1 - Wedding (AAHA Kalyanam vibe) */}
                <div className="lg:col-span-8 group cursor-pointer relative overflow-hidden aspect-[16/10] rounded-[3rem] border border-white/5 hover:border-white/20 transition-all duration-500">
-                  <img src="https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?q=80&w=2670&auto=format&fit=crop" className="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110 opacity-70 group-hover:opacity-100" />
+                  <img src="https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?q=80&w=2670&auto=format&fit=crop" className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-[1.5s] group-hover:scale-110" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
                   <div className="absolute bottom-0 left-0 p-12 translate-y-4 group-hover:translate-y-0 transition-transform duration-700">
                      <h3 className="text-4xl font-black uppercase mb-3">The Royal Vows</h3>
-                     <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-yellow-500 bg-yellow-900/20 border border-yellow-500/20 px-3 py-1 rounded-full w-max backdrop-blur-md">AAHA Kalyanam</p>
+                     <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 bg-zinc-900/20 border border-white/10 px-3 py-1 rounded-full w-max backdrop-blur-md">AAHA Kalyanam</p>
                   </div>
                </div>
 
                {/* Item 2 - Wedding Portrait */}
                <div className="lg:col-span-4 group cursor-pointer relative overflow-hidden aspect-[4/5] lg:aspect-auto rounded-[3rem] border border-white/5 hover:border-white/20 transition-all duration-500">
-                  <img src="https://images.unsplash.com/photo-1606216794074-735e91aa2c92?q=80&w=2574&auto=format&fit=crop" className="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110 opacity-70 group-hover:opacity-100" />
+                  <img src="https://images.unsplash.com/photo-1606216794074-735e91aa2c92?q=80&w=2574&auto=format&fit=crop" className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-[1.5s] group-hover:scale-110" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
                   <div className="absolute bottom-0 left-0 p-12 translate-y-4 group-hover:translate-y-0 transition-transform duration-700">
                      <h3 className="text-3xl font-black uppercase mb-3">Haldi Joy</h3>
-                     <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-emerald-500 bg-emerald-900/20 border border-emerald-500/20 px-3 py-1 rounded-full w-max backdrop-blur-md">Candid Moments</p>
+                     <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 bg-zinc-900/20 border border-white/10 px-3 py-1 rounded-full w-max backdrop-blur-md">Candid Moments</p>
                   </div>
                </div>
 
                {/* Item 3 - Kids (Tiny Toes vibe) */}
                <div className="lg:col-span-4 group cursor-pointer relative overflow-hidden aspect-square rounded-[3rem] border border-white/5 hover:border-white/20 transition-all duration-500">
-                  <img src="https://images.unsplash.com/photo-1555252333-9f8e92e65df9?q=80&w=2670&auto=format&fit=crop" className="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110 opacity-70 group-hover:opacity-100" />
+                  <img src="https://images.unsplash.com/photo-1555252333-9f8e92e65df9?q=80&w=2670&auto=format&fit=crop" className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-[1.5s] group-hover:scale-110" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
                   <div className="absolute bottom-0 left-0 p-12 translate-y-4 group-hover:translate-y-0 transition-transform duration-700">
                      <h3 className="text-3xl font-black uppercase mb-3">Pure Innocence</h3>
-                     <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-blue-500 bg-blue-900/20 border border-blue-500/20 px-3 py-1 rounded-full w-max backdrop-blur-md">Tiny Toes</p>
+                     <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 bg-zinc-900/20 border border-white/10 px-3 py-1 rounded-full w-max backdrop-blur-md">Tiny Toes</p>
                   </div>
                </div>
 
                {/* Item 4 - Event/Celebration */}
                <div className="lg:col-span-8 group cursor-pointer relative overflow-hidden aspect-[16/10] rounded-[3rem] border border-white/5 hover:border-white/20 transition-all duration-500">
-                  <img src="https://images.unsplash.com/photo-1469334031218-e382a71b716b?q=80&w=2670&auto=format&fit=crop" className="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110 opacity-70 group-hover:opacity-100" />
+                  <img src="https://images.unsplash.com/photo-1469334031218-e382a71b716b?q=80&w=2670&auto=format&fit=crop" className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-[1.5s] group-hover:scale-110" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
                   <div className="absolute bottom-0 left-0 p-12 translate-y-4 group-hover:translate-y-0 transition-transform duration-700">
                      <h3 className="text-4xl font-black uppercase mb-3">Grand Celebrations</h3>
-                     <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-purple-500 bg-purple-900/20 border border-purple-500/20 px-3 py-1 rounded-full w-max backdrop-blur-md">Artisans Signature</p>
+                     <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 bg-zinc-900/20 border border-white/10 px-3 py-1 rounded-full w-max backdrop-blur-md">Artisans Signature</p>
                   </div>
                </div>
             </div>

@@ -5,11 +5,13 @@ import {
   LayoutDashboard, Users, Calendar, Wallet, Sparkles,
   LogOut, Settings, X, RefreshCw,
   CloudRain, Cpu,
-  Activity
+  Activity, Shield,
+  CalendarClock, FolderDown, Receipt, FileSignature, MessageSquare, HelpCircle
 } from 'lucide-react';
 
 import { api } from '../services/api';
 import { useCompanySettings } from '../hooks/useCompanySettings';
+import { getAuthUser } from '../utils/storage';
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -20,11 +22,10 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogout }) => {
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const userStr = localStorage.getItem('auth_user');
-  const user = userStr ? JSON.parse(userStr) : null;
+  const user = getAuthUser();
   const { settings } = useCompanySettings();
 
-  const menuItems = [
+  const ADMIN_MENU = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard' },
     { path: '/directory', label: 'Directory', icon: Users, permission: 'clients' },
     { path: '/calendar', label: 'Coordination', icon: Calendar, permission: 'tasks' },
@@ -33,21 +34,35 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
     { path: '/copilot', label: 'Copilot', icon: Sparkles, permission: 'ai' },
     { path: '/analytics', label: 'Analytics', icon: BarChart3, permission: 'analytics' },
     { path: '/client-dashboard', label: 'Portal', icon: FolderOpen, permission: 'files' },
+    { path: '/security', label: 'Security Hub', icon: Shield, permission: 'system' },
     { path: '/ecosystem', label: 'Ecosystem', icon: Settings, permission: 'system' },
     { path: '/settings', label: 'Settings', icon: Settings, permission: 'dashboard' },
-  ].filter(item => {
-    if (!user) return false;
-    if (user.role === 'Admin') return true;
+  ];
 
-    // Strict filtering for clients
-    if (user.role === 'Client') {
-      const clientWhitelisted = ['/directory'];
-      const isWhitelisted = clientWhitelisted.includes(item.path);
-      return isWhitelisted;
-    }
+  const CLIENT_MENU = [
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard' },
+    { path: '/events', label: 'My Events', icon: Calendar, permission: 'dashboard' },
+    { path: '/timeline', label: 'Timeline', icon: Activity, permission: 'dashboard' },
+    { path: '/workflow', label: 'Workflow', icon: CalendarClock, permission: 'dashboard' },
+    { path: '/directory', label: 'Directory', icon: Users, permission: 'dashboard' },
+    { path: '/deliverables', label: 'Deliverables', icon: FolderDown, permission: 'dashboard' },
+    { path: '/invoices', label: 'Invoices', icon: Receipt, permission: 'dashboard' },
+    { path: '/agreements', label: 'Agreements', icon: FileSignature, permission: 'dashboard' },
+    { path: '/messages', label: 'Messages', icon: MessageSquare, permission: 'dashboard' },
+    { path: '/support', label: 'Support', icon: HelpCircle, permission: 'dashboard' },
+  ];
 
-    return user.permissions && user.permissions.includes(item.permission);
-  });
+  let menuItems = ADMIN_MENU;
+
+  if (user?.role === 'Client') {
+    menuItems = CLIENT_MENU;
+  } else if (user?.role === 'Staff') {
+    menuItems = ADMIN_MENU.filter(item => user.permissions && user.permissions.includes(item.permission));
+  } else if (user?.role === 'Admin') {
+    menuItems = ADMIN_MENU;
+  } else {
+    menuItems = [];
+  }
 
   const handleManualSync = async () => {
     setIsSyncing(true);

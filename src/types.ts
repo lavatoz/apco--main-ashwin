@@ -15,15 +15,19 @@ export const InvoiceStatus = {
   Overdue: 'Overdue',
   Draft: 'Draft',
   Quotation: 'Quotation',
-  Approved: 'Approved'
+  Approved: 'Approved',
+  'Payment Submitted': 'Payment Submitted'
 } as const;
 
 export type InvoiceStatus = typeof InvoiceStatus[keyof typeof InvoiceStatus];
 
 export const TaskStatus = {
-  Todo: 'Todo',
+  Pending: 'Pending',
+  Assigned: 'Assigned',
   InProgress: 'In Progress',
-  Done: 'Done'
+  AwaitingReview: 'Awaiting Review',
+  Completed: 'Completed',
+  Overdue: 'Overdue'
 } as const;
 
 export type TaskStatus = typeof TaskStatus[keyof typeof TaskStatus];
@@ -72,6 +76,7 @@ export interface Task {
   divisionId?: string;
   priority: string;
   client?: string;
+  eventId?: string;
 }
 
 export interface Division {
@@ -143,7 +148,7 @@ export type UserRole = 'Admin' | 'Staff' | 'Client';
 
 export type StaffRole = string;
 
-export type UserPermission = 'dashboard' | 'clients' | 'tasks' | 'finance' | 'ai' | 'analytics' | 'system' | 'workflow' | 'operations' | 'files';
+export type UserPermission = 'dashboard' | 'clients' | 'tasks' | 'finance' | 'ai' | 'analytics' | 'system' | 'workflow' | 'operations' | 'files' | 'gallery' | 'invoices' | 'agreements' | 'messages' | 'timeline' | 'deliverables' | 'support' | 'events';
 
 export interface User {
   id: string;
@@ -188,6 +193,30 @@ export interface AgreementTemplate {
   updatedAt: string;
 }
 
+export type EventStatus = 'Scheduled' | 'In Preparation' | 'In Progress' | 'Completed' | 'Cancelled';
+
+export interface ClientEvent {
+  id: string;
+  name: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  progress?: number;
+  actualCompletedAt?: string;
+  brideLocation?: string;
+  groomLocation?: string;
+  venueLocation?: string;
+  notes?: string;
+  status: EventStatus;
+}
+
+export interface EventLogistics {
+  locationType?: 'Bride' | 'Groom';
+  brideAddress?: string;
+  groomAddress?: string;
+  venueAddress?: string;
+}
+
 export interface Client {
   id: string;
   _id?: string;
@@ -215,9 +244,18 @@ export interface Client {
     internalSpends: InternalSpend[];
   };
   allowedClients?: any[];
+  events?: ClientEvent[];
   eventType?: string;
   status: 'pending' | 'uploaded' | 'selected' | 'completed';
   activeAgreement?: ActiveAgreementSnapshot;
+  eventLogistics?: EventLogistics;
+  venueAddress?: string;
+  groomHomeAddress?: string;
+  brideHomeAddress?: string;
+  assignedCoordinatorId?: string;
+  assignedPhotographerId?: string;
+  assignedVideographerId?: string;
+  assignedEditorId?: string;
   createdAt?: string;
 }
 
@@ -256,9 +294,9 @@ export interface Gallery {
 }
 
 export type ProjectStatus = 'pending' | 'confirmed';
-export type WorkflowProjectStage = 'Planning' | 'Shoot' | 'Editing' | 'Delivery';
-export type LegacyProjectStage = 'booked' | 'event_done' | 'selection' | 'editing' | 'delivery';
-export type ProjectStage = WorkflowProjectStage | LegacyProjectStage;
+export type NewProjectStage = 'Booked' | 'Agreement Signed' | 'Advance Paid' | 'Team Assigned' | 'Shoot Completed' | 'Selection Received' | 'Editing' | 'Delivery Ready' | 'Delivered';
+export type LegacyProjectStage = 'booked' | 'event_done' | 'selection' | 'editing' | 'delivery' | 'Planning' | 'Shoot' | 'Delivery';
+export type ProjectStage = NewProjectStage | LegacyProjectStage;
 
 export interface ProjectWorkflowItem {
   name: string;
@@ -274,6 +312,7 @@ export interface StaffAssignment {
   role?: string;
   cost?: number;
   price?: number;
+  eventId?: string;
 }
 
 export interface ProjectTeam {
@@ -306,6 +345,10 @@ export interface Project {
   date: string;
   status: ProjectStatus;
   stage?: ProjectStage;
+  workflowTrigger?: {
+    event: string;
+    timestamp: string;
+  };
   totalAmount?: number; // Legacy
   team?: any; // Can be ProjectTeam or array based on new logic
   services?: InvoiceItem[];
@@ -367,6 +410,13 @@ export interface Invoice {
   paidAmount?: number;
   paymentHistory?: PaymentRecord[];
   status: InvoiceStatus;
+  paymentVerification?: {
+    utrNumber: string;
+    amount: number;
+    screenshot?: string;
+    submittedAt: string;
+    status: 'pending' | 'approved' | 'rejected';
+  };
   type?: 'invoice' | 'quotation';
   isQuotation?: boolean;
   items: InvoiceItem[];
@@ -391,6 +441,9 @@ export interface Invoice {
   idProofName?: string;
   convertedFrom?: string;
   total?: number;
+  // Template version persistence — set at generation time, never changed after
+  templateId?: string;       // e.g. 'aaha_i_v1'
+  templateVersion?: string;  // e.g. '1.0.0'
 }
 
 export interface Expense {
@@ -438,6 +491,10 @@ export interface CompanyProfile {
   invoiceNotes: string;
   primaryColor: string;
   isDefault: boolean;
+  defaultAgreementTemplate?: string;
+  defaultQuoteTemplate?: string;
+  defaultInvoiceTemplate?: string;
+  defaultProposalTemplate?: string;
   createdAt: string;
 }
 

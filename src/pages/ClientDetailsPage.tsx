@@ -2,13 +2,19 @@ import * as React from 'react';
 import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Mail, Phone, Calendar, Briefcase, Plus, ArrowLeft, FileText, IndianRupee, Activity, X, CheckCircle2, Trash2, Edit2, Copy, Download, CreditCard, ChevronRight, Search, Camera, Video, Edit3, Users, AlertTriangle, Clock, Check, Package } from 'lucide-react';
+import { Mail, Phone, Calendar, Briefcase, Plus, ArrowLeft, FileText, IndianRupee, Activity, X, CheckCircle2, Trash2, Edit2, Copy, Download, CreditCard, ChevronRight, Search, Camera, Video, Edit3, Users, AlertTriangle, Clock, Check, Package, MapPin } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { type Client, type Invoice, type PaymentRecord, type User as UserType, type ClientAgreement, type IdDocument, type Project, type ProjectStage, type AgreementTemplate, type ActiveAgreementSnapshot, InvoiceStatus } from '../types';
+import { type Client, type Invoice, type PaymentRecord, type User as UserType, type ClientAgreement, type IdDocument, type Project, type ProjectStage, type AgreementTemplate, type ActiveAgreementSnapshot, type ClientEvent } from '../types';
 import { api } from '../services/api';
 import { useCompanySettings, useCompanyForClient } from '../hooks/useCompanySettings';
-import { generateInvoicePDF } from '../utils/pdfGenerator';
-import { Share2 as ShareIcon } from 'lucide-react';
+
+import { getAuthUser } from '../utils/storage';
+
+import { WORKFLOW_STAGES, getWorkflowProgress, normalizeWorkflowStage } from '../utils/workflowUtils';
+import { DocumentPreviewModal } from '../components/DocumentPreviewModal';
+import { getBrandQuoteTemplate, getBrandInvoiceTemplate } from '../templates/registry';
+import { advanceProjectWorkflow, emergencyOverrideWorkflow } from '../utils/workflowEngine';
+import { calculateEventStatusAndProgress } from '../utils/eventUtils';
 
 const SUGGESTIONS = {
    physical: [
@@ -59,7 +65,6 @@ const SmartRoleDropdown: React.FC<{
    const [search, setSearch] = useState('');
    const wrapperRef = useRef<HTMLDivElement>(null);
    const contentRef = useRef<HTMLDivElement>(null);
-   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
    const [isAddingInDropdown, setIsAddingInDropdown] = useState(false);
    const [newMemberNameInDropdown, setNewMemberNameInDropdown] = useState('');
@@ -71,36 +76,7 @@ const SmartRoleDropdown: React.FC<{
 
    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-   const updatePosition = () => {
-      if (wrapperRef.current) {
-         const rect = wrapperRef.current.getBoundingClientRect();
-         setDropdownStyle({
-            top: rect.bottom + 8,
-            left: rect.left,
-            width: rect.width
-         });
-      }
-   };
 
-   useEffect(() => {
-      if (isOpen) {
-         updatePosition();
-         const handleScroll = (e: Event) => {
-            if (contentRef.current && !contentRef.current.contains(e.target as Node)) {
-               setIsOpen(false);
-               setIsAddingInDropdown(false);
-               setInlineEditingId(null);
-               setDeleteConfirmId(null);
-            }
-         };
-         window.addEventListener('scroll', handleScroll, true);
-         window.addEventListener('resize', updatePosition);
-         return () => {
-            window.removeEventListener('scroll', handleScroll, true);
-            window.removeEventListener('resize', updatePosition);
-         };
-      }
-   }, [isOpen]);
 
    useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
@@ -184,11 +160,10 @@ const SmartRoleDropdown: React.FC<{
             </div>
          </div>
 
-         {isOpen && createPortal(
+         {isOpen && (
             <div
                ref={contentRef}
-               style={{ ...dropdownStyle, position: 'fixed' }}
-               className="bg-[#0c0c0e] border border-white/10 rounded-2xl z-[9999] shadow-[0_30px_90px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col animate-ios-fade-in pointer-events-auto backdrop-blur-xl"
+               className="absolute left-0 right-0 top-[calc(100%+8px)] bg-[#0c0c0e] border border-white/10 rounded-2xl z-[10000] shadow-[0_30px_90px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col animate-ios-fade-in pointer-events-auto backdrop-blur-xl"
             >
                {isAddingInDropdown ? (
                   <div className="p-5 space-y-4 animate-ios-slide-up" onMouseDown={e => e.stopPropagation()}>
@@ -268,7 +243,7 @@ const SmartRoleDropdown: React.FC<{
                                  <div key={s.id} className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-between animate-ios-slide-up" onMouseDown={e => e.stopPropagation()}>
                                     <span className="text-[9px] font-black text-red-500 uppercase tracking-widest px-1">Are you sure?</span>
                                     <div className="flex items-center gap-2">
-                                       <button 
+                                       <button
                                           onClick={(e) => {
                                              e.preventDefault(); e.stopPropagation();
                                              onDelete?.(s.id);
@@ -372,35 +347,30 @@ const SmartRoleDropdown: React.FC<{
                         )}
                      </div>
 
-                     <div className="border-t border-white/5 bg-black/40 p-4 shrink-0">
+                     <div className="border-t border-white/5 bg-black/40 p-4 shrink-0 relative z-[1000]">
                         <button
                            type="button"
-                           onMouseDown={(e) => {
+                           onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
+                              console.log('Add New Person clicked');
                               setNewMemberNameInDropdown(search);
                               setNewMemberRoleInDropdown(role);
                               setIsAddingInDropdown(true);
                            }}
-                           className="w-full py-3.5 bg-white text-black hover:bg-zinc-200 active:scale-[0.98] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl shadow-indigo-500/10"
+                           className="w-full py-3.5 bg-white text-black hover:bg-zinc-200 active:scale-[0.98] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl shadow-indigo-500/10 pointer-events-auto cursor-pointer relative z-[1001]"
                         >
                            + Add New Person
                         </button>
                      </div>
                   </>
                )}
-            </div>,
-            document.body
+            </div>
          )}
       </div>
    );
 };
 
-const DEFAULT_SUBTASKS: Record<string, string[]> = {
-   selection: ['Culling', 'Customer Feedback', 'Selects Finalized'],
-   editing: ['Color Grading', 'Retouching', 'Mastering', 'Export'],
-   delivery: ['Quality Check', 'Cloud Upload', 'Client Notification']
-};
 
 const ClientDetailsPage: React.FC = () => {
    const { id } = useParams<{ id: string }>();
@@ -410,31 +380,227 @@ const ClientDetailsPage: React.FC = () => {
    const [loading, setLoading] = useState(true);
    const [activeTab, setActiveTab] = useState<'overview' | 'quotes' | 'invoices' | 'payments' | 'agreements' | 'team'>('overview');
    const [project, setProject] = useState<Project | null>(null);
+   const [showEmergencyOverride, setShowEmergencyOverride] = useState(false);
+
+   // Event Schedule State
+   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
+   const [isEditEventModalOpen, setIsEditEventModalOpen] = useState(false);
+   const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
+   const [editProjectForm, setEditProjectForm] = useState<any>({});
+   const [editingEvent, setEditingEvent] = useState<ClientEvent | null>(null);
+   const [, setTimeCounter] = useState(0);
+
+   useEffect(() => {
+      const interval = setInterval(() => {
+         setTimeCounter(c => c + 1);
+      }, 30000); // 30 seconds
+      return () => clearInterval(interval);
+   }, []);
+   const [newEventForm, setNewEventForm] = useState<Partial<ClientEvent>>({
+      name: '',
+      date: '',
+      startTime: '09:00',
+      endTime: '18:00',
+      brideLocation: '',
+      groomLocation: '',
+      venueLocation: '',
+      notes: '',
+      status: 'Scheduled'
+   });
+
+   const handleSaveEvent = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!client) return;
+
+      const newEvent: ClientEvent = {
+         id: `event_${Date.now()}`,
+         name: newEventForm.name || 'Unnamed Event',
+         date: newEventForm.date || new Date().toISOString().split('T')[0],
+         startTime: newEventForm.startTime,
+         endTime: newEventForm.endTime,
+         brideLocation: newEventForm.brideLocation,
+         groomLocation: newEventForm.groomLocation,
+         venueLocation: newEventForm.venueLocation,
+         notes: newEventForm.notes,
+         status: newEventForm.status || 'Scheduled'
+      };
+
+      const updatedEvents = [...(client.events || []), newEvent];
+      const updatedClient = { ...client, events: updatedEvents };
+
+      try {
+         await api.saveClient(updatedClient);
+         setClient(updatedClient);
+
+         // Automatically create a coordination task
+         await api.saveTask({
+            id: `task_coord_${Date.now()}`,
+            title: `Coordination for ${newEvent.name} - ${client.projectName || client.name}`,
+            assignee: 'Unassigned',
+            dueDate: newEvent.date,
+            status: 'Pending',
+            brand: client.brand || 'Artisans',
+            divisionId: client.divisionId,
+            priority: 'High',
+            client: client.id,
+            eventId: newEvent.id
+         });
+
+         addToast("Event and Coordination Task Created");
+         setIsAddEventModalOpen(false);
+         setNewEventForm({
+            name: '', date: '', startTime: '09:00', endTime: '18:00', brideLocation: '', groomLocation: '', venueLocation: '', notes: '', status: 'Scheduled'
+         });
+      } catch (err) {
+         console.error("Failed to save event:", err);
+         addToast("Failed to create event");
+      }
+   };
+
+   const handleUpdateEvent = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!client || !editingEvent) return;
+
+      const oldEvent = client.events?.find(ev => ev.id === editingEvent.id);
+      if (!oldEvent) return;
+
+      const updatedEvents = (client.events || []).map(ev =>
+         ev.id === editingEvent.id ? editingEvent : ev
+      );
+
+      let updatedClient = { ...client, events: updatedEvents };
+
+      try {
+         // If date changed, handle coordination tasks and timeline sync
+         if (oldEvent.date !== editingEvent.date) {
+            // Log timeline event
+            const timelineEvent = {
+               id: Date.now().toString(),
+               title: 'Event Rescheduled',
+               description: `Event "${editingEvent.name}" was rescheduled to ${new Date(editingEvent.date).toLocaleDateString()}.`,
+               date: new Date().toISOString(),
+               status: 'Completed' as const,
+               category: 'system'
+            };
+            updatedClient = {
+               ...updatedClient,
+               portal: {
+                  ...(updatedClient.portal || { timeline: [], deliverables: [], internalSpends: [] }),
+                  timeline: [...(updatedClient.portal?.timeline || []), timelineEvent]
+               }
+            };
+
+            // Update associated task date
+            const allTasks = await api.getTasks();
+            const associatedTask = allTasks.find(t => t.eventId === editingEvent.id || (t.title.includes('Coordination for ' + oldEvent.name) && t.client === client.id));
+            if (associatedTask) {
+               await api.saveTask({
+                  ...associatedTask,
+                  title: `Coordination for ${editingEvent.name} - ${client.projectName || client.name}`,
+                  dueDate: editingEvent.date,
+                  eventId: editingEvent.id
+               });
+            }
+         } else if (oldEvent.name !== editingEvent.name) {
+            // Just update task name if it changed without date changing
+            const allTasks = await api.getTasks();
+            const associatedTask = allTasks.find(t => t.eventId === editingEvent.id || (t.title.includes('Coordination for ' + oldEvent.name) && t.client === client.id));
+            if (associatedTask) {
+               await api.saveTask({
+                  ...associatedTask,
+                  title: `Coordination for ${editingEvent.name} - ${client.projectName || client.name}`
+               });
+            }
+         }
+
+         await api.saveClient(updatedClient);
+         setClient(updatedClient);
+
+         addToast("Event Updated Successfully");
+         setIsEditEventModalOpen(false);
+         setEditingEvent(null);
+      } catch (err) {
+         console.error("Failed to update event:", err);
+         addToast("Failed to update event");
+      }
+   };
+
+   const handleUpdateProjectInfo = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!client) return;
+
+      const updatedClient = {
+         ...client,
+         name: editProjectForm.name,
+         projectName: editProjectForm.projectName,
+         email: editProjectForm.email,
+         phone: editProjectForm.phone,
+         projectType: editProjectForm.projectType,
+         eventDate: editProjectForm.eventDate,
+         status: editProjectForm.status,
+      };
+
+      try {
+         await api.saveClient(updatedClient);
+         setClient(updatedClient);
+         addToast("Project Information Updated");
+         setIsEditProjectModalOpen(false);
+      } catch (err) {
+         console.error("Failed to update project info:", err);
+         addToast("Failed to update project info");
+      }
+   };
+
+   const handleDeleteEvent = async (eventId: string, eventName: string) => {
+      if (!client) return;
+      if (!window.confirm(`Are you sure you want to delete the event "${eventName}"? This action cannot be undone.`)) return;
+
+      const updatedEvents = (client.events || []).filter(ev => ev.id !== eventId);
+      const updatedClient = { ...client, events: updatedEvents };
+
+      try {
+         await api.saveClient(updatedClient);
+         setClient(updatedClient);
+
+         // Delete associated task
+         const allTasks = await api.getTasks();
+         const associatedTask = allTasks.find(t => t.eventId === eventId || (t.title.includes('Coordination for ' + eventName) && t.client === client.id));
+         if (associatedTask) {
+            await api.deleteTask(associatedTask.id);
+         }
+
+         addToast("Event Deleted Successfully");
+      } catch (err) {
+         console.error("Failed to delete event:", err);
+         addToast("Failed to delete event");
+      }
+   };
+
 
    // Team Assignment State
-    const [allStaff, setAllStaff] = useState<UserType[]>([]);
-    const [teamCategories, setTeamCategories] = useState<{ id: string, name: string, members: { memberId: string, assigned_dates: string[] }[] }[]>([]);
+   const [allStaff, setAllStaff] = useState<UserType[]>([]);
+   const [teamCategories, setTeamCategories] = useState<{ id: string, name: string, members: { memberId: string, assigned_dates: string[], assigned_events?: string[] }[] }[]>([]);
    const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
    const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
    const [newStaffForm, setNewStaffForm] = useState({ name: '', role: 'photographer', contact: '' });
    const [pendingDropdownAssign, setPendingDropdownAssign] = useState<{ role: string, idx: number } | null>(null);
 
    const [pendingConfirm, setPendingConfirm] = useState<{
-       title: string;
-       message: string;
-       tone?: 'default' | 'danger';
-       onConfirm: () => void;
-       confirmLabel?: string;
+      title: string;
+      message: string;
+      tone?: 'default' | 'danger';
+      onConfirm: () => void;
+      confirmLabel?: string;
    } | null>(null);
 
    const requestConfirmation = (config: {
-       title: string;
-       message: string;
-       tone?: 'default' | 'danger';
-       onConfirm: () => void;
-       confirmLabel?: string;
+      title: string;
+      message: string;
+      tone?: 'default' | 'danger';
+      onConfirm: () => void;
+      confirmLabel?: string;
    }) => {
-       setPendingConfirm(config);
+      setPendingConfirm(config);
    };
 
 
@@ -476,7 +642,7 @@ const ClientDetailsPage: React.FC = () => {
    const [termsEditText, setTermsEditText] = useState('');
    const [isAgreed, setIsAgreed] = useState(false);
 
-   const currentUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
+   const currentUser = getAuthUser() || {};
    const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
 
    const [clientQuotes, setClientQuotes] = useState<Invoice[]>([]);
@@ -490,9 +656,64 @@ const ClientDetailsPage: React.FC = () => {
    const [builderCategory, setBuilderCategory] = useState<'physical' | 'digital' | 'team'>('physical');
    const [searchQuery, setSearchQuery] = useState("");
    const [showSuggestions, setShowSuggestions] = useState(false);
-   const [suggestionsPosition, setSuggestionsPosition] = useState({ top: 0, left: 0, width: 0 });
    const [isAddingNewInSearch, setIsAddingNewInSearch] = useState(false);
    const [newMemberRoleInSearch, setNewMemberRoleInSearch] = useState('photographer');
+   const [newMemberPhoneInSearch, setNewMemberPhoneInSearch] = useState('');
+   const [newMemberEmailInSearch, setNewMemberEmailInSearch] = useState('');
+   const [newMemberRateInSearch, setNewMemberRateInSearch] = useState('');
+
+   const [personnelRegistry, setPersonnelRegistry] = useState<any[]>(() => {
+      const stored = localStorage.getItem('personnel_registry');
+      if (stored) return JSON.parse(stored);
+      return SUGGESTIONS.team.map((t, idx) => ({ ...t, id: `pr_${idx}`, status: 'Active' }));
+   });
+
+   const savePersonnelRegistry = (newRegistry: any[]) => {
+      setPersonnelRegistry(newRegistry);
+      localStorage.setItem('personnel_registry', JSON.stringify(newRegistry));
+   };
+
+   const handleDeletePersonnel = (id: string, e: React.MouseEvent) => {
+      e.preventDefault(); e.stopPropagation();
+      if (!window.confirm("Are you sure you want to remove this person from the registry?")) return;
+
+      const personToRemove = personnelRegistry.find(p => p.id === id);
+      const newRegistry = personnelRegistry.filter(p => p.id !== id);
+      savePersonnelRegistry(newRegistry);
+
+      if (personToRemove) {
+         setCategorizedItems(prev => ({
+            ...prev,
+            team: prev.team.filter(t => t.name !== personToRemove.name)
+         }));
+      }
+      addToast("Personnel removed from registry");
+   };
+
+   const [editingPersonnel, setEditingPersonnel] = useState<any | null>(null);
+
+   const handleSavePersonnelEdit = () => {
+      if (!editingPersonnel || !editingPersonnel.name.trim()) return;
+      const newRegistry = personnelRegistry.map(p => p.id === editingPersonnel.id ? editingPersonnel : p);
+      savePersonnelRegistry(newRegistry);
+
+      const oldPerson = personnelRegistry.find(p => p.id === editingPersonnel.id);
+      if (oldPerson && oldPerson.name !== editingPersonnel.name) {
+         setCategorizedItems(prev => ({
+            ...prev,
+            team: prev.team.map(t => t.name === oldPerson.name ? { ...t, name: editingPersonnel.name, role: editingPersonnel.role } : t)
+         }));
+      } else if (oldPerson && oldPerson.role !== editingPersonnel.role) {
+         setCategorizedItems(prev => ({
+            ...prev,
+            team: prev.team.map(t => t.name === oldPerson.name ? { ...t, role: editingPersonnel.role } : t)
+         }));
+      }
+
+      setEditingPersonnel(null);
+      addToast("Personnel updated");
+   };
+
    const searchRef = useRef<HTMLDivElement>(null);
    const [formDueDate, setFormDueDate] = useState('');
 
@@ -520,7 +741,7 @@ const ClientDetailsPage: React.FC = () => {
          ...prev,
          [category]: [
             ...prev[category],
-            category === 'team' 
+            category === 'team'
                ? { id: `team_${Date.now()}`, name: '', role: 'photographer', cost: 0 }
                : { id: `${category}_${Date.now()}`, name: '', quantity: 1, price: 0 }
          ]
@@ -560,21 +781,14 @@ const ClientDetailsPage: React.FC = () => {
       addToast("Item deleted", (toastId) => handleUndoDelete(toastId));
    };
 
-   const handleSearchChange = (query: string, element?: HTMLElement) => {
+   const handleSearchChange = (query: string) => {
       setSearchQuery(query);
-      if (element) {
-         const rect = element.getBoundingClientRect();
-         setSuggestionsPosition({
-            top: rect.bottom + window.scrollY,
-            left: rect.left + window.scrollX,
-            width: rect.width
-         });
-      }
+
       setShowSuggestions(!!query);
       setIsAddingNewInSearch(false);
 
       const lowerQuery = query.toLowerCase();
-      
+
       const isPhysical = CATEGORY_KEYWORDS.physical.some(k => lowerQuery.includes(k));
       const isDigital = CATEGORY_KEYWORDS.digital.some(k => lowerQuery.includes(k));
       const isTeam = SUGGESTIONS.team.some(t => t.name.toLowerCase().includes(lowerQuery));
@@ -585,18 +799,26 @@ const ClientDetailsPage: React.FC = () => {
    };
 
    const addSelectedSuggestion = (suggestion: any, category: 'physical' | 'digital' | 'team') => {
+      const exists = categorizedItems[category].some(item => item.name === suggestion.name);
+      if (exists) {
+         setCategorizedItems(prev => ({
+            ...prev,
+            [category]: prev[category].filter(item => item.name !== suggestion.name)
+         }));
+         addToast("Item removed");
+         return;
+      }
+
       setCategorizedItems(prev => ({
          ...prev,
          [category]: [
             ...prev[category],
-            category === 'team' 
+            category === 'team'
                ? { id: `team_${Date.now()}`, name: suggestion.name, role: suggestion.role, cost: 0 }
                : { id: `${category}_${Date.now()}`, name: suggestion.name, quantity: 1, price: suggestion.price }
          ]
       }));
-      setSearchQuery("");
-      setShowSuggestions(false);
-      addToast("Item added");
+      addToast("Item assigned");
    };
 
    const handleAddFromSearch = () => {
@@ -685,8 +907,7 @@ const ClientDetailsPage: React.FC = () => {
          document.body.style.overflow = 'auto';
       };
    }, [isModalOpen, previewDoc, isAddStaffModalOpen]);
-   const [paymentAmount, setPaymentAmount] = useState('');
-   const [paymentDate, setPaymentDate] = useState('');
+
 
    const calculateSubtotal = () => {
       const physicalSub = categorizedItems.physical.reduce((acc, curr) => acc + (curr.quantity * curr.price), 0);
@@ -708,7 +929,7 @@ const ClientDetailsPage: React.FC = () => {
          setAutoGeneratedId(existingDoc.id);
          setSelectedCompanyIdForDoc(existingDoc.brandId || '');
          setFormDueDate(existingDoc.dueDate || '');
-         
+
          // Hydrate categorized items from existing items list
          const hyd: any = { physical: [], digital: [], team: [] };
          (existingDoc.items || []).forEach((it: any) => {
@@ -825,59 +1046,14 @@ const ClientDetailsPage: React.FC = () => {
          await api.saveInvoice(updatedInvoice);
          setClientInvoices(prev => prev.map(inv => inv.id === activeInvoice.id ? updatedInvoice : inv));
          if (previewDoc?.id === activeInvoice.id) setPreviewDoc(updatedInvoice);
+         if (project) {
+            await advanceProjectWorkflow(project.id, 'Advance Paid', `Invoice ${updatedInvoice.id} paid in full`);
+         }
       } catch (err) {
          console.error(err);
       }
    };
 
-   const handleAddPayment = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!previewDoc || !paymentAmount || !client) return;
-
-      if (clientAgreement?.status !== 'accepted') {
-         alert("Cannot process payment. Client Agreement has not been accepted or has expired.");
-         return;
-      }
-
-      setIsSubmitting(true);
-      const amountToAdd = parseFloat(paymentAmount) || 0;
-
-      const currentPaid = previewDoc.paidAmount || 0;
-      const total = previewDoc.totalAmount || previewDoc.amount || 0;
-      const newPaid = currentPaid + amountToAdd;
-
-      let newStatus: InvoiceStatus = InvoiceStatus.Unpaid;
-      if (newPaid === 0) newStatus = InvoiceStatus.Unpaid;
-      else if (newPaid < total) newStatus = InvoiceStatus.Partial;
-      else newStatus = InvoiceStatus.Paid;
-
-      const paymentRecord: PaymentRecord = {
-         id: `PAY-${Date.now()}`,
-         amount: amountToAdd,
-         date: paymentDate
-      };
-
-      const history = previewDoc.paymentHistory ? [...previewDoc.paymentHistory] : [];
-      history.push(paymentRecord);
-
-      const updatedInvoice = {
-         ...previewDoc,
-         paidAmount: newPaid,
-         status: newStatus,
-         paymentHistory: history
-      };
-
-      try {
-         await api.saveInvoice(updatedInvoice);
-         setClientInvoices(prev => prev.map(inv => inv.id === previewDoc.id ? updatedInvoice : inv));
-         setPreviewDoc(updatedInvoice); // auto update natively
-         setPaymentAmount('');
-      } catch (err) {
-         console.error(err);
-      } finally {
-         setIsSubmitting(false);
-      }
-   };
 
    const handleCreateDocument = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -936,8 +1112,16 @@ const ClientDetailsPage: React.FC = () => {
          discountType: formDiscountType,
          shippingCost: formShippingCost,
          notes: formNotes,
-         termsSummary: formTermsSummary
+         termsSummary: formTermsSummary,
       };
+
+      // Stamp the template version used at generation time
+      if (!existingDoc) {
+         const resolver = modalType === 'quotation' ? getBrandQuoteTemplate : getBrandInvoiceTemplate;
+         const resolvedTemplate = resolver(selectedCompany.id || selectedCompany.companyName);
+         newDoc.templateId = resolvedTemplate.metadata.id;
+         newDoc.templateVersion = resolvedTemplate.metadata.version;
+      }
 
       if (editDocId && modalType !== 'quotation' && newDoc.status !== 'Draft') {
          const paid = newDoc.paidAmount || 0;
@@ -1171,8 +1355,9 @@ const ClientDetailsPage: React.FC = () => {
                );
 
                if (isMounted) {
-                  setClientQuotes(relevantDocs.filter((item: Invoice) => item.type === 'quotation' || item.isQuotation).reverse());
-                  setClientInvoices(relevantDocs.filter((item: Invoice) => item.type !== 'quotation' && !item.isQuotation).reverse());
+                  const isQuote = (item: Invoice) => item.isQuotation || item.type === 'quotation' || ['Quotation', 'Draft', 'Approved'].includes(item.status);
+                  setClientQuotes(relevantDocs.filter((item: Invoice) => isQuote(item)).reverse());
+                  setClientInvoices(relevantDocs.filter((item: Invoice) => !isQuote(item)).reverse());
                }
             } catch (err) {
                console.error("Failed to fetch client documents", err);
@@ -1201,7 +1386,7 @@ const ClientDetailsPage: React.FC = () => {
                               assigned_dates: item.assigned_dates || (item.assigned_date ? [item.assigned_date] : [])
                            })))
                         : [{ memberId: '', assigned_dates: [] }];
-                     
+
                      migrated.push({
                         id: `cat_${role}`,
                         name: role.charAt(0).toUpperCase() + role.slice(1),
@@ -1293,174 +1478,155 @@ const ClientDetailsPage: React.FC = () => {
       setIsAddStaffModalOpen(false);
       setNewStaffForm({ name: '', role: 'photographer', contact: '' });
    };
-   const syncToProjects = (categories: any[]) => {
-       const stored = localStorage.getItem('projects');
-       if (!stored) return;
-       const projects: any[] = JSON.parse(stored);
-       const pIdx = projects.findIndex(p => p.clientId === id || p.id === project?.id);
-       if (pIdx >= 0) {
-          const projectTeam: any = {};
-          categories.forEach(cat => {
-             const key = cat.name.toLowerCase().replace(/\s/g, '') + 's';
-             projectTeam[key] = cat.members.map((item: any) => {
-                const staff = allStaff.find(s => s.id === item.memberId);
-                return {
-                   id: item.memberId,
-                   name: staff?.name || 'Unassigned',
-                   type: staff?.role === 'Staff' ? 'internal' : staff?.role === 'Admin' ? 'internal' : 'external',
-                   assigned_dates: item.assigned_dates || []
-                };
-             });
-          });
-          projects[pIdx].team = projectTeam;
-          localStorage.setItem('projects', JSON.stringify(projects));
-          setProject(projects[pIdx]);
-       }
-    };
+   const syncToProjects = async (categories: any[]) => {
+      const stored = localStorage.getItem('projects');
+      if (!stored) return;
+      const projects: any[] = JSON.parse(stored);
+      const pIdx = projects.findIndex(p => p.clientId === id || p.id === project?.id);
+      if (pIdx >= 0) {
+         const projectTeam: any = {};
+         let hasEditor = false;
+         let hasMember = false;
+
+         categories.forEach(cat => {
+            const key = cat.name.toLowerCase().replace(/\s/g, '') + 's';
+            projectTeam[key] = cat.members.map((item: any) => {
+               const staff = allStaff.find(s => s.id === item.memberId);
+               if (staff && item.memberId) {
+                  hasMember = true;
+                  if (cat.name.toLowerCase().includes('editor') || staff.role.toLowerCase().includes('editor')) {
+                     hasEditor = true;
+                  }
+               }
+               return {
+                  id: item.memberId,
+                  name: staff?.name || 'Unassigned',
+                  type: staff?.role === 'Staff' ? 'internal' : staff?.role === 'Admin' ? 'internal' : 'external',
+                  assigned_dates: item.assigned_dates || [],
+                  assigned_events: item.assigned_events || []
+               };
+            });
+         });
+         projects[pIdx].team = projectTeam;
+         localStorage.setItem('projects', JSON.stringify(projects));
+         setProject(projects[pIdx]);
+
+         // Workflow auto-advance based on assignments
+         if (hasEditor) {
+            await advanceProjectWorkflow(projects[pIdx].id, 'Editing', 'Editor assigned to project');
+         } else if (hasMember) {
+            await advanceProjectWorkflow(projects[pIdx].id, 'Team Assigned', 'Team member assigned');
+         }
+      }
+   };
    const handleMemberChange = (catId: string, mIdx: number, val: string) => {
-       setTeamCategories(prev => {
-          const next = prev.map(cat => {
-             if (cat.id !== catId) return cat;
-             const nextMembers = [...cat.members];
-             nextMembers[mIdx] = { ...nextMembers[mIdx], memberId: val };
-             return { ...cat, members: nextMembers };
-          });
-          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-          syncToProjects(next);
-          return next;
-       });
-    };
- 
-    const handleAddDate = (catId: string, mIdx: number, date?: string) => {
-       const targetDate = date || new Date().toISOString().split('T')[0];
-       setTeamCategories(prev => {
-          const next = prev.map(cat => {
-             if (cat.id !== catId) return cat;
-             const nextMembers = [...cat.members];
-             const currentDates = nextMembers[mIdx].assigned_dates || [];
-             if (currentDates.includes(targetDate)) return cat;
-             nextMembers[mIdx] = {
-                ...nextMembers[mIdx],
-                assigned_dates: [...currentDates, targetDate].sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-             };
-             return { ...cat, members: nextMembers };
-          });
-          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-          syncToProjects(next);
-          return next;
-       });
-    };
- 
-    const handleUpdateDate = (catId: string, mIdx: number, dIdx: number, newDate: string) => {
-       if (!newDate) return;
-       setTeamCategories(prev => {
-          const next = prev.map(cat => {
-             if (cat.id !== catId) return cat;
-             const nextMembers = [...cat.members];
-             const nextDates = [...(nextMembers[mIdx].assigned_dates || [])];
-             nextDates[dIdx] = newDate;
-             nextMembers[mIdx] = {
-                ...nextMembers[mIdx],
-                assigned_dates: Array.from(new Set(nextDates)).sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-             };
-             return { ...cat, members: nextMembers };
-          });
-          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-          syncToProjects(next);
-          return next;
-       });
-    };
- 
-    const handleRemoveDate = (catId: string, mIdx: number, dIdx: number) => {
-       const performDelete = () => {
-          setTeamCategories(prev => {
-             const next = prev.map(cat => {
-                if (cat.id !== catId) return cat;
-                const nextMembers = [...cat.members];
-                nextMembers[mIdx] = {
-                   ...nextMembers[mIdx],
-                   assigned_dates: (nextMembers[mIdx].assigned_dates || []).filter((_, i) => i !== dIdx)
-                };
-                return { ...cat, members: nextMembers };
-             });
-             localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-             syncToProjects(next);
-             return next;
-          });
-       };
- 
-       const cat = teamCategories.find(c => c.id === catId);
-       const dates = cat?.members[mIdx]?.assigned_dates || [];
- 
-       if (dates.length > 1) {
-          performDelete();
-       } else {
-          requestConfirmation({
-             title: "Remove Assignment Date",
-             message: "This is the only date assigned to this staff member. Are you sure you want to remove it?",
-             tone: "danger",
-             onConfirm: performDelete
-          });
-       }
-    };
- 
-    const addMemberRow = (catId: string) => {
-       setTeamCategories(prev => {
-          const next = prev.map(cat => {
-             if (cat.id !== catId) return cat;
-             return { ...cat, members: [...cat.members, { memberId: '', assigned_dates: [] }] };
-          });
-          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-          syncToProjects(next);
-          return next;
-       });
-    };
- 
-    const removeMemberRow = (catId: string, mIdx: number) => {
-       setTeamCategories(prev => {
-          const next = prev.map(cat => {
-             if (cat.id !== catId) return cat;
-             if (cat.members.length <= 1) return cat;
-             return { ...cat, members: cat.members.filter((_, i) => i !== mIdx) };
-          });
-          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-          syncToProjects(next);
-          return next;
-       });
-    };
- 
-    const handleAddCategory = () => {
-       const name = prompt("Enter category name (e.g. Photographer, Drone Pilot)");
-       if (!name) return;
-       setTeamCategories(prev => {
-          const next = [...prev, { id: `cat_${Date.now()}`, name, members: [{ memberId: '', assigned_dates: [] }] }];
-          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-          syncToProjects(next);
-          return next;
-       });
-    };
- 
-    const handleEditCategory = (id: string) => {
-       const cat = teamCategories.find(c => c.id === id);
-       const name = prompt("Edit category name", cat?.name);
-       if (!name) return;
-       setTeamCategories(prev => {
-          const next = prev.map(c => c.id === id ? { ...c, name } : c);
-          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-          syncToProjects(next);
-          return next;
-       });
-    };
- 
-    const handleDeleteCategory = (id: string) => {
-       if (!confirm("Delete this category and all its assignments?")) return;
-       setTeamCategories(prev => {
-          const next = prev.filter(c => c.id !== id);
-          localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-          syncToProjects(next);
-          return next;
-       });
-    };
+      setTeamCategories(prev => {
+         const next = prev.map(cat => {
+            if (cat.id !== catId) return cat;
+            const nextMembers = [...cat.members];
+            nextMembers[mIdx] = { ...nextMembers[mIdx], memberId: val };
+            return { ...cat, members: nextMembers };
+         });
+         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+         syncToProjects(next);
+         return next;
+      });
+   };
+
+
+
+   const handleAddEventToMember = (catId: string, mIdx: number, eventId: string) => {
+      setTeamCategories(prev => {
+         const next = prev.map(cat => {
+            if (cat.id !== catId) return cat;
+            const nextMembers = [...cat.members];
+            const currentEvents = nextMembers[mIdx].assigned_events || [];
+            if (currentEvents.includes(eventId)) return cat;
+            nextMembers[mIdx] = {
+               ...nextMembers[mIdx],
+               assigned_events: [...currentEvents, eventId]
+            };
+            return { ...cat, members: nextMembers };
+         });
+         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+         syncToProjects(next);
+         return next;
+      });
+   };
+
+   const handleRemoveEvent = (catId: string, mIdx: number, eIdx: number) => {
+      setTeamCategories(prev => {
+         const next = prev.map(cat => {
+            if (cat.id !== catId) return cat;
+            const nextMembers = [...cat.members];
+            const nextEvents = [...(nextMembers[mIdx].assigned_events || [])];
+            nextEvents.splice(eIdx, 1);
+            nextMembers[mIdx] = { ...nextMembers[mIdx], assigned_events: nextEvents };
+            return { ...cat, members: nextMembers };
+         });
+         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+         syncToProjects(next);
+         return next;
+      });
+   };
+
+   const addMemberRow = (catId: string) => {
+      setTeamCategories(prev => {
+         const next = prev.map(cat => {
+            if (cat.id !== catId) return cat;
+            return { ...cat, members: [...cat.members, { memberId: '', assigned_dates: [] }] };
+         });
+         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+         syncToProjects(next);
+         return next;
+      });
+   };
+
+   const removeMemberRow = (catId: string, mIdx: number) => {
+      setTeamCategories(prev => {
+         const next = prev.map(cat => {
+            if (cat.id !== catId) return cat;
+            if (cat.members.length <= 1) return cat;
+            return { ...cat, members: cat.members.filter((_, i) => i !== mIdx) };
+         });
+         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+         syncToProjects(next);
+         return next;
+      });
+   };
+
+   const handleAddCategory = () => {
+      const name = prompt("Enter category name (e.g. Photographer, Drone Pilot)");
+      if (!name) return;
+      setTeamCategories(prev => {
+         const next = [...prev, { id: `cat_${Date.now()}`, name, members: [{ memberId: '', assigned_dates: [] }] }];
+         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+         syncToProjects(next);
+         return next;
+      });
+   };
+
+   const handleEditCategory = (id: string) => {
+      const cat = teamCategories.find(c => c.id === id);
+      const name = prompt("Edit category name", cat?.name);
+      if (!name) return;
+      setTeamCategories(prev => {
+         const next = prev.map(c => c.id === id ? { ...c, name } : c);
+         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+         syncToProjects(next);
+         return next;
+      });
+   };
+
+   const handleDeleteCategory = (id: string) => {
+      if (!confirm("Delete this category and all its assignments?")) return;
+      setTeamCategories(prev => {
+         const next = prev.filter(c => c.id !== id);
+         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
+         syncToProjects(next);
+         return next;
+      });
+   };
 
    if (loading) {
       return (
@@ -1534,8 +1700,8 @@ const ClientDetailsPage: React.FC = () => {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`px-8 py-4 rounded-t-2xl font-black uppercase text-[11px] tracking-widest transition-all ${activeTab === tab
-                        ? 'bg-zinc-900 text-white border-t border-x border-white/5 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-10'
-                        : 'text-zinc-600 hover:text-zinc-300 hover:bg-white/5 border-t border-x border-transparent translate-y-1'
+                     ? 'bg-zinc-900 text-white border-t border-x border-white/5 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-10'
+                     : 'text-zinc-600 hover:text-zinc-300 hover:bg-white/5 border-t border-x border-transparent translate-y-1'
                      }`}
                >
                   {tab}
@@ -1548,6 +1714,154 @@ const ClientDetailsPage: React.FC = () => {
             {activeTab === 'overview' && (
                <div className="animate-ios-fade-in space-y-8">
                   {/* Removed team assignment from here */}
+                  {/* Project Information */}
+                  <div className="glass-panel p-8 squircle-md border border-white/5 space-y-6">
+                     <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                        <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em]">Project Information</h3>
+                        <button
+                           onClick={() => {
+                              setEditProjectForm({
+                                 name: client.name || '',
+                                 projectName: client.projectName || '',
+                                 email: client.email || '',
+                                 phone: client.phone || '',
+                                 projectType: client.projectType || '',
+                                 eventDate: client.eventDate || client.weddingDate || '',
+                                 status: client.status || 'Active'
+                              });
+                              setIsEditProjectModalOpen(true);
+                           }}
+                           className="text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white transition-colors flex items-center gap-2"
+                        >
+                           <Edit2 className="w-3 h-3" /> Edit
+                        </button>
+                     </div>
+                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div>
+                           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Client ID</p>
+                           <p className="text-sm font-bold text-white">{client.id || (client as any)._id}</p>
+                        </div>
+                        <div>
+                           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Client Name</p>
+                           <p className="text-sm font-bold text-white">{client.name}</p>
+                        </div>
+                        <div>
+                           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Project Name</p>
+                           <p className="text-sm font-bold text-white">{client.projectName}</p>
+                        </div>
+                        <div>
+                           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Project Type</p>
+                           <p className="text-sm font-bold text-white capitalize">{client.projectType}</p>
+                        </div>
+                        <div>
+                           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Primary Event Date</p>
+                           <p className="text-sm font-bold text-white">{client.eventDate || client.weddingDate || 'TBD'}</p>
+                        </div>
+                        <div>
+                           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Email</p>
+                           <p className="text-sm font-bold text-white truncate" title={client.email}>{client.email}</p>
+                        </div>
+                        <div>
+                           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Phone Number</p>
+                           <p className="text-sm font-bold text-white">{client.phone}</p>
+                        </div>
+                        <div>
+                           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Status</p>
+                           <span className="px-2 py-1 bg-white/10 rounded text-[10px] font-bold text-white uppercase tracking-widest">{client.status}</span>
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* Event Schedule Module */}
+                  <div className="glass-panel p-8 squircle-md border border-white/5 space-y-6">
+                     <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                        <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em]">Event Schedule</h3>
+                        <button
+                           onClick={() => setIsAddEventModalOpen(true)}
+                           className="text-[10px] font-black uppercase tracking-widest text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-all flex items-center gap-2"
+                        >
+                           <Plus className="w-3 h-3" /> Add Event
+                        </button>
+                     </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {!client.events || client.events.length === 0 ? (
+                           <p className="text-xs text-zinc-600 font-mono py-6 col-span-full uppercase tracking-[0.2em] text-center">No events scheduled</p>
+                        ) : (
+                           client.events.map(ev => {
+                              const { status: calcStatus, progress: calcProgress } = calculateEventStatusAndProgress(ev);
+                              return (
+                                 <div key={ev.id} className="bg-black/50 p-6 rounded-2xl border border-white/5 relative overflow-hidden group hover:border-white/20 transition-all flex flex-col">
+                                    {/* Dynamic Progress Bar */}
+                                    {ev.startTime && ev.endTime && (
+                                       <div className="absolute top-0 left-0 h-1 bg-white/5 w-full overflow-hidden">
+                                          <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${calcProgress}%` }} />
+                                       </div>
+                                    )}
+                                    <div className={`absolute top-0 right-0 w-1.5 h-full ${calcStatus === 'Completed' ? 'bg-emerald-500' :
+                                       calcStatus === 'In Progress' ? 'bg-blue-500' :
+                                          calcStatus === 'Cancelled' ? 'bg-red-500' :
+                                             'bg-amber-500'
+                                       }`} />
+                                    <div className="flex justify-between items-start mb-4">
+                                       <h4 className="text-sm font-black text-white uppercase tracking-wider">{ev.name}</h4>
+                                       <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500 bg-white/5 px-2 py-1 rounded">{calcStatus}</span>
+                                    </div>
+                                    <div className="space-y-3">
+                                       <div className="flex items-center gap-2 text-xs text-zinc-400 font-medium">
+                                          <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+                                          {new Date(ev.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                                       </div>
+                                       {(ev.brideLocation || ev.groomLocation || ev.venueLocation) && (
+                                          <div className="pt-3 mt-3 border-t border-white/5 space-y-2">
+                                             {ev.venueLocation && (
+                                                <div className="flex items-start gap-2 text-xs text-zinc-400">
+                                                   <MapPin className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" />
+                                                   <span className="truncate">{ev.venueLocation}</span>
+                                                </div>
+                                             )}
+                                             {ev.brideLocation && (
+                                                <div className="flex items-start gap-2 text-xs text-zinc-400">
+                                                   <MapPin className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
+                                                   <span className="truncate">Bride: {ev.brideLocation}</span>
+                                                </div>
+                                             )}
+                                             {ev.groomLocation && (
+                                                <div className="flex items-start gap-2 text-xs text-zinc-400">
+                                                   <MapPin className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
+                                                   <span className="truncate">Groom: {ev.groomLocation}</span>
+                                                </div>
+                                             )}
+                                          </div>
+                                       )}
+                                    </div>
+                                    {isAdmin && (
+                                       <div className="flex gap-2 mt-4 pt-4 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button onClick={() => { setEditingEvent(ev); setIsEditEventModalOpen(true); }} className="flex-1 bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest py-2 rounded-lg flex items-center justify-center gap-2 transition-all">
+                                             <Edit2 className="w-3 h-3" /> Edit
+                                          </button>
+                                          {!ev.actualCompletedAt && (
+                                             <button onClick={async () => {
+                                                const updatedEvents = (client.events || []).map(e => e.id === ev.id ? { ...e, status: 'Completed' as const, actualCompletedAt: new Date().toISOString() } : e);
+                                                const updatedClient = { ...client, events: updatedEvents };
+                                                await api.saveClient(updatedClient);
+                                                setClient(updatedClient);
+                                                addToast("Marked Completed");
+                                             }} className="flex-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 text-[10px] font-black uppercase tracking-widest py-2 rounded-lg flex items-center justify-center gap-2 transition-all">
+                                                <Check className="w-3 h-3" /> Complete
+                                             </button>
+                                          )}
+                                          <button onClick={() => handleDeleteEvent(ev.id, ev.name)} className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-black uppercase tracking-widest py-2 rounded-lg flex items-center justify-center gap-2 transition-all">
+                                             <Trash2 className="w-3 h-3" /> Delete
+                                          </button>
+                                       </div>
+                                    )}
+                                 </div>
+                              )
+                           })
+                        )}
+                     </div>
+                  </div>
+
 
                   <div className="glass-panel p-8 squircle-md border border-white/5">
                      <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em] border-b border-white/5 pb-4 mb-4">Recent Network Activity</h3>
@@ -1589,7 +1903,7 @@ const ClientDetailsPage: React.FC = () => {
                      </div>
                   ) : (
                      clientQuotes.map(quote => (
-                         <div key={quote.id} onClick={(e) => { const target = e.target as HTMLElement; if (target.closest("[data-action-button]")) return; setPreviewDoc(quote); }} className="p-5 glass-panel border border-white/5 squircle-sm hover:bg-white/5 cursor-pointer flex items-center justify-between group transition-all">
+                        <div key={quote.id} onClick={(e) => { const target = e.target as HTMLElement; if (target.closest("[data-action-button]")) return; setPreviewDoc(quote); }} className="p-5 glass-panel border border-white/5 squircle-sm hover:bg-white/5 cursor-pointer flex items-center justify-between group transition-all">
                            <div className="flex items-center gap-4">
                               <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center flex-shrink-0">
                                  <FileText className="w-5 h-5 text-zinc-400" />
@@ -1603,16 +1917,16 @@ const ClientDetailsPage: React.FC = () => {
                                  </p>
                               </div>
                            </div>
-                                                       <div className="flex items-center gap-4">
-                               <p className="text-lg tracking-tighter font-black text-white flex items-center gap-1">
-                                  <span className="text-zinc-600 font-sans text-xs">₹</span>{(quote.totalAmount || quote.amount || 0).toLocaleString()}
-                               </p>
-                               <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button data-action-button onClick={(e) => { e.stopPropagation(); handleDuplicate(e, quote); }} className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 active:scale-90"><Copy className="w-4 h-4" /></button>
-                                  <button data-action-button onClick={(e) => { e.stopPropagation(); openModal('quotation', quote); }} className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 active:scale-90"><Edit2 className="w-4 h-4" /></button>
-                                  <button data-action-button onClick={(e) => { e.stopPropagation(); handleDeleteQuote(quote.id); }} className="p-2 rounded-lg transition active:scale-90 bg-red-500/10 text-red-400 hover:bg-red-500/30 hover:text-red-300"><Trash2 className="w-4 h-4" /></button>
-                               </div>
-                            </div>
+                           <div className="flex items-center gap-4">
+                              <p className="text-lg tracking-tighter font-black text-white flex items-center gap-1">
+                                 <span className="text-zinc-600 font-sans text-xs">₹</span>{(quote.totalAmount || quote.amount || 0).toLocaleString()}
+                              </p>
+                              <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                 <button data-action-button onClick={(e) => { e.stopPropagation(); handleDuplicate(e, quote); }} className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 active:scale-90"><Copy className="w-4 h-4" /></button>
+                                 <button data-action-button onClick={(e) => { e.stopPropagation(); openModal('quotation', quote); }} className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 active:scale-90"><Edit2 className="w-4 h-4" /></button>
+                                 <button data-action-button onClick={(e) => { e.stopPropagation(); handleDeleteQuote(quote.id); }} className="p-2 rounded-lg transition active:scale-90 bg-red-500/10 text-red-400 hover:bg-red-500/30 hover:text-red-300"><Trash2 className="w-4 h-4" /></button>
+                              </div>
+                           </div>
                         </div>
                      ))
                   )}
@@ -1735,8 +2049,8 @@ const ClientDetailsPage: React.FC = () => {
                            <p className="text-[12px] font-black text-zinc-500 uppercase tracking-widest mb-6">Currently Issued Bound To Client Entity</p>
                            <div className="flex flex-wrap items-center gap-4">
                               <span className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${clientAgreement?.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                                    clientAgreement?.status === 'expired' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                                       'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                                 clientAgreement?.status === 'expired' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
+                                    'bg-amber-500/10 text-amber-500 border-amber-500/20'
                                  }`}>
                                  Status: {clientAgreement?.status || 'No Assignment'}
                               </span>
@@ -1825,8 +2139,8 @@ const ClientDetailsPage: React.FC = () => {
                                        <button
                                           onMouseDown={(e) => { e.preventDefault(); handleAssignToClient(temp); }}
                                           className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow border ${isAssigned
-                                                ? 'bg-emerald-500 text-black border-emerald-500'
-                                                : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20'
+                                             ? 'bg-emerald-500 text-black border-emerald-500'
+                                             : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20'
                                              }`}
                                        >
                                           {isAssigned ? 'Assigned ✓' : 'Assign to Client'}
@@ -1883,7 +2197,7 @@ const ClientDetailsPage: React.FC = () => {
 
             {/* TEAM TAB */}
             {activeTab === 'team' && (
-               <div className="animate-ios-fade-in space-y-8">
+               <div className="animate-ios-fade-in space-y-8 relative z-[100]">
                   <div className="glass-panel p-8 squircle-md border border-white/5 space-y-6">
                      <div className="flex justify-between items-center bg-black/20 p-4 border border-white/5 rounded-2xl mb-4">
                         <div>
@@ -1950,40 +2264,42 @@ const ClientDetailsPage: React.FC = () => {
 
                                           <div className="space-y-4">
                                              <p className="text-sm font-semibold uppercase text-zinc-300 tracking-wide px-1">
-                                                {role.includes('edit') ? 'Work Schedule' : 'Shoot Dates'}
+                                                Assigned Events
                                              </p>
                                              <div className="flex flex-wrap gap-3">
-                                                {(rowVal.assigned_dates || []).map((d, dIdx) => (
-                                                   <div key={dIdx} className={`relative flex items-center gap-2 px-4 py-2 bg-white/5 border ${d === new Date().toISOString().split('T')[0] ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-white/10'} rounded-full group/chip hover:border-white/20 transition-all shadow-sm`}>
-                                                      <Calendar className={`w-3 h-3 ${d === new Date().toISOString().split('T')[0] ? 'text-emerald-400' : 'text-zinc-500'}`} />
-                                                      <label className="cursor-pointer flex items-center">
+                                                {(rowVal.assigned_events || []).map((eventId, eIdx) => {
+                                                   const assignedEv = client?.events?.find(e => e.id === eventId);
+                                                   return (
+                                                      <div key={eIdx} className={`relative flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full group/chip hover:border-white/20 transition-all shadow-sm`}>
+                                                         <Calendar className="w-3 h-3 text-zinc-500" />
                                                          <span className="text-sm font-medium text-zinc-200 uppercase tracking-widest whitespace-nowrap">
-                                                            {new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                            {assignedEv ? `${assignedEv.name} (${new Date(assignedEv.date).toLocaleDateString()})` : 'Unknown Event'}
                                                          </span>
-                                                         <input
-                                                            type="date"
-                                                            className="absolute inset-0 opacity-0 cursor-pointer"
-                                                            value={d}
-                                                            onChange={e => handleUpdateDate(category.id, idx, dIdx, e.target.value)}
-                                                         />
-                                                      </label>
-                                                      <button
-                                                         type="button"
-                                                         onClick={(e) => { e.stopPropagation(); handleRemoveDate(category.id, idx, dIdx); }}
-                                                         className="relative z-10 ml-2 flex items-center justify-center w-6 h-6 rounded-full text-zinc-400 hover:text-red-400 hover:bg-red-500/20 transition duration-200 active:scale-90"
-                                                      >
-                                                         <X size={14} />
-                                                      </button>
-                                                   </div>
-                                                ))}
-                                                 <button
-                                                    type="button"
-                                                    onClick={() => handleAddDate(category.id, idx)}
-                                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/5 border-dashed rounded-lg cursor-pointer hover:bg-white/10 hover:border-white/20 transition-all group"
-                                                 >
-                                                    <Plus size={10} className="text-zinc-500 group-hover:text-emerald-500" />
-                                                    <span className="text-sm font-medium text-zinc-300 uppercase tracking-widest group-hover:text-white">+ Add Date</span>
-                                                 </button>
+                                                         <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); handleRemoveEvent(category.id, idx, eIdx); }}
+                                                            className="relative z-10 ml-2 flex items-center justify-center w-6 h-6 rounded-full text-zinc-400 hover:text-red-400 hover:bg-red-500/20 transition duration-200 active:scale-90"
+                                                         >
+                                                            <X size={14} />
+                                                         </button>
+                                                      </div>
+                                                   )
+                                                })}
+                                                <select
+                                                   className="flex items-center gap-2 px-4 py-2 bg-black/50 border border-white/5 border-dashed rounded-lg cursor-pointer hover:bg-white/10 hover:border-white/20 transition-all text-sm font-medium text-zinc-300 uppercase tracking-widest outline-none appearance-none"
+                                                   onChange={(e) => {
+                                                      if (e.target.value) {
+                                                         handleAddEventToMember(category.id, idx, e.target.value);
+                                                         e.target.value = '';
+                                                      }
+                                                   }}
+                                                   value=""
+                                                >
+                                                   <option value="" disabled>+ Assign Event</option>
+                                                   {client?.events?.map(ev => (
+                                                      <option key={ev.id} value={ev.id}>{ev.name} ({new Date(ev.date).toLocaleDateString()})</option>
+                                                   ))}
+                                                </select>
                                              </div>
 
                                              {category.members.length > 1 && (
@@ -1997,6 +2313,7 @@ const ClientDetailsPage: React.FC = () => {
                                                 </button>
                                              )}
                                           </div>
+
                                        </div>
                                     ))}
                                  </div>
@@ -2008,348 +2325,271 @@ const ClientDetailsPage: React.FC = () => {
                </div>
             )}
 
-                  {/* WORKFLOW & PROGRESS SECTION */}
-                  <div className="glass-panel p-8 squircle-md border border-white/5 space-y-8 bg-white/[0.01]">
-                     <div className="flex justify-between items-center border-b border-white/10 pb-4">
-                        <div>
-                           <h3 className="text-xl font-black text-white uppercase tracking-tighter">Workflow & Progress</h3>
-                           <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Real-time operational velocity tracker</p>
+            {/* WORKFLOW & PROGRESS SECTION */}
+            <div className="glass-panel p-8 squircle-md border border-white/5 space-y-8 bg-white/[0.01]">
+               <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                  <div>
+                     <h3 className="text-xl font-black text-white uppercase tracking-tighter">Workflow & Progress</h3>
+                     <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Real-time operational velocity tracker</p>
+                  </div>
+                  {project && (
+                     <div className="flex items-center gap-3">
+                        {(() => {
+                           const eventDate = new Date(project.date).getTime();
+                           const now = new Date().getTime();
+                           const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+                           const isOverdue = (now - eventDate > thirtyDays) && project.stage !== 'delivery';
+                           return isOverdue && (
+                              <span className="text-[8px] bg-red-500/10 text-red-500 px-2 py-1 rounded border border-red-500/20 font-black uppercase tracking-widest animate-pulse">Delayed</span>
+                           );
+                        })()}
+                        <div className="flex flex-col items-end">
+                           <span className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Operational Status</span>
+                           <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mt-1 ${project.stage === 'delivery' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                              project.stage === 'booked' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                                 'bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
+                              }`}>
+                              {project.stage === 'delivery' ? 'Completed' : project.stage === 'booked' ? 'Pending' : 'In Progress'}
+                           </span>
                         </div>
-                        {project && (
-                           <div className="flex items-center gap-3">
-                              {(() => {
-                                 const eventDate = new Date(project.date).getTime();
-                                 const now = new Date().getTime();
-                                 const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-                                 const isOverdue = (now - eventDate > thirtyDays) && project.stage !== 'delivery';
-                                 return isOverdue && (
-                                    <span className="text-[8px] bg-red-500/10 text-red-500 px-2 py-1 rounded border border-red-500/20 font-black uppercase tracking-widest animate-pulse">Delayed</span>
-                                 );
-                              })()}
-                              <div className="flex flex-col items-end">
-                                 <span className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Operational Status</span>
-                                 <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mt-1 ${project.stage === 'delivery' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                                       project.stage === 'booked' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
-                                          'bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
-                                    }`}>
-                                    {project.stage === 'delivery' ? 'Completed' : project.stage === 'booked' ? 'Pending' : 'In Progress'}
+                     </div>
+                  )}
+               </div>
+
+               {!project ? (
+                  <div className="py-12 border border-dashed border-white/5 rounded-3xl flex flex-col items-center justify-center text-center">
+                     <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                        <AlertTriangle className="w-6 h-6 text-zinc-600" />
+                     </div>
+                     <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">No corresponding project vector localized</p>
+                     <button onClick={() => navigate(`/create-project/${id}`)} className="mt-4 px-6 py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] font-black text-white uppercase tracking-widest rounded-xl transition-all">Initialize Project</button>
+                  </div>
+               ) : (
+                  <>
+                     <div className="space-y-10">
+                        {/* Large Progress Bar */}
+                        <div className="space-y-4">
+                           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                              <div>
+                                 <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] block mb-1">Active Stage</span>
+                                 <span className="text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                                    {normalizeWorkflowStage(project.stage)}
+                                    <span className="text-zinc-700">/</span>
+                                    <span className="text-sm text-zinc-500 opacity-50">100% Target</span>
                                  </span>
                               </div>
-                           </div>
-                        )}
-                     </div>
-
-                     {!project ? (
-                        <div className="py-12 border border-dashed border-white/5 rounded-3xl flex flex-col items-center justify-center text-center">
-                           <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-4">
-                              <AlertTriangle className="w-6 h-6 text-zinc-600" />
-                           </div>
-                           <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">No corresponding project vector localized</p>
-                           <button onClick={() => navigate(`/create-project/${id}`)} className="mt-4 px-6 py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] font-black text-white uppercase tracking-widest rounded-xl transition-all">Initialize Project</button>
-                        </div>
-                     ) : (
-                        <>
-                           <div className="space-y-10">
-                              {/* Large Progress Bar */}
-                              <div className="space-y-4">
-                                 <div className="flex justify-between items-end">
-                                    <div>
-                                       <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] block mb-1">Active Stage</span>
-                                       <span className="text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
-                                          {project.stage === 'booked' && 'Booked'}
-                                          {project.stage === 'event_done' && 'Production Complete'}
-                                          {project.stage === 'selection' && 'Selection & Culling'}
-                                          {project.stage === 'editing' && 'Post-Production'}
-                                          {project.stage === 'delivery' && 'Final Delivery'}
-                                          <span className="text-zinc-700">/</span>
-                                          <span className="text-sm text-zinc-500 opacity-50">100% Target</span>
-                                       </span>
-                                    </div>
+                              <div className="flex flex-col items-end gap-2">
+                                 <div className="flex items-center gap-4">
                                     <div className="text-right">
-                                       <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] block mb-1">Completion Vector</span>
-                                       <span className="text-3xl font-black text-emerald-500 font-mono">
-                                          {(() => {
-                                             if (!project || !project.stage) return 0;
-                                             const weights: Record<string, number> = { booked: 10, event_done: 30, selection: 55, editing: 80, delivery: 100 };
-                                             const stageOrder: ProjectStage[] = ['booked', 'event_done', 'selection', 'editing', 'delivery'];
-                                             const currentWeight = (weights as any)[project.stage || ""] || 0;
-                                             const currentIndex = stageOrder.indexOf(project.stage as any);
-                                             if (currentIndex === stageOrder.length - 1) return 100;
-                                             const nextWeight = (weights as any)[stageOrder[currentIndex + 1] || ""] || currentWeight;
-                                             const gap = nextWeight - currentWeight;
-                                             const tasks = project?.subTasks?.[project?.stage as any] || [];
-                                             if (tasks.length === 0) return currentWeight;
-                                             const completed = tasks.filter((t: any) => t.isCompleted).length;
-                                             return Math.floor(currentWeight + (completed / tasks.length) * gap);
-                                          })()}%
+                                       <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Triggered By</span>
+                                       <span className="text-xs font-bold text-white">{project.workflowTrigger?.event || 'System Initialization'}</span>
+                                    </div>
+                                    <div className="w-px h-8 bg-white/10 mx-2"></div>
+                                    <div className="text-left">
+                                       <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Last Updated</span>
+                                       <span className="text-xs font-bold text-white">
+                                          {project.workflowTrigger?.timestamp ? new Date(project.workflowTrigger.timestamp).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : new Date(project.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
                                        </span>
                                     </div>
                                  </div>
-
-                                 <div className="h-4 w-full bg-black/50 border border-white/5 rounded-full overflow-hidden p-1 relative group">
-                                    <div
-                                       className="h-full bg-gradient-to-r from-blue-600 via-indigo-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(16,185,129,0.2)]"
-                                       style={{
-                                          width: `${(() => {
-                                             if (!project || !project.stage) return 0;
-                                             const weights: Record<string, number> = { booked: 10, event_done: 30, selection: 55, editing: 80, delivery: 100 };
-                                             const stageOrder: ProjectStage[] = ['booked', 'event_done', 'selection', 'editing', 'delivery'];
-                                             const currentWeight = (weights as any)[project?.stage || ""];
-                                             const currentIndex = stageOrder.indexOf(project?.stage as any);
-                                             if (currentIndex === stageOrder.length - 1) return 100;
-                                             const nextWeight = weights[stageOrder[currentIndex + 1]];
-                                             const gap = nextWeight - currentWeight;
-                                             const tasks = project?.subTasks?.[project?.stage as any] || [];
-                                             if (tasks.length === 0) return currentWeight;
-                                             const completed = tasks.filter((t: any) => t.isCompleted).length;
-                                             return Math.floor(currentWeight + (completed / tasks.length) * gap);
-                                          })()}%`
-                                       }}
+                                 <div className="flex items-center gap-2 mt-2">
+                                    {normalizeWorkflowStage(project.stage) !== 'Shoot Completed' && normalizeWorkflowStage(project.stage) !== 'Delivered' && normalizeWorkflowStage(project.stage) !== 'Selection Received' && normalizeWorkflowStage(project.stage) !== 'Editing' && normalizeWorkflowStage(project.stage) !== 'Delivery Ready' && (
+                                       <button
+                                          onClick={async () => {
+                                             await advanceProjectWorkflow(project.id, 'Shoot Completed', 'Admin Marked Shoot Completed');
+                                             const updatedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
+                                             setProject(updatedProjects.find((p: any) => p.id === project.id) || project);
+                                          }}
+                                          className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white rounded-lg transition-colors border border-white/5"
+                                       >
+                                          Mark Shoot Completed
+                                       </button>
+                                    )}
+                                    {normalizeWorkflowStage(project.stage) === 'Shoot Completed' && (
+                                       <button
+                                          onClick={async () => {
+                                             await advanceProjectWorkflow(project.id, 'Selection Received', 'Selections Received');
+                                             const updatedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
+                                             setProject(updatedProjects.find((p: any) => p.id === project.id) || project);
+                                          }}
+                                          className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white rounded-lg transition-colors border border-white/5"
+                                       >
+                                          Selections Received
+                                       </button>
+                                    )}
+                                    {normalizeWorkflowStage(project.stage) === 'Editing' && (
+                                       <button
+                                          onClick={async () => {
+                                             await advanceProjectWorkflow(project.id, 'Delivery Ready', 'Final deliverables uploaded');
+                                             const updatedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
+                                             setProject(updatedProjects.find((p: any) => p.id === project.id) || project);
+                                          }}
+                                          className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white rounded-lg transition-colors border border-white/5"
+                                       >
+                                          Delivery Ready
+                                       </button>
+                                    )}
+                                    {normalizeWorkflowStage(project.stage) === 'Delivery Ready' && (
+                                       <button
+                                          onClick={async () => {
+                                             const balance = project.financials?.balance ?? 0;
+                                             if (balance > 0) {
+                                                alert('Cannot mark as Delivered: Outstanding balance is ₹' + balance.toLocaleString('en-IN'));
+                                                return;
+                                             }
+                                             await advanceProjectWorkflow(project.id, 'Delivered', 'Admin Marked Project Delivered');
+                                             const updatedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
+                                             setProject(updatedProjects.find((p: any) => p.id === project.id) || project);
+                                          }}
+                                          className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-[9px] font-black uppercase tracking-widest text-emerald-400 rounded-lg transition-colors border border-emerald-500/30"
+                                       >
+                                          Mark Delivered
+                                       </button>
+                                    )}
+                                    <button
+                                       onClick={() => setShowEmergencyOverride(!showEmergencyOverride)}
+                                       className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-[9px] font-black uppercase tracking-widest text-red-500 rounded-lg transition-colors"
                                     >
-                                       <div className="w-full h-full bg-[linear-gradient(45deg,rgba(255,255,255,0.1)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.1)_50%,rgba(255,255,255,0.1)_75%,transparent_75%,transparent)] bg-[length:20px_20px] animate-[progress-stripe_1s_linear_infinite]" />
-                                    </div>
+                                       Emergency Override
+                                    </button>
                                  </div>
-                              </div>
 
-                              {/* STAGE STEPPER */}
-                              <div className="flex flex-col md:flex-row gap-4 items-stretch">
-                                 {['booked', 'event_done', 'selection', 'editing', 'delivery'].map((sId, idx, arr) => {
-                                    const stageOrder = ['booked', 'event_done', 'selection', 'editing', 'delivery'];
-                                    const currentIdx = stageOrder.indexOf(project?.stage as any);
-                                    const sIdx = stageOrder.indexOf(sId as ProjectStage);
-
-                                    const isCompleted = sIdx < currentIdx;
-                                    const isActive = sIdx === currentIdx;
-
-
-                                    const labels: Record<string, string> = {
-                                       booked: 'Booked',
-                                       event_done: 'Shoot Done',
-                                       selection: 'Selection',
-                                       editing: 'Editing',
-                                       delivery: 'Delivery'
-                                    };
-
-                                    const icons: Record<string, any> = {
-                                       booked: Calendar,
-                                       event_done: Camera,
-                                       selection: Search,
-                                       editing: Edit3,
-                                       delivery: CheckCircle2
-                                    };
-
-                                    const Icon = icons[sId];
-
-                                    return (
-                                       <div
-                                          key={sId}
-                                          onClick={() => {
-                                             if (isActive && idx < arr.length - 1) {
-                                                const tasks = project?.subTasks?.[project?.stage as any] || [];
-                                                const allDone = tasks.length === 0 || tasks.every((t: any) => t.isCompleted);
-                                                if (!allDone) {
-                                                   alert("Please complete all operational prerequisites for this stage before advancing.");
-                                                   return;
-                                                }
-
-                                                const nextStage = arr[idx + 1] as ProjectStage;
-                                                const updatedProject = { ...project, stage: nextStage };
-                                                setProject(updatedProject);
-                                                const storedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
-                                                const newProjects = storedProjects.map((p: any) => p.id === project.id ? updatedProject : p);
-                                                localStorage.setItem('projects', JSON.stringify(newProjects));
+                                 {showEmergencyOverride && (
+                                    <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 animate-ios-fade-in">
+                                       <AlertTriangle className="w-4 h-4 text-red-500" />
+                                       <select
+                                          value={normalizeWorkflowStage(project.stage)}
+                                          onChange={async (e) => {
+                                             if (confirm('Are you sure you want to force this workflow stage? This should only be used for corrections.')) {
+                                                const newStage = e.target.value as ProjectStage;
+                                                await emergencyOverrideWorkflow(project.id, newStage);
+                                                const updatedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
+                                                setProject(updatedProjects.find((p: any) => p.id === project.id) || project);
+                                                setShowEmergencyOverride(false);
                                              }
                                           }}
-                                          className={`flex-1 p-4 rounded-2xl border transition-all duration-500 relative overflow-hidden group/step ${isActive ? 'bg-white border-white shadow-[0_0_30px_rgba(255,255,255,0.15)] cursor-pointer active:scale-95' :
-                                                isCompleted ? 'bg-emerald-500/5 border-emerald-500/20 opacity-60' :
-                                                   'bg-white/2 border-white/5 opacity-40 hover:opacity-100 hover:border-white/20'
-                                             }`}
+                                          className="bg-black/50 border border-red-500/20 rounded-lg px-3 py-1.5 text-xs font-bold text-red-400 outline-none cursor-pointer hover:bg-black/80 transition-all"
                                        >
-                                          <div className="flex flex-col items-center text-center gap-3 relative z-10">
-                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isActive ? 'bg-black text-white' :
-                                                   isCompleted ? 'bg-emerald-500 text-white' :
-                                                      'bg-white/5 text-zinc-600'
-                                                }`}>
-                                                {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
-                                             </div>
-                                             <div>
-                                                <p className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-black' : 'text-zinc-500'}`}>{labels[sId]}</p>
-                                                {isActive && <p className="text-[8px] font-bold text-black/50 uppercase tracking-tighter mt-1 animate-pulse">Action Required</p>}
-                                                {isCompleted && <p className="text-[8px] font-bold text-emerald-500/60 uppercase tracking-tighter mt-1">Confirmed</p>}
-                                             </div>
-                                          </div>
-
-                                          {isActive && (
-                                             <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover/step:translate-x-[100%] transition-transform duration-1000" />
-                                          )}
-                                       </div>
-                                    );
-                                 })}
-                              </div>
-
-                              {/* SUB-TASKS SECTION */}
-                              {project && (
-                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 border-y border-white/5 py-10">
-                                    <div className="space-y-6">
-                                       <h4 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-3">
-                                          <Activity className="w-4 h-4 text-emerald-500" /> Operational Requirements • {(project?.stage || "").toUpperCase().replace('_', ' ')}
-                                       </h4>
-                                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                          {(() => {
-                                             const stageTasks = (DEFAULT_SUBTASKS as any)[project?.stage || ""] || [];
-                                             const currentTasks = project?.subTasks?.[project?.stage as any] || stageTasks.map((label: string, i: number) => ({ id: `st_${i}`, label, isCompleted: false }));
-
-                                             if (currentTasks.length === 0) {
-                                                return <p className="col-span-full py-4 text-center text-[10px] font-black text-zinc-700 uppercase tracking-widest italic">No prerequisites defined for this stage</p>;
-                                             }
-
-                                             return currentTasks.map((st: any) => (
-                                                <div
-                                                   key={st.id}
-                                                   onClick={() => {
-                                                      const updatedSubTasks = currentTasks.map((t: any) => t.id === st.id ? { ...t, isCompleted: !t.isCompleted } : t);
-                                                      const updatedProject = {
-                                                         ...project,
-                                                         subTasks: {
-                                                            ...(project.subTasks || {}),
-                                                            [project?.stage as any]: updatedSubTasks
-                                                         }
-                                                      };
-                                                      setProject(updatedProject);
-                                                      const storedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
-                                                      const newProjects = storedProjects.map((p: any) => p.id === project.id ? updatedProject : p);
-                                                      localStorage.setItem('projects', JSON.stringify(newProjects));
-                                                   }}
-                                                   className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between group active:scale-95 ${st.isCompleted ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-white/2 border-white/5 text-zinc-400 hover:bg-white/5 hover:text-white'
-                                                      }`}
-                                                >
-                                                   <span className="text-[10px] font-black uppercase tracking-widest">{st.label}</span>
-                                                   <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${st.isCompleted ? 'bg-emerald-500 border-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-white/10'
-                                                      }`}>
-                                                      {st.isCompleted && <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={3} />}
-                                                   </div>
-                                                </div>
-                                             ));
-                                          })()}
-                                       </div>
+                                          {WORKFLOW_STAGES.map(stage => (
+                                             <option key={stage} value={stage}>{stage}</option>
+                                          ))}
+                                       </select>
                                     </div>
-
-                                    <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-8 flex flex-col justify-center items-center text-center space-y-6 relative overflow-hidden group/readiness">
-                                       <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover/readiness:opacity-100 transition-opacity" />
-                                       <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 relative z-10 transition-transform group-hover/readiness:scale-110">
-                                          <Package className="w-8 h-8 text-emerald-500" />
-                                       </div>
-                                       <div className="relative z-10">
-                                          <h5 className="text-[12px] font-black text-white uppercase tracking-[0.2em]">Deployment Readiness</h5>
-                                          <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mt-1">
-                                             {(() => {
-                                                const tasks = project?.subTasks?.[project?.stage as any] || [];
-                                                const done = tasks.filter((t: any) => t.isCompleted).length;
-                                                if (tasks.length === 0) return 'Optimized Vector';
-                                                return `${done} / ${tasks.length} Phases Verified`;
-                                             })()}
-                                          </p>
-                                       </div>
-                                       <div className="w-full max-w-xs space-y-2 relative z-10">
-                                          <div className="flex justify-between text-[8px] font-black uppercase text-zinc-500 tracking-widest">
-                                             <span>Current Velocity</span>
-                                             <span className="text-emerald-500">
-                                                {(() => {
-                                                   const tasks = project?.subTasks?.[project?.stage as any] || [];
-                                                   if (tasks.length === 0) return '100%';
-                                                   return `${Math.floor((tasks.filter((t: any) => t.isCompleted).length / tasks.length) * 100)}%`;
-                                                })()}
-                                             </span>
-                                          </div>
-                                          <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5">
-                                             <div
-                                                className="h-full bg-emerald-500 transition-all duration-1000 shadow-[0_0_15px_rgba(16,185,129,0.5)]"
-                                                style={{
-                                                   width: (() => {
-                                                      const tasks = project?.subTasks?.[project?.stage as any] || [];
-                                                      if (tasks.length === 0) return '100%';
-                                                      return `${(tasks.filter((t: any) => t.isCompleted).length / tasks.length) * 100}%`;
-                                                   })()
-                                                }}
-                                             />
-                                          </div>
-                                       </div>
-                                    </div>
-                                 </div>
-                              )}
-
-                              {/* Info Grid */}
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                 <div className="p-5 bg-black/20 border border-white/5 rounded-2xl space-y-2">
-                                    <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Financial Clearance</p>
-                                    <div className="space-y-1">
-                                       <p className="text-sm font-black text-white font-mono">₹{clientInvoices.reduce((a, c) => a + (c.paidAmount || 0), 0).toLocaleString()} <span className="text-zinc-600 text-[10px] font-sans">/</span> ₹{clientInvoices.reduce((a, c) => a + (c.totalAmount || 0), 0).toLocaleString()}</p>
-                                       <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-2">
-                                          <div
-                                             className="h-full bg-emerald-500"
-                                             style={{ width: `${Math.min(100, (clientInvoices.reduce((a, c) => a + (c.paidAmount || 0), 0) / (clientInvoices.reduce((a, c) => a + (c.totalAmount || 0), 0) || 1)) * 100)}%` }}
-                                          />
-                                       </div>
-                                    </div>
-                                 </div>
-
-                                 <div className="p-5 bg-black/20 border border-white/5 rounded-2xl space-y-2">
-                                    <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Schedule Vector</p>
-                                    <div className="flex items-center gap-3">
-                                       <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/10">
-                                          <Calendar className="w-4 h-4 text-blue-500" />
-                                       </div>
-                                       <div>
-                                          <p className="text-[10px] font-black text-white uppercase tracking-wider">{project.date ? new Date(project.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Pending assignment'}</p>
-                                          <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest">Deployment Date</p>
-                                       </div>
-                                    </div>
-                                 </div>
-
-                                 <div className="p-5 bg-black/20 border border-white/5 rounded-2xl space-y-2">
-                                    <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Data Stewardship</p>
-                                    <div className="flex items-center gap-3">
-                                       <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/10">
-                                          <Search className="w-4 h-4 text-indigo-500" />
-                                       </div>
-                                       <div>
-                                          <p className="text-[10px] font-black text-white uppercase tracking-wider">{project.images?.length || 0} Artifacts</p>
-                                          <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest">Registry Volume</p>
-                                       </div>
-                                    </div>
-                                 </div>
-
+                                 )}
                               </div>
                            </div>
 
-                           {/* Footer Info */}
-                           <div className="flex flex-col md:flex-row justify-between items-center text-[8px] font-black text-zinc-700 uppercase tracking-[0.3em] pt-4 border-t border-white/5">
-                              <div className="flex items-center gap-2">
-                                 <Clock className="w-3 h-3" />
-                                 <span>System Latency: 12ms</span>
-                                 <span className="opacity-20 ml-4">•</span>
-                                 <span>Project ID: {project.id}</span>
-                                 <span className="opacity-20 ml-4">•</span>
-                                 <span>Last Updated: {new Date(project.createdAt).toLocaleDateString()}</span>
-                              </div>
-                              <div className="mt-2 md:mt-0">
-                                 Synced via APCO Global Operations Registry
+                           <div className="h-4 w-full bg-black/50 border border-white/5 rounded-full overflow-hidden p-1 relative group">
+                              <div
+                                 className="h-full bg-gradient-to-r from-blue-600 via-indigo-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                                 style={{ width: `${getWorkflowProgress(project.stage)}%` }}
+                              >
+                                 <div className="w-full h-full bg-[linear-gradient(45deg,rgba(255,255,255,0.1)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.1)_50%,rgba(255,255,255,0.1)_75%,transparent_75%,transparent)] bg-[length:20px_20px] animate-[progress-stripe_1s_linear_infinite]" />
                               </div>
                            </div>
-                        </>
-                     )}
-                  </div>
-               </div>
+                           <div className="flex justify-between items-center text-[10px] font-black uppercase text-zinc-500 tracking-widest mt-2 px-1">
+                              <span>Initiated</span>
+                              <span>{getWorkflowProgress(project.stage)}% Complete</span>
+                           </div>
+                        </div>
+
+                        {/* STAGE STEPPER */}
+                        <div className="flex flex-wrap gap-2 items-center justify-between bg-black/20 p-6 rounded-3xl border border-white/5">
+                           {WORKFLOW_STAGES.map((stage, idx) => {
+                              const currentStage = normalizeWorkflowStage(project.stage);
+                              const currentIdx = WORKFLOW_STAGES.indexOf(currentStage as any);
+                              const isCompleted = idx < currentIdx;
+                              const isActive = idx === currentIdx;
+
+                              return (
+                                 <div
+                                    key={stage}
+                                    className={`flex flex-col items-center gap-2 flex-1 min-w-[60px] ${isActive ? 'opacity-100 scale-110 transition-transform' : isCompleted ? 'opacity-70' : 'opacity-30'}`}
+                                 >
+                                    <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center border-2 ${isActive ? 'border-emerald-500 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : isCompleted ? 'border-emerald-500 bg-emerald-500' : 'border-white/10 bg-black'}`}>
+                                       {isCompleted && <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4 text-black" strokeWidth={3} />}
+                                       {isActive && <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-emerald-500" />}
+                                    </div>
+                                    <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-tight text-center ${isActive ? 'text-emerald-500' : 'text-white'}`}>
+                                       {stage.split(' ').join('\n')}
+                                    </span>
+                                 </div>
+                              );
+                           })}
+                        </div>
+
+                        {/* Info Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                           <div className="p-5 bg-black/20 border border-white/5 rounded-2xl space-y-2">
+                              <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Financial Clearance</p>
+                              <div className="space-y-1">
+                                 <p className="text-sm font-black text-white font-mono">₹{clientInvoices.reduce((a, c) => a + (c.paidAmount || 0), 0).toLocaleString()} <span className="text-zinc-600 text-[10px] font-sans">/</span> ₹{clientInvoices.reduce((a, c) => a + (c.totalAmount || 0), 0).toLocaleString()}</p>
+                                 <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-2">
+                                    <div
+                                       className="h-full bg-emerald-500"
+                                       style={{ width: `${Math.min(100, (clientInvoices.reduce((a, c) => a + (c.paidAmount || 0), 0) / (clientInvoices.reduce((a, c) => a + (c.totalAmount || 0), 0) || 1)) * 100)}%` }}
+                                    />
+                                 </div>
+                              </div>
+                           </div>
+
+                           <div className="p-5 bg-black/20 border border-white/5 rounded-2xl space-y-2">
+                              <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Schedule Vector</p>
+                              <div className="flex items-center gap-3">
+                                 <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/10">
+                                    <Calendar className="w-4 h-4 text-blue-500" />
+                                 </div>
+                                 <div>
+                                    <p className="text-[10px] font-black text-white uppercase tracking-wider">{project.date ? new Date(project.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Pending assignment'}</p>
+                                    <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest">Deployment Date</p>
+                                 </div>
+                              </div>
+                           </div>
+
+                           <div className="p-5 bg-black/20 border border-white/5 rounded-2xl space-y-2">
+                              <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Data Stewardship</p>
+                              <div className="flex items-center gap-3">
+                                 <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/10">
+                                    <Search className="w-4 h-4 text-indigo-500" />
+                                 </div>
+                                 <div>
+                                    <p className="text-[10px] font-black text-white uppercase tracking-wider">{project.images?.length || 0} Artifacts</p>
+                                    <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest">Registry Volume</p>
+                                 </div>
+                              </div>
+                           </div>
+
+                        </div>
+                     </div>
+
+                     {/* Footer Info */}
+                     <div className="flex flex-col md:flex-row justify-between items-center text-[8px] font-black text-zinc-700 uppercase tracking-[0.3em] pt-4 border-t border-white/5">
+                        <div className="flex items-center gap-2">
+                           <Clock className="w-3 h-3" />
+                           <span>System Latency: 12ms</span>
+                           <span className="opacity-20 ml-4">•</span>
+                           <span>Project ID: {project?.id}</span>
+                           <span className="opacity-20 ml-4">•</span>
+                           <span>Last Updated: {project?.createdAt ? new Date(project.createdAt).toLocaleDateString() : ''}</span>
+                        </div>
+                        <div className="mt-2 md:mt-0">
+                           Synced via APCO Global Operations Registry
+                        </div>
+                     </div>
+                  </>
+               )}
+            </div>
+         </div>
 
 
 
          {/* -------------------- UNIFIED FINANCIAL BUILDER MODAL -------------------- */}
          {isModalOpen && createPortal(
-            <div 
+            <div
                className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-ios-fade-in"
                onClick={() => setIsModalOpen(false)}
             >
-               <div 
+               <div
                   className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-zinc-900 border border-white/10 rounded-2xl p-10 shadow-2xl relative animate-ios-slide-up no-scrollbar"
                   onClick={(e) => e.stopPropagation()}
                >
@@ -2433,12 +2673,12 @@ const ClientDetailsPage: React.FC = () => {
                         {/* 3. UNIFIED SERVICE BUILDER */}
                         <div className="space-y-6">
                            <h3 className="text-sm font-black uppercase text-white tracking-[0.2em] border-b border-white/5 pb-4">Operational Vector Composition</h3>
-                           
+
                            <div className="glass-panel bg-white/[0.01] border border-white/5 rounded-3xl flex flex-col shadow-2xl overflow-visible">
                               {/* Header with Dropdown and Add Button */}
                               <div className="flex justify-between items-center px-6 py-5 bg-white/[0.02] border-b border-white/5 relative">
                                  <div className="flex items-center gap-4">
-                                    <select 
+                                    <select
                                        className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-black text-white uppercase tracking-widest outline-none focus:border-white/20 transition-all cursor-pointer appearance-none min-w-[180px]"
                                        value={builderCategory}
                                        onChange={(e) => setBuilderCategory(e.target.value as any)}
@@ -2459,8 +2699,8 @@ const ClientDetailsPage: React.FC = () => {
                                        </span>
                                     </div>
                                  </div>
-                                 <button 
-                                    type="button" 
+                                 <button
+                                    type="button"
                                     onClick={() => addItemToCategory(builderCategory)}
                                     className="w-10 h-10 rounded-2xl bg-white text-black flex items-center justify-center hover:bg-zinc-200 transition-all active:scale-[0.98] shadow-xl shadow-white/5"
                                  >
@@ -2474,40 +2714,29 @@ const ClientDetailsPage: React.FC = () => {
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-white transition-colors">
                                        <Search size={14} />
                                     </div>
-                                    <input 
+                                    <input
                                        type="text"
                                        placeholder="Search or add items, videos, or team..."
-                                       className="w-full bg-black/40 border border-white/5 rounded-2xl py-3.5 pl-11 pr-4 text-[11px] font-bold text-white outline-none focus:border-white/10 focus:bg-black/60 transition-all placeholder:text-zinc-700"
+                                       className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-11 pr-4 text-sm font-bold text-white outline-none focus:border-white/10 focus:bg-black/60 transition-all placeholder:text-zinc-700"
                                        value={searchQuery}
-                                       onChange={(e) => handleSearchChange(e.target.value, e.target)}
+                                       onChange={(e) => handleSearchChange(e.target.value)}
                                        onKeyDown={(e) => {
                                           if (e.key === 'Enter') handleAddFromSearch();
                                        }}
-                                       onFocus={(e) => {
-                                          const rect = e.target.getBoundingClientRect();
-                                          setSuggestionsPosition({
-                                             top: rect.bottom + window.scrollY,
-                                             left: rect.left + window.scrollX,
-                                             width: rect.width
-                                          });
+                                       onFocus={() => {
                                           if (searchQuery) setShowSuggestions(true);
                                        }}
                                     />
-                                    {showSuggestions && createPortal(
-                                       <div 
-                                          className="fixed bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl z-[10000] overflow-hidden animate-ios-slide-up"
-                                          style={{
-                                             top: `${suggestionsPosition.top}px`,
-                                             left: `${suggestionsPosition.left}px`,
-                                             width: `${suggestionsPosition.width}px`
-                                          }}
+                                    {showSuggestions && (
+                                       <div
+                                          className="absolute left-0 right-0 top-[calc(100%+8px)] bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl z-[10000] overflow-hidden animate-ios-slide-up"
                                        >
                                           <div className="max-h-[350px] overflow-y-auto no-scrollbar py-2">
                                              {isAddingNewInSearch ? (
                                                 <div className="p-5 space-y-4 animate-ios-slide-up">
                                                    <div className="flex items-center justify-between">
                                                       <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-1">Initialize Personnel</p>
-                                                      <button onClick={() => setIsAddingNewInSearch(false)} className="text-zinc-500 hover:text-white transition-colors"><X size={14}/></button>
+                                                      <button onClick={() => setIsAddingNewInSearch(false)} className="text-zinc-500 hover:text-white transition-colors"><X size={14} /></button>
                                                    </div>
                                                    <div className="space-y-3">
                                                       <div className="space-y-1">
@@ -2529,54 +2758,130 @@ const ClientDetailsPage: React.FC = () => {
                                                             {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                                                          </select>
                                                       </div>
+                                                      <div className="flex gap-3">
+                                                         <div className="space-y-1 flex-1">
+                                                            <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Phone (Optional)</label>
+                                                            <input
+                                                               className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all"
+                                                               value={newMemberPhoneInSearch}
+                                                               onChange={e => setNewMemberPhoneInSearch(e.target.value)}
+                                                               placeholder="e.g. +91 9876543210"
+                                                            />
+                                                         </div>
+                                                         <div className="space-y-1 flex-1">
+                                                            <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Email (Optional)</label>
+                                                            <input
+                                                               className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all"
+                                                               value={newMemberEmailInSearch}
+                                                               onChange={e => setNewMemberEmailInSearch(e.target.value)}
+                                                               placeholder="name@example.com"
+                                                            />
+                                                         </div>
+                                                      </div>
+                                                      <div className="space-y-1">
+                                                         <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Cost / Rate (Optional)</label>
+                                                         <div className="relative">
+                                                            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={12} />
+                                                            <input
+                                                               type="number"
+                                                               className="w-full bg-white/5 border border-white/10 rounded-xl p-3 pl-8 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all"
+                                                               value={newMemberRateInSearch}
+                                                               onChange={e => setNewMemberRateInSearch(e.target.value)}
+                                                               placeholder="0"
+                                                            />
+                                                         </div>
+                                                      </div>
                                                    </div>
-                                                   <button 
+                                                   <button
                                                       type="button"
                                                       onClick={() => {
                                                          const newId = `team_${Date.now()}`;
-                                                         setCategorizedItems(prev => ({ ...prev, team: [...prev.team, { id: newId, name: searchQuery, role: newMemberRoleInSearch, cost: 0 }] }));
+                                                         const newPerson = {
+                                                            id: newId,
+                                                            name: searchQuery,
+                                                            role: newMemberRoleInSearch,
+                                                            phone: newMemberPhoneInSearch,
+                                                            email: newMemberEmailInSearch,
+                                                            cost: Number(newMemberRateInSearch) || 0,
+                                                            status: 'Active' as const
+                                                         };
+                                                         savePersonnelRegistry([...personnelRegistry, newPerson]);
+                                                         setCategorizedItems(prev => ({ ...prev, team: [...prev.team, { id: newId, name: searchQuery, role: newMemberRoleInSearch, cost: Number(newMemberRateInSearch) || 0 }] }));
                                                          setSearchQuery("");
+                                                         setNewMemberPhoneInSearch("");
+                                                         setNewMemberEmailInSearch("");
+                                                         setNewMemberRateInSearch("");
                                                          setShowSuggestions(false);
                                                          setIsAddingNewInSearch(false);
-                                                         addToast("Personnel added to registry");
+                                                         addToast("Personnel added to registry and assigned");
                                                       }}
                                                       className="w-full py-3 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-[0.98] shadow-xl shadow-white/10"
                                                    >
-                                                      Commit to Manifest
+                                                      Add & Assign to Project
                                                    </button>
                                                 </div>
                                              ) : (
                                                 <>
                                                    {Object.entries(SUGGESTIONS).map(([category, items]) => {
-                                                      const filtered = items.filter(it => it.name.toLowerCase().includes(searchQuery.toLowerCase()));
+                                                      const isTeam = category === 'team';
+                                                      const sourceList = isTeam ? personnelRegistry : items;
+                                                      const filtered = sourceList.filter((it: any) => it.name.toLowerCase().includes(searchQuery.toLowerCase()));
                                                       if (filtered.length === 0) return null;
                                                       return (
-                                                         <div key={category} className="px-2 pb-2">
-                                                            <div className="px-3 py-2 flex items-center gap-2 opacity-30">
-                                                               {category === 'physical' && <Package size={10} />}
-                                                               {category === 'digital' && <Video size={10} />}
-                                                               {category === 'team' && <Users size={10} />}
-                                                               <span className="text-[8px] font-black uppercase tracking-widest">{category}</span>
+                                                         <div key={category} className="px-2 pb-6">
+                                                            <div className="px-3 py-3 flex items-center justify-between opacity-50 border-b border-white/5 mb-2">
+                                                               <div className="flex items-center gap-2">
+                                                                  {category === 'physical' && <Package size={14} />}
+                                                                  {category === 'digital' && <Video size={14} />}
+                                                                  {category === 'team' && <Users size={14} />}
+                                                                  <span className="text-[11px] font-black uppercase tracking-widest">{category}</span>
+                                                               </div>
+                                                               {isTeam && <span className="text-[9px] font-black tracking-widest uppercase">Manage Registry</span>}
                                                             </div>
-                                                            {filtered.map((it, idx) => (
-                                                               <button 
-                                                                  key={idx}
-                                                                  type="button"
-                                                                  onClick={() => addSelectedSuggestion(it, category as any)}
-                                                                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 rounded-xl transition-all group/item text-left"
-                                                               >
-                                                                  <span className="text-[10px] font-bold text-zinc-300 group-hover/item:text-white transition-colors">{it.name}</span>
-                                                                  <span className="text-[9px] font-black text-emerald-500 font-mono">
-                                                                     {(it as any).price ? `₹${(it as any).price.toLocaleString()}` : (it as any).role.toUpperCase()}
-                                                                  </span>
-                                                               </button>
-                                                            ))}
+                                                            {filtered.map((it: any, idx: number) => {
+                                                               const isSelected = categorizedItems[category as 'physical' | 'digital' | 'team'].some(existing => existing.name === it.name);
+                                                               return (
+                                                                  <div key={it.id || idx} className="relative group/item">
+                                                                     <button
+                                                                        type="button"
+                                                                        onMouseDown={(e) => { e.preventDefault(); addSelectedSuggestion(it, category as any); }}
+                                                                        className={`w-full flex items-center justify-between px-4 py-4 rounded-xl transition-all text-left ${isSelected ? 'bg-indigo-500/10 border border-indigo-500/20' : 'hover:bg-white/5 border border-transparent'}`}
+                                                                     >
+                                                                        <div className="flex items-center gap-3">
+                                                                           {isSelected ? <Check size={18} className="text-indigo-400" /> : <div className="w-4 h-4 rounded-full border border-white/20 group-hover/item:border-white/50" />}
+                                                                           <span className={`text-[15px] font-bold transition-colors ${isSelected ? 'text-indigo-400' : 'text-zinc-300 group-hover/item:text-white'}`}>{it.name}</span>
+                                                                        </div>
+                                                                        <span className={`text-[11px] font-black font-mono px-3 py-1.5 rounded-md ${isSelected ? 'bg-indigo-500/20 text-indigo-400' : 'bg-white/5 text-emerald-500'}`}>
+                                                                           {isSelected ? 'ASSIGNED' : ((it as any).price ? `₹${(it as any).price.toLocaleString()}` : (it as any).role.toUpperCase())}
+                                                                        </span>
+                                                                     </button>
+                                                                     {isTeam && (
+                                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity bg-[#0c0c0e] px-1 py-1 rounded-lg border border-white/10 shadow-xl" onMouseDown={(e) => e.stopPropagation()}>
+                                                                           <button
+                                                                              type="button"
+                                                                              onClick={(e) => { e.stopPropagation(); setEditingPersonnel(it); }}
+                                                                              className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded-md transition-all flex items-center gap-1"
+                                                                           >
+                                                                              <Edit2 size={12} />
+                                                                           </button>
+                                                                           <button
+                                                                              type="button"
+                                                                              onClick={(e) => handleDeletePersonnel(it.id, e)}
+                                                                              className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 rounded-md transition-all flex items-center gap-1"
+                                                                           >
+                                                                              <Trash2 size={12} />
+                                                                           </button>
+                                                                        </div>
+                                                                     )}
+                                                                  </div>
+                                                               )
+                                                            })}
                                                          </div>
                                                       );
                                                    })}
 
-                                                   {Object.values(SUGGESTIONS).every(items => items.filter(it => it.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0) && (
-                                                      <button 
+                                                   {(!personnelRegistry.some(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())) && Object.values(SUGGESTIONS).every(items => items.filter(it => it.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0)) && (
+                                                      <button
                                                          type="button"
                                                          onClick={handleAddFromSearch}
                                                          className="w-full py-12 text-center flex flex-col items-center gap-2 hover:bg-white/5 transition-all group"
@@ -2585,9 +2890,9 @@ const ClientDetailsPage: React.FC = () => {
                                                          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] group-hover:text-white transition-colors">Add "{searchQuery}" to {builderCategory} registry</p>
                                                       </button>
                                                    )}
-                                                   
+
                                                    <div className="px-2 pt-2 border-t border-white/5">
-                                                      <button 
+                                                      <button
                                                          type="button"
                                                          onClick={handleAddFromSearch}
                                                          className="w-full flex items-center gap-3 px-3 py-3 hover:bg-white/5 rounded-xl transition-all text-white text-left group"
@@ -2608,8 +2913,82 @@ const ClientDetailsPage: React.FC = () => {
                                                 </>
                                              )}
                                           </div>
-                                       </div>,
-                                       document.body
+                                          {editingPersonnel && (
+                                             <div className="absolute inset-0 bg-zinc-900 z-50 flex flex-col animate-ios-slide-up p-5">
+                                                <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-4">
+                                                   <h3 className="text-sm font-black uppercase tracking-widest text-white">Edit Personnel</h3>
+                                                   <button onClick={() => setEditingPersonnel(null)} className="text-zinc-500 hover:text-white transition-colors"><X size={16} /></button>
+                                                </div>
+                                                <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pr-2">
+                                                   <div className="space-y-1">
+                                                      <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Expert Name</label>
+                                                      <input
+                                                         className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-indigo-500/50 transition-all"
+                                                         value={editingPersonnel.name}
+                                                         onChange={e => setEditingPersonnel({ ...editingPersonnel, name: e.target.value })}
+                                                      />
+                                                   </div>
+                                                   <div className="space-y-1">
+                                                      <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Functional Class</label>
+                                                      <select
+                                                         className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all appearance-none"
+                                                         value={editingPersonnel.role}
+                                                         onChange={e => setEditingPersonnel({ ...editingPersonnel, role: e.target.value })}
+                                                      >
+                                                         {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                                                      </select>
+                                                   </div>
+                                                   <div className="flex gap-3">
+                                                      <div className="space-y-1 flex-1">
+                                                         <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Phone</label>
+                                                         <input
+                                                            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all"
+                                                            value={editingPersonnel.phone || ''}
+                                                            onChange={e => setEditingPersonnel({ ...editingPersonnel, phone: e.target.value })}
+                                                         />
+                                                      </div>
+                                                      <div className="space-y-1 flex-1">
+                                                         <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Email</label>
+                                                         <input
+                                                            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all"
+                                                            value={editingPersonnel.email || ''}
+                                                            onChange={e => setEditingPersonnel({ ...editingPersonnel, email: e.target.value })}
+                                                         />
+                                                      </div>
+                                                   </div>
+                                                   <div className="flex gap-3">
+                                                      <div className="space-y-1 flex-1">
+                                                         <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Cost / Rate</label>
+                                                         <input
+                                                            type="number"
+                                                            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all"
+                                                            value={editingPersonnel.cost || ''}
+                                                            onChange={e => setEditingPersonnel({ ...editingPersonnel, cost: Number(e.target.value) || 0 })}
+                                                         />
+                                                      </div>
+                                                      <div className="space-y-1 flex-1">
+                                                         <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Status</label>
+                                                         <select
+                                                            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all appearance-none"
+                                                            value={editingPersonnel.status || 'Active'}
+                                                            onChange={e => setEditingPersonnel({ ...editingPersonnel, status: e.target.value })}
+                                                         >
+                                                            <option value="Active">Active</option>
+                                                            <option value="Inactive">Inactive</option>
+                                                         </select>
+                                                      </div>
+                                                   </div>
+                                                </div>
+                                                <button
+                                                   type="button"
+                                                   onClick={handleSavePersonnelEdit}
+                                                   className="mt-4 w-full py-3.5 bg-indigo-500 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-400 transition-all active:scale-[0.98] shadow-xl shadow-indigo-500/20"
+                                                >
+                                                   Save Changes
+                                                </button>
+                                             </div>
+                                          )}
+                                       </div>
                                     )}
                                  </div>
                               </div>
@@ -2621,7 +3000,7 @@ const ClientDetailsPage: React.FC = () => {
                                        {categorizedItems.physical.map(item => (
                                           <div key={item.id} className="p-4 bg-black/40 border border-white/5 rounded-2xl space-y-3 group hover:border-white/10 transition-all">
                                              <div className="flex items-center justify-between gap-3">
-                                                <input 
+                                                <input
                                                    placeholder="Asset Name (e.g. Album)"
                                                    className="flex-1 bg-transparent border-none text-[11px] font-bold text-white outline-none placeholder:text-zinc-700"
                                                    value={item.name}
@@ -2636,8 +3015,8 @@ const ClientDetailsPage: React.FC = () => {
                                              <div className="flex items-center justify-between gap-4 pt-2 border-t border-white/5">
                                                 <div className="flex items-center gap-2">
                                                    <span className="text-[8px] font-black text-zinc-600 uppercase">Qty</span>
-                                                   <input 
-                                                      type="number" 
+                                                   <input
+                                                      type="number"
                                                       className="w-12 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-white text-center"
                                                       value={item.quantity}
                                                       onChange={e => updateCategorizedItem('physical', item.id, 'quantity', parseInt(e.target.value) || 1)}
@@ -2645,8 +3024,8 @@ const ClientDetailsPage: React.FC = () => {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                    <span className="text-[8px] font-black text-zinc-600 uppercase">Rate</span>
-                                                   <input 
-                                                      type="number" 
+                                                   <input
+                                                      type="number"
                                                       className="w-24 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-emerald-500 text-right font-mono"
                                                       value={item.price}
                                                       onChange={e => updateCategorizedItem('physical', item.id, 'price', parseFloat(e.target.value) || 0)}
@@ -2667,7 +3046,7 @@ const ClientDetailsPage: React.FC = () => {
                                                 <p className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-500">No physical deliverables added</p>
                                                 <p className="text-[9px] font-bold text-zinc-700 uppercase tracking-widest">Start by adding your first asset to the manifest</p>
                                              </div>
-                                             <button 
+                                             <button
                                                 type="button"
                                                 onClick={() => addItemToCategory('physical')}
                                                 className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/10 transition-all active:scale-95 flex items-center gap-2"
@@ -2684,7 +3063,7 @@ const ClientDetailsPage: React.FC = () => {
                                        {categorizedItems.digital.map(item => (
                                           <div key={item.id} className="p-4 bg-black/40 border border-white/5 rounded-2xl space-y-3 group hover:border-white/10 transition-all">
                                              <div className="flex items-center justify-between gap-3">
-                                                <input 
+                                                <input
                                                    placeholder="Service Name (e.g. Cinema)"
                                                    className="flex-1 bg-transparent border-none text-[11px] font-bold text-white outline-none placeholder:text-zinc-700"
                                                    value={item.name}
@@ -2699,8 +3078,8 @@ const ClientDetailsPage: React.FC = () => {
                                              <div className="flex items-center justify-between gap-4 pt-2 border-t border-white/5">
                                                 <div className="flex items-center gap-2">
                                                    <span className="text-[8px] font-black text-zinc-600 uppercase">Qty</span>
-                                                   <input 
-                                                      type="number" 
+                                                   <input
+                                                      type="number"
                                                       className="w-12 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-white text-center"
                                                       value={item.quantity}
                                                       onChange={e => updateCategorizedItem('digital', item.id, 'quantity', parseInt(e.target.value) || 1)}
@@ -2708,8 +3087,8 @@ const ClientDetailsPage: React.FC = () => {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                    <span className="text-[8px] font-black text-zinc-600 uppercase">Rate</span>
-                                                   <input 
-                                                      type="number" 
+                                                   <input
+                                                      type="number"
                                                       className="w-24 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-blue-500 text-right font-mono"
                                                       value={item.price}
                                                       onChange={e => updateCategorizedItem('digital', item.id, 'price', parseFloat(e.target.value) || 0)}
@@ -2730,7 +3109,7 @@ const ClientDetailsPage: React.FC = () => {
                                                 <p className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-500">No digital deliverables added</p>
                                                 <p className="text-[9px] font-bold text-zinc-700 uppercase tracking-widest">Configure cinematic services and digital assets</p>
                                              </div>
-                                             <button 
+                                             <button
                                                 type="button"
                                                 onClick={() => addItemToCategory('digital')}
                                                 className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/10 transition-all active:scale-95 flex items-center gap-2"
@@ -2747,7 +3126,7 @@ const ClientDetailsPage: React.FC = () => {
                                        {categorizedItems.team.map(item => (
                                           <div key={item.id} className="p-4 bg-black/40 border border-white/5 rounded-2xl space-y-3 group hover:border-white/10 transition-all">
                                              <div className="flex items-center justify-between gap-3">
-                                                <input 
+                                                <input
                                                    placeholder="Expert Name"
                                                    className="flex-1 bg-transparent border-none text-[11px] font-bold text-white outline-none placeholder:text-zinc-700"
                                                    value={item.name}
@@ -2760,7 +3139,7 @@ const ClientDetailsPage: React.FC = () => {
                                                 </div>
                                              </div>
                                              <div className="flex items-center justify-between gap-4 pt-2 border-t border-white/5">
-                                                <select 
+                                                <select
                                                    className="bg-white/5 border border-white/5 rounded-lg p-1 text-[9px] font-black text-zinc-400 uppercase tracking-widest outline-none"
                                                    value={item.role}
                                                    onChange={e => updateCategorizedItem('team', item.id, 'role', e.target.value)}
@@ -2769,8 +3148,8 @@ const ClientDetailsPage: React.FC = () => {
                                                 </select>
                                                 <div className="flex items-center gap-2">
                                                    <span className="text-[8px] font-black text-zinc-600 uppercase">Cost</span>
-                                                   <input 
-                                                      type="number" 
+                                                   <input
+                                                      type="number"
                                                       className="w-20 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-indigo-400 text-right font-mono"
                                                       value={item.cost}
                                                       onChange={e => updateCategorizedItem('team', item.id, 'cost', parseFloat(e.target.value) || 0)}
@@ -2791,7 +3170,7 @@ const ClientDetailsPage: React.FC = () => {
                                                 <p className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-500">No team members assigned</p>
                                                 <p className="text-[9px] font-bold text-zinc-700 uppercase tracking-widest">Register personnel for this operational vector</p>
                                              </div>
-                                             <button 
+                                             <button
                                                 type="button"
                                                 onClick={() => addItemToCategory('team')}
                                                 className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/10 transition-all active:scale-95 flex items-center gap-2"
@@ -2865,188 +3244,25 @@ const ClientDetailsPage: React.FC = () => {
                   )}
                </div>
             </div>
-         , document.body)}
+            , document.body)}
 
          {/* -------------------- RIGHT SIDE PREVIEW MODAL -------------------- */}
          {previewDoc && createPortal(
-            <div 
-               className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-ios-fade-in" 
-               onClick={() => { setPreviewDoc(null); setPaymentAmount(''); }}
-            >
-               <div 
-                  className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-zinc-900 border border-white/10 rounded-2xl p-10 shadow-2xl relative animate-ios-slide-up no-scrollbar flex flex-col" 
-                  onClick={e => e.stopPropagation()}
-               >
-
-                  <div className="p-8 border-b border-white/5 sticky top-0 bg-zinc-950/90 backdrop-blur-md z-10 flex items-center justify-between">
-                     <div>
-                        <h2 className="text-2xl font-black uppercase text-white tracking-tighter mb-2">{previewDoc.id}</h2>
-                        <div className="flex gap-2">
-                           <span className="px-2 py-1 bg-white/10 text-white rounded text-[9px] font-black uppercase tracking-widest">{previewDoc.type}</span>
-                           <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${previewDoc.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                                 previewDoc.status === 'Partial' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
-                                    previewDoc.status === 'Quotation' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
-                                       previewDoc.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                                          'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                              }`}>{previewDoc.status}</span>
-                        </div>
-                     </div>
-                     <div className="flex items-center gap-2">
-                        <button
-                           onClick={async () => {
-                              if (!client) return;
-                              const docCompany = companies.find(c => c.id === previewDoc.brandId) || matchedCompany || currentContextCompany;
-                              await generateInvoicePDF(previewDoc, client, docCompany);
-                           }}
-                           className="p-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-full transition-all active:scale-95 group relative"
-                           title="Download PDF"
-                        >
-                           <Download className="w-5 h-5" />
-                           <span className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-2 py-1 bg-zinc-900 text-[8px] font-black uppercase tracking-widest text-white border border-white/10 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Get PDF</span>
-                        </button>
-                        <button
-                           onClick={() => {
-                              const url = `${window.location.origin}/portal/${client?.id}`;
-                              navigator.clipboard.writeText(url);
-                              alert('Client Portal link copied to clipboard');
-                           }}
-                           className="p-3 bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white rounded-full transition-all active:scale-95 group relative"
-                           title="Share"
-                        >
-                           <ShareIcon className="w-5 h-5" />
-                        </button>
-                        <button onClick={() => { setPreviewDoc(null); setPaymentAmount(''); }} className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
-                           <X className="w-5 h-5 text-white" />
-                        </button>
-                     </div>
-                  </div>
-
-                  <div id="invoice-preview" className="p-8 flex-1 space-y-8 bg-zinc-950">
-                     {/* Document Header */}
-                     <div className="glass-panel p-8 border border-white/5 bg-white/[0.01] squircle-md relative overflow-hidden mb-4">
-                        {(() => {
-                           const docCompany = companies.find(c => c.id === previewDoc.brandId) || matchedCompany || currentContextCompany;
-                           return (
-                              <>
-                                 <div className="flex items-center gap-5 mb-8">
-                                    {docCompany.logo ? (
-                                       <img src={docCompany.logo} alt="Logo" className="w-16 h-16 rounded-2xl object-cover shadow-2xl border border-white/5" />
-                                    ) : (
-                                       <div className="w-16 h-16 rounded-2xl bg-white text-black flex items-center justify-center font-bold text-3xl font-serif">
-                                          {docCompany.companyName.charAt(0).toUpperCase()}
-                                       </div>
-                                    )}
-                                    <div>
-                                       <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">{docCompany.companyName}</h2>
-                                       <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-2">{docCompany.tagline}</p>
-                                    </div>
-                                 </div>
-                                 <div className="space-y-1.5 text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-loose border-t border-white/5 pt-6">
-                                    <p className="flex justify-between"><span>Physical Registry</span> <span className="text-zinc-400">{docCompany.address}</span></p>
-                                    {docCompany.gstin && <p className="flex justify-between mt-4 border-t border-white/5 pt-4"><span>GSTIN Projection</span> <span className="text-zinc-300 font-mono">{docCompany.gstin}</span></p>}
-                                 </div>
-                              </>
-                           );
-                        })()}
-                     </div>
-
-                     {/* Summary Block */}
-                     <div className="glass-panel p-6 border border-white/5 squircle-sm bg-white/[0.02]">
-                        <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
-                           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Gross Vector</p>
-                           <p className="text-2xl font-black text-white tracking-tighter">₹{(previewDoc.totalAmount || previewDoc.amount || 0).toLocaleString()}</p>
-                        </div>
-                        {previewDoc.type === 'invoice' && (
-                           <div className="space-y-3 font-mono text-xs">
-                              <div className="flex justify-between">
-                                 <span className="text-zinc-500">Amount Paid</span>
-                                 <span className="text-emerald-400 font-bold">₹{(previewDoc.paidAmount || 0).toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                 <span className="text-zinc-500">Pending Balance</span>
-                                 <span className="text-amber-400 font-bold">₹{Math.max((previewDoc.totalAmount || previewDoc.amount || 0) - (previewDoc.paidAmount || 0), 0).toLocaleString()}</span>
-                              </div>
-                           </div>
-                        )}
-                     </div>
-
-                     {/* Items Mapping */}
-                     <div>
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4 ml-1">Services Breakdown</h3>
-                        <div className="space-y-2">
-                           {previewDoc.items.map((it, idx) => (
-                              <div key={idx} className="p-4 bg-white/5 rounded-xl flex justify-between items-center border border-white/[0.02]">
-                                 <div>
-                                    <p className="text-xs font-bold text-white mb-1">{it.description || 'Blank Line'}</p>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Qty: {it.quantity} x ₹{it.price}</p>
-                                 </div>
-                                 <p className="text-sm font-black text-white ml-4 shrink-0 font-mono">₹{(it.quantity * it.price).toLocaleString()}</p>
-                              </div>
-                           ))}
-                        </div>
-                     </div>
-
-                     {/* Payment Module (Invoices Only) */}
-                     {(previewDoc.type === 'invoice') && (
-                        <div>
-                           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4 ml-1">Payment Mode</h3>
-
-                           {/* Form for new payments */}
-                           {previewDoc.status !== 'Paid' && (
-                              <form onSubmit={handleAddPayment} className="p-5 glass-panel border border-white/5 squircle-sm mb-6 space-y-4 bg-white/[0.01]">
-                                 <div className="space-y-3">
-                                    <div>
-                                       <label className="text-[9px] font-black uppercase text-zinc-600 tracking-widest mb-1 block">Deposit Amount (₹)</label>
-                                       <input required type="number" min="1" max={(previewDoc.totalAmount || previewDoc.amount || 0) - (previewDoc.paidAmount || 0)} className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm font-bold text-white focus:outline-none" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} disabled={isSubmitting} />
-                                    </div>
-                                    <div>
-                                       <label className="text-[9px] font-black uppercase text-zinc-600 tracking-widest mb-1 block">Deposit Date</label>
-                                       <input required type="date" className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm font-bold text-white focus:outline-none" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} disabled={isSubmitting} />
-                                    </div>
-                                    <button type="submit" disabled={isSubmitting} className="w-full py-3 bg-white text-black font-black uppercase text-[10px] tracking-[0.2em] rounded-xl hover:bg-zinc-200 transition-all font-mono shadow-[0_0_15px_rgba(255,255,255,0.1)] active:scale-[0.98]">
-                                       {isSubmitting ? 'Syncing...' : '+ Add Payment'}
-                                    </button>
-                                 </div>
-                              </form>
-                           )}
-
-                           {/* History Render */}
-                           <div className="space-y-3">
-                              {(!previewDoc.paymentHistory || previewDoc.paymentHistory.length === 0) ? (
-                                 <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest p-4 text-center border border-white/5 border-dashed rounded-xl">No historical bounds synced yet</p>
-                              ) : (
-                                 previewDoc.paymentHistory.map(ph => (
-                                    <div key={ph.id} className="flex justify-between items-center p-3 border-b border-white/5 last:border-b-0 group">
-                                       <div>
-                                          <p className="text-[10px] font-black text-white uppercase tracking-widest leading-none mb-1 text-emerald-400">Payment Recorded</p>
-                                          <p className="text-[8px] font-bold text-zinc-600 uppercase tracking-[0.2em]">{ph.date} • {ph.id}</p>
-                                       </div>
-                                       <p className="text-sm font-black text-white font-mono opacity-80 group-hover:opacity-100 transition-opacity">+₹{ph.amount.toLocaleString()}</p>
-                                    </div>
-                                 ))
-                              )}
-                           </div>
-                        </div>
-                     )}
-                  </div>
-
-                  {previewDoc.type === 'invoice' && (
-                     <div className="mt-8 mb-8 mx-8 pt-4 border-t border-white/10 opacity-70 text-[8px] font-black uppercase tracking-widest text-zinc-500 text-center flex flex-col items-center">
-                        <span>This invoice is governed by agreed Terms & Conditions</span>
-                        <span className="opacity-50 mt-1">Version Locked</span>
-                     </div>
-                  )}
-               </div>
-            </div>
-         , document.body)}
-
+            <DocumentPreviewModal
+               documentData={previewDoc}
+               client={client || {} as any}
+               company={companies.find(c => c.id === previewDoc.brandId) || companies.find(c => c.companyName === previewDoc.brand) || currentContextCompany || companies[0]}
+               type={previewDoc.type === 'quotation' ? 'quote' : 'invoice'}
+               onClose={() => setPreviewDoc(null)}
+            />
+            , document.body)}
          {/* Add Staff Modal */}
          {isAddStaffModalOpen && createPortal(
-            <div 
+            <div
                className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-ios-fade-in"
                onClick={() => setIsAddStaffModalOpen(false)}
             >
-               <div 
+               <div
                   className="w-full max-w-sm bg-zinc-950 border border-white/10 rounded-3xl p-8 shadow-2xl animate-ios-slide-up relative"
                   onClick={(e) => e.stopPropagation()}
                >
@@ -3080,12 +3296,12 @@ const ClientDetailsPage: React.FC = () => {
                   </form>
                </div>
             </div>
-         , document.body)}
- 
+            , document.body)}
+
          {createPortal(
             <div className="fixed bottom-8 right-8 z-[10000] flex flex-col gap-3 pointer-events-none">
                {toasts.map(toast => (
-                  <div 
+                  <div
                      key={toast.id}
                      className="pointer-events-auto bg-zinc-900/90 border border-white/10 rounded-2xl p-4 flex items-center gap-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-ios-slide-up backdrop-blur-xl group min-w-[240px] border-l-4 border-l-red-500"
                   >
@@ -3094,7 +3310,7 @@ const ClientDetailsPage: React.FC = () => {
                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">{toast.message}</span>
                      </div>
                      {toast.onUndo && (
-                        <button 
+                        <button
                            onClick={(e) => {
                               e.preventDefault();
                               toast.onUndo?.();
@@ -3110,20 +3326,170 @@ const ClientDetailsPage: React.FC = () => {
             document.body
          )}
 
-          {pendingConfirm && (
+         {pendingConfirm && (
             <ConfirmDialog
-              isOpen={!!pendingConfirm}
-              title={pendingConfirm.title}
-              message={pendingConfirm.message}
-              confirmLabel={pendingConfirm.confirmLabel}
-              tone={pendingConfirm.tone}
-              onConfirm={() => {
-                pendingConfirm.onConfirm();
-                setPendingConfirm(null);
-              }}
-              onCancel={() => setPendingConfirm(null)}
+               isOpen={!!pendingConfirm}
+               title={pendingConfirm.title}
+               message={pendingConfirm.message}
+               confirmLabel={pendingConfirm.confirmLabel}
+               tone={pendingConfirm.tone}
+               onConfirm={() => {
+                  pendingConfirm.onConfirm();
+                  setPendingConfirm(null);
+               }}
+               onCancel={() => setPendingConfirm(null)}
             />
-          )}
+         )}
+         {isAddEventModalOpen && createPortal(
+            <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-6 backdrop-blur-2xl">
+               <div className="bg-zinc-900 border border-white/10 rounded-[2.5rem] w-full max-w-xl p-12 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+                  <div className="flex justify-between items-center mb-8">
+                     <h2 className="text-3xl font-black text-white uppercase tracking-tight">Add Event</h2>
+                     <button onClick={() => setIsAddEventModalOpen(false)} className="p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
+                  </div>
+                  <form onSubmit={handleSaveEvent} className="space-y-6">
+                     <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Event Name *</label>
+                        <input required className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" placeholder="e.g. Mehendi" value={newEventForm.name || ''} onChange={e => setNewEventForm({ ...newEventForm, name: e.target.value })} />
+                     </div>
+                     <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Date *</label>
+                           <input required type="date" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={newEventForm.date || ''} onChange={e => setNewEventForm({ ...newEventForm, date: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Start Time</label>
+                           <input type="time" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={newEventForm.startTime || ''} onChange={e => setNewEventForm({ ...newEventForm, startTime: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">End Time</label>
+                           <input type="time" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={newEventForm.endTime || ''} onChange={e => setNewEventForm({ ...newEventForm, endTime: e.target.value })} />
+                        </div>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Venue Location</label>
+                        <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" placeholder="Main Venue Address" value={newEventForm.venueLocation || ''} onChange={e => setNewEventForm({ ...newEventForm, venueLocation: e.target.value })} />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Bride Location <span className="opacity-50">(Optional)</span></label>
+                        <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" placeholder="Getting Ready Location" value={newEventForm.brideLocation || ''} onChange={e => setNewEventForm({ ...newEventForm, brideLocation: e.target.value })} />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Groom Location <span className="opacity-50">(Optional)</span></label>
+                        <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" placeholder="Getting Ready Location" value={newEventForm.groomLocation || ''} onChange={e => setNewEventForm({ ...newEventForm, groomLocation: e.target.value })} />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Notes</label>
+                        <textarea className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all min-h-[80px]" placeholder="Any specific requirements or team notes..." value={newEventForm.notes || ''} onChange={e => setNewEventForm({ ...newEventForm, notes: e.target.value })} />
+                     </div>
+                     <button type="submit" className="w-full py-5 bg-white text-black font-black rounded-2xl text-[11px] uppercase tracking-widest shadow-2xl hover:bg-zinc-200 transition-all mt-4">
+                        Save Event
+                     </button>
+                  </form>
+               </div>
+            </div>
+            , document.body)}
+
+         {isEditProjectModalOpen && createPortal(
+            <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-6 backdrop-blur-2xl">
+               <div className="bg-zinc-900 border border-white/10 rounded-[2.5rem] w-full max-w-2xl p-12 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+                  <div className="flex justify-between items-center mb-8">
+                     <h2 className="text-3xl font-black text-white uppercase tracking-tight">Edit Project Info</h2>
+                     <button onClick={() => setIsEditProjectModalOpen(false)} className="p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
+                  </div>
+                  <form onSubmit={handleUpdateProjectInfo} className="space-y-6">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Client Name *</label>
+                           <input required className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={editProjectForm.name || ''} onChange={e => setEditProjectForm({ ...editProjectForm, name: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Project Name *</label>
+                           <input required className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={editProjectForm.projectName || ''} onChange={e => setEditProjectForm({ ...editProjectForm, projectName: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Email</label>
+                           <input type="email" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={editProjectForm.email || ''} onChange={e => setEditProjectForm({ ...editProjectForm, email: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Phone Number</label>
+                           <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={editProjectForm.phone || ''} onChange={e => setEditProjectForm({ ...editProjectForm, phone: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Project Type</label>
+                           <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={editProjectForm.projectType || ''} onChange={e => setEditProjectForm({ ...editProjectForm, projectType: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Primary Event Date</label>
+                           <input type="date" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={editProjectForm.eventDate || ''} onChange={e => setEditProjectForm({ ...editProjectForm, eventDate: e.target.value })} />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Status</label>
+                           <select className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all appearance-none" value={editProjectForm.status || 'Active'} onChange={e => setEditProjectForm({ ...editProjectForm, status: e.target.value })}>
+                              <option value="Lead" className="bg-zinc-900">Lead</option>
+                              <option value="Active" className="bg-zinc-900">Active</option>
+                              <option value="Completed" className="bg-zinc-900">Completed</option>
+                              <option value="Archived" className="bg-zinc-900">Archived</option>
+                           </select>
+                        </div>
+                     </div>
+                     <button type="submit" className="w-full py-5 bg-white text-black font-black rounded-2xl text-[11px] uppercase tracking-widest shadow-2xl hover:bg-zinc-200 transition-all mt-4">
+                        Save Project Info
+                     </button>
+                  </form>
+               </div>
+            </div>
+            , document.body)}
+
+         {isEditEventModalOpen && editingEvent && createPortal(
+            <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-6 backdrop-blur-2xl">
+               <div className="bg-zinc-900 border border-white/10 rounded-[2.5rem] w-full max-w-xl p-12 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+                  <div className="flex justify-between items-center mb-8">
+                     <h2 className="text-3xl font-black text-white uppercase tracking-tight">Edit Event</h2>
+                     <button onClick={() => { setIsEditEventModalOpen(false); setEditingEvent(null); }} className="p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
+                  </div>
+                  <form onSubmit={handleUpdateEvent} className="space-y-6">
+                     <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Event Name *</label>
+                        <input required className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" placeholder="e.g. Mehendi" value={editingEvent.name || ''} onChange={e => setEditingEvent({ ...editingEvent, name: e.target.value })} />
+                     </div>
+                     <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Date *</label>
+                           <input required type="date" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={editingEvent.date || ''} onChange={e => setEditingEvent({ ...editingEvent, date: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Start Time</label>
+                           <input type="time" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={editingEvent.startTime || ''} onChange={e => setEditingEvent({ ...editingEvent, startTime: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">End Time</label>
+                           <input type="time" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={editingEvent.endTime || ''} onChange={e => setEditingEvent({ ...editingEvent, endTime: e.target.value })} />
+                        </div>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Venue Location</label>
+                        <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" placeholder="Main Venue Address" value={editingEvent.venueLocation || ''} onChange={e => setEditingEvent({ ...editingEvent, venueLocation: e.target.value })} />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Bride Location <span className="opacity-50">(Optional)</span></label>
+                        <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" placeholder="Getting Ready Location" value={editingEvent.brideLocation || ''} onChange={e => setEditingEvent({ ...editingEvent, brideLocation: e.target.value })} />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Groom Location <span className="opacity-50">(Optional)</span></label>
+                        <input className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" placeholder="Getting Ready Location" value={editingEvent.groomLocation || ''} onChange={e => setEditingEvent({ ...editingEvent, groomLocation: e.target.value })} />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Notes</label>
+                        <textarea className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all min-h-[80px]" placeholder="Any specific requirements or team notes..." value={editingEvent.notes || ''} onChange={e => setEditingEvent({ ...editingEvent, notes: e.target.value })} />
+                     </div>
+                     <button type="submit" className="w-full py-5 bg-white text-black font-black rounded-2xl text-[11px] uppercase tracking-widest shadow-2xl hover:bg-zinc-200 transition-all mt-4">
+                        Update Event
+                     </button>
+                  </form>
+               </div>
+            </div>
+            , document.body)}
       </div>
    );
 };

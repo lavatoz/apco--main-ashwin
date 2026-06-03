@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import {
-  CheckCircle2, Package, Plus, X, Layers, Trash2, Loader2
+  CheckCircle2, Package, Plus, X, Layers, Trash2, Loader2, Clock, Calendar, AlertCircle, Users, Activity
 } from 'lucide-react';
 import { type Client, type Task, TaskStatus, type Project, type ProjectStage, type CompanyProfile } from '../types';
-import ProjectBoard from './ProjectBoard';
 import { safeParse } from '../utils/storage';
 
 interface ProductionHubProps {
@@ -15,7 +14,7 @@ interface ProductionHubProps {
   companies: CompanyProfile[];
 }
 
-const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, clients: allClients, companies }) => {
+const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, selectedBrand, clients: allClients, companies }) => {
   const location = useLocation();
   const locationState = location.state as { prefillClient?: string; brand?: string } | null;
 
@@ -33,7 +32,6 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
 
   useEffect(() => {
     if (locationState?.prefillClient) {
-       // Clear state to prevent re-opening on manual refreshes
        window.history.replaceState({}, document.title);
     }
   }, [locationState]);
@@ -41,25 +39,29 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [fadingId, setFadingId] = useState<string | null>(null);
 
-  // Unified Project Store
   const [projectRegistry, setProjectRegistry] = useState<Project[]>(() => {
     const allProjects = safeParse<Project[]>('projects', []);
     return allProjects.filter(p => p.status === 'confirmed');
   });
+
+  const [localTasks, setLocalTasks] = useState<Task[]>(initialTasks);
+
+  useEffect(() => {
+    setLocalTasks(initialTasks);
+  }, [initialTasks]);
 
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
     const project: Project = {
        id: `PRJ-${Date.now().toString().slice(-6)}`,
        name: newProject.title,
-       clientId: newProject.client, // This will be the name in this case
+       clientId: newProject.client, 
        brand: newProject.brand,
        divisionId: (allClients.find(c => c.name === newProject.client)?.divisionId) || 'dev_01',
        type: 'General',
        date: newProject.eventDate,
-       status: 'confirmed', // Requirement 6
+       status: 'confirmed',
        stage: 'booked',
        totalAmount: newProject.totalAmount,
        services: [],
@@ -68,12 +70,9 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
        createdAt: new Date().toISOString()
     };
     
-    // Add to main projects store
     const allProjects = safeParse<Project[]>('projects', []);
     const updatedAll = [...allProjects, project];
     localStorage.setItem('projects', JSON.stringify(updatedAll));
-    
-    // Update local registry (filtered confirmed)
     setProjectRegistry(updatedAll.filter(p => p.status === 'confirmed'));
     
     setIsCreating(false);
@@ -88,25 +87,12 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
     });
   };
 
-  const updateProjectStage = (id: string, stage: ProjectStage) => {
-    const allProjects = safeParse<Project[]>('projects', []);
-    const updated = allProjects.map(p => p.id === id ? { ...p, stage } : p);
-    localStorage.setItem('projects', JSON.stringify(updated));
-    setProjectRegistry(updated.filter(p => p.status === 'confirmed'));
-  };
-
   const confirmDelete = async () => {
     if (!projectToDelete) return;
     const targetId = projectToDelete.id;
 
     setIsDeleting(true);
-    await new Promise(r => setTimeout(r, 150));
-
-    setFadingId(targetId);
-    setIsDeleteModalOpen(false);
-    
-    // Smooth transition
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 450));
     
     try {
       const allProjects = safeParse<Project[]>('projects', []);
@@ -118,68 +104,172 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks, selectedBrand, cli
     } finally {
       setIsDeleting(false);
       setProjectToDelete(null);
-      setFadingId(null);
     }
   };
 
-  const handleDeleteClick = (id: string) => {
-    const project = projectRegistry.find(p => p.id === id);
-    if (project) {
-        setProjectToDelete(project);
-        setIsDeleteModalOpen(true);
-    }
+  const handleUpdateTaskStatus = (taskId: string, newStatus: string) => {
+     const allTasks = safeParse<Task[]>('tasks', []);
+     const updatedTasks = allTasks.map(t => t.id === taskId ? { ...t, status: newStatus as any } : t);
+     localStorage.setItem('tasks', JSON.stringify(updatedTasks));
+     setLocalTasks(localTasks.map(t => t.id === taskId ? { ...t, status: newStatus as any } : t));
+     window.dispatchEvent(new Event('storage'));
   };
 
-  const filteredTasks = tasks.filter(t => (selectedBrand === 'All' || t.brand === selectedBrand) && t.status !== TaskStatus.Done);
+  const filteredTasks = localTasks.filter(t => (selectedBrand === 'All' || t.brand === selectedBrand));
+  const activeProjects = projectRegistry.filter(p => p.status === 'confirmed' && (selectedBrand === 'All' || p.brand === selectedBrand));
+  
+  const pendingTasks = filteredTasks.filter(t => t.status !== TaskStatus.Completed);
+  const overdueTasks = filteredTasks.filter(t => t.status === TaskStatus.Overdue);
+  const upcomingShoots = activeProjects.filter(p => new Date(p.date) >= new Date()).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // Group tasks by assignee for Team Workload
+  const workloadByAssignee = pendingTasks.reduce((acc, task) => {
+    const assignee = task.assignee || 'Unassigned';
+    acc[assignee] = (acc[assignee] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
     <div className="space-y-10 animate-ios-slide-up pb-20">
       <div className="flex justify-between items-end">
         <div className="space-y-2">
             <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">Operations</h1>
-            <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em]">Production Pipeline & Logistics</p>
+            <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em]">Production Hub & Logistics</p>
         </div>
         <button onClick={() => setIsCreating(true)} className="bg-white text-black px-8 py-3.5 squircle-sm font-black uppercase text-[11px] tracking-widest flex items-center gap-3 hover:bg-zinc-200 transition-all shadow-2xl shadow-white/10 active:scale-95 group">
             <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" /> New Project
         </button>
       </div>
 
-      {/* Multi-Stage Kanban Pipeline */}
-      <ProjectBoard 
-        projects={projectRegistry} 
-        onUpdateStage={updateProjectStage}
-        onDeleteProject={handleDeleteClick}
-        selectedBrand={selectedBrand}
-        fadingId={fadingId}
-      />
+      {/* DASHBOARD METRICS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="glass-panel p-6 squircle-lg relative overflow-hidden group border border-white/5">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Activity className="w-24 h-24 text-blue-500" /></div>
+          <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-2 flex items-center gap-2"><Layers className="w-3 h-3"/> Active Projects</p>
+          <h3 className="text-4xl font-black tracking-tight text-white">{activeProjects.length}</h3>
+        </div>
+        <div className="glass-panel p-6 squircle-lg relative overflow-hidden group border border-white/5">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Calendar className="w-24 h-24 text-emerald-500" /></div>
+          <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-2 flex items-center gap-2"><Calendar className="w-3 h-3"/> Upcoming Shoots</p>
+          <h3 className="text-4xl font-black tracking-tight text-white">{upcomingShoots.length}</h3>
+        </div>
+        <div className="glass-panel p-6 squircle-lg relative overflow-hidden group border border-white/5">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Clock className="w-24 h-24 text-amber-500" /></div>
+          <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-2 flex items-center gap-2"><Clock className="w-3 h-3"/> Pending Tasks</p>
+          <h3 className="text-4xl font-black tracking-tight text-white">{pendingTasks.length}</h3>
+        </div>
+        <div className="glass-panel p-6 squircle-lg relative overflow-hidden group border border-white/5">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><AlertCircle className="w-24 h-24 text-red-500" /></div>
+          <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-2 flex items-center gap-2"><AlertCircle className="w-3 h-3"/> Overdue Tasks</p>
+          <h3 className="text-4xl font-black tracking-tight text-white">{overdueTasks.length}</h3>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        <div className="glass-panel p-8 squircle-lg space-y-8 bg-zinc-900/20 border border-white/5">
-          <div className="flex items-center justify-between border-b border-white/5 pb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* TASK MANAGEMENT */}
+        <div className="lg:col-span-2 glass-panel p-8 squircle-lg space-y-6">
+          <div className="flex items-center justify-between border-b border-white/5 pb-4">
             <h3 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-3">
-              <Layers className="w-4 h-4 text-blue-500" /> Pending Operations
+              <Package className="w-4 h-4 text-blue-500" /> Task Management
             </h3>
-            <span className="text-[10px] font-black uppercase text-zinc-500 bg-white/5 px-3 py-1 rounded-lg border border-white/5">{filteredTasks.length} Assigned</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredTasks.length === 0 ? (
-                <div className="col-span-full py-16 text-center text-zinc-800">
+          
+          <div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-2">
+            {pendingTasks.length === 0 ? (
+                <div className="py-16 text-center text-zinc-800">
                     <CheckCircle2 className="w-10 h-10 mx-auto mb-4 opacity-10" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">Queue Fully Processed</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">All Tasks Processed</p>
                 </div>
-            ) : filteredTasks.map(task => (
-                <div key={task.id} className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center gap-4 hover:bg-white/5 transition-all">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/10">
-                     <Package className="w-4 h-4 text-blue-500" />
+            ) : pendingTasks.map(task => (
+                <div key={task.id} className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col md:flex-row md:items-center gap-4 hover:bg-white/5 transition-all">
+                  <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center border ${
+                      task.status === TaskStatus.Overdue ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                      task.status === TaskStatus.InProgress ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
+                      'bg-blue-500/10 border-blue-500/20 text-blue-500'
+                  }`}>
+                     <Layers className="w-4 h-4" />
                   </div>
-                  <div className="flex-1 overflow-hidden">
-                    <h4 className="font-black text-[11px] uppercase text-white truncate">{task.title}</h4>
-                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">{task.brand} • {task.assignee}</p>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-black text-xs uppercase text-white truncate mb-1">{task.title}</h4>
+                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">{task.client || 'Unknown Client'} • {task.brand}</p>
+                  </div>
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="text-right hidden md:block">
+                       <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">Assignee</p>
+                       <p className="text-xs font-black text-white">{task.assignee || 'Unassigned'}</p>
+                    </div>
+                    <select
+                       value={task.status}
+                       onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)}
+                       className={`bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-white/20 ${
+                           task.status === TaskStatus.Overdue ? 'text-red-500' :
+                           task.status === TaskStatus.InProgress ? 'text-amber-500' :
+                           task.status === TaskStatus.Completed ? 'text-emerald-500' :
+                           'text-zinc-300'
+                       }`}
+                    >
+                       {Object.values(TaskStatus).map(s => (
+                           <option key={s} value={s} className="bg-zinc-900 text-white">{s}</option>
+                       ))}
+                    </select>
                   </div>
                 </div>
             ))}
           </div>
         </div>
+
+        {/* SIDEBAR: WORKLOAD & SCHEDULE */}
+        <div className="space-y-8">
+           {/* Team Workload */}
+           <div className="glass-panel p-8 squircle-lg space-y-6">
+              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <h3 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-3">
+                  <Users className="w-4 h-4 text-emerald-500" /> Team Workload
+                </h3>
+              </div>
+              <div className="space-y-3">
+                 {Object.entries(workloadByAssignee).length === 0 ? (
+                    <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest text-center py-4">No active assignments</p>
+                 ) : Object.entries(workloadByAssignee).map(([assignee, count]) => (
+                    <div key={assignee} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                       <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center font-black text-xs text-white uppercase">{assignee.charAt(0)}</div>
+                          <p className="text-xs font-black text-white">{assignee}</p>
+                       </div>
+                       <div className="px-3 py-1 bg-white/10 rounded-lg text-[10px] font-black text-white">{count} Tasks</div>
+                    </div>
+                 ))}
+              </div>
+           </div>
+
+           {/* Upcoming Schedule */}
+           <div className="glass-panel p-8 squircle-lg space-y-6">
+              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <h3 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-3">
+                  <Calendar className="w-4 h-4 text-indigo-500" /> Upcoming Schedule
+                </h3>
+              </div>
+              <div className="space-y-4">
+                 {upcomingShoots.slice(0, 5).map(project => (
+                    <div key={project.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 relative overflow-hidden group">
+                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-50 group-hover:opacity-100 transition-opacity" />
+                       <div className="pl-2">
+                          <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">
+                             {new Date(project.date).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          </p>
+                          <h4 className="font-black text-sm text-white uppercase tracking-tight">{project.name}</h4>
+                          <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-1">{project.stage}</p>
+                       </div>
+                    </div>
+                 ))}
+                 {upcomingShoots.length === 0 && (
+                    <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest text-center py-4">No upcoming events</p>
+                 )}
+              </div>
+           </div>
+        </div>
+
       </div>
 
       {isCreating && (

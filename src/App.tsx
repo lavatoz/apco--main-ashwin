@@ -33,21 +33,34 @@ import CompanySettingsPage from './pages/CompanySettingsPage';
 import AlertsPage from './pages/AlertsPage';
 import CoordinationPage from './pages/CoordinationPage';
 import BrandDetailPage from './pages/BrandDetailPage';
+import SecurityHubPage from './pages/SecurityHubPage';
 import { useCompanySettings } from './hooks/useCompanySettings';
 import { type UserPermission, type CompanyProfile } from './types';
 import { usePermissions } from './hooks/usePermissions';
 
+import ClientDashboard from './pages/client/ClientDashboard';
+import ClientActivityPage from './pages/client/ClientActivityPage';
+import ClientEvents from './pages/client/ClientEvents';
+import ClientTimeline from './pages/client/ClientTimeline';
+import ClientDeliverables from './pages/client/ClientDeliverables';
+import ClientInvoices from './pages/client/ClientInvoices';
+import ClientAgreements from './pages/client/ClientAgreements';
+import ClientMessages from './pages/client/ClientMessages';
+import ClientDirectory from './pages/client/ClientDirectory';
+import ClientSupport from './pages/client/ClientSupport';
+
 import { api } from './services/api';
-import { safeParse } from './utils/storage';
+import { safeParse, getAuthUser, removeAuthUser } from './utils/storage';
 
 type AuthRole = 'none' | 'Admin' | 'Staff' | 'Client';
 
 // --- Sub-Components (Defined outside App to prevent re-mounting) ---
 
 const RoleProtectedRoute = ({ allowedRoles, children }: { allowedRoles: AuthRole[], children: React.ReactNode }) => {
-  const userStr = localStorage.getItem('auth_user');
-  if (!userStr) return <Navigate to="/login" replace />;
-  const user = JSON.parse(userStr);
+  const user = getAuthUser();
+  if (!user) return <Navigate to="/login" replace />;
+  
+  console.log(`[RoleProtectedRoute] Diagnostic - authUser:`, user, `| authRole:`, user.role);
   
   if (user.role === 'Admin') return <>{children}</>;
   if (allowedRoles.includes(user.role)) return <>{children}</>;
@@ -61,36 +74,36 @@ const PermissionRoute = ({ permission, children, allowedRoles }: { permission?: 
   
   if (!user) return <Navigate to="/login" replace />;
   
+  console.log(`[PermissionRoute] Diagnostic - authUser:`, user, `| authRole:`, user.role, `| route:`, location.pathname);
+
   // Admins bypass all guards
   if (user.role === 'Admin') return <>{children}</>;
 
-  // Permission Check using the new normalized mapping
-  if (!hasRoutePermission(location.pathname)) {
-    if (user.role === 'Client') return <Navigate to="/directory" replace />;
-    return <Navigate to="/unauthorized" replace />;
+  // Role-based authorization
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+     if (user.role === 'Client') return <Navigate to="/dashboard" replace />;
+     return <Navigate to="/unauthorized" replace />;
   }
 
   // Role-based Hard Gate: Block clients from everything except specific routes
   if (user.role === 'Client') {
-    const allowedPaths = ['/portal', '/client-dashboard', '/unauthorized', '/directory', '/agreement', '/client/'];
+    const allowedPaths = ['/dashboard', '/events', '/timeline', '/workflow', '/directory', '/deliverables', '/invoices', '/agreements', '/messages', '/support', '/unauthorized', '/agreement'];
     const currentPath = location.pathname;
     const isAllowed = allowedPaths.some(p => currentPath.startsWith(p));
-    if (!isAllowed) return <Navigate to="/directory" replace />;
+    if (!isAllowed) return <Navigate to="/dashboard" replace />;
+    
+    // Clients bypass explicit permission checks since their access is determined strictly by the hard gate
+    return <>{children}</>;
+  }
+
+  // Permission Check using the new normalized mapping
+  if (!hasRoutePermission(location.pathname)) {
+    return <Navigate to="/unauthorized" replace />;
   }
 
   // Secondary explicit permission check if provided
   if (permission && !user.permissions.includes(permission)) {
-    if (user.role === 'Client') return <Navigate to="/client-dashboard" replace />;
     return <Navigate to="/unauthorized" replace />;
-  }
-
-  // Optional Role check
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-     // Only block if they DON'T have the permission either
-      if (!permission || !user.permissions.includes(permission)) {
-        if (user.role === 'Client') return <Navigate to="/directory" replace />;
-        return <Navigate to="/unauthorized" replace />;
-      }
   }
 
   return <>{children}</>;
@@ -177,7 +190,10 @@ const CompanySelector = ({ authRole, selectedCompanyId, setSelectedCompanyId, co
 // --- Main App Component ---
 
 const App: React.FC = () => {
-  const [authRole, setAuthRole] = useState<AuthRole>('none');
+  const [authRole, setAuthRole] = useState<AuthRole>(() => {
+    const user = getAuthUser();
+    return user ? (user.role as AuthRole) : 'none';
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -193,8 +209,10 @@ const App: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
 
-  const [activeClient, setActiveClient] = useState<Client | null>(null);
-  const [loggedInUserName, setLoggedInUserName] = useState<string>('');
+  const [loggedInUserName, setLoggedInUserName] = useState<string>(() => {
+    const user = getAuthUser();
+    return user ? (user.name || user.email.split('@')[0]) : '';
+  });
 
   const navigate = useNavigate();
 
@@ -310,20 +328,22 @@ const App: React.FC = () => {
 
 
   useEffect(() => {
-    const userStr = localStorage.getItem('auth_user');
-    if (userStr) {
+    const user = getAuthUser();
+    if (user) {
       try {
-        const user = JSON.parse(userStr);
         setLoggedInUserName(user.name || user.email.split('@')[0]);
         setAuthRole(user.role);
+        console.log(`[App Init] Diagnostic - Found authUser:`, user, `| authRole:`, user.role);
       } catch (e) {
-        localStorage.removeItem('auth_user');
+        removeAuthUser();
       }
+    } else {
+      console.log(`[App Init] Diagnostic - No active user found for this context.`);
     }
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('auth_user');
+    removeAuthUser();
     setAuthRole('none');
     navigate('/login');
   };
@@ -335,8 +355,7 @@ const App: React.FC = () => {
     setLoggedInUserName(user.name || user.email.split('@')[0]);
     
     if (user.role === 'Client') {
-      const matchedClient = clients.find(c => c.id === user.id || c.people?.some(p => p.id === user.id));
-      if (matchedClient) setActiveClient(matchedClient);
+      // Handled by global resolution logic below
     }
 
     // Manual Redirect calculation to avoid hook race conditions
@@ -377,13 +396,50 @@ const App: React.FC = () => {
     );
   }
 
-  const filteredClients = selectedCompanyId === 'All' ? clients : clients.filter(c => c.brandId === selectedCompanyId || c.projectType === companies.find(comp => comp.id === selectedCompanyId)?.projectType);
-  const filteredInvoices = selectedCompanyId === 'All' ? invoices : invoices.filter(i => i.brandId === selectedCompanyId);
-  const filteredTasks = selectedCompanyId === 'All' ? tasks : tasks.filter(t => t.brand === companies.find(comp => comp.id === selectedCompanyId)?.companyName);
-  const filteredBookings = selectedCompanyId === 'All' ? bookings : bookings.filter(b => b.brand === companies.find(comp => comp.id === selectedCompanyId)?.companyName);
+  // Step 1: Base Client Data Isolation
+  const authUser = getAuthUser() || {};
+  const isClient = authUser.role === 'Client';
+  
+  // Find the exact client record linked to this user login
+  const activeClient = (isClient ? clients.find(
+    c => c.email && authUser.email && c.email.trim().toLowerCase() === (authUser.email as string).trim().toLowerCase()
+  ) : null) ?? null;
+
+  if (isClient && !activeClient && !isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10">
+        <h1 className="text-4xl font-black text-white mb-4">RESTRICTED ACCESS</h1>
+        <p className="text-zinc-500 font-mono text-xs mb-8">No client profile linked to this account.</p>
+        <button onClick={handleLogout} className="px-6 py-2 bg-white text-black text-[10px] font-black uppercase rounded-full">Logout</button>
+      </div>
+    );
+  }
+
+  const linkedClientId = activeClient?.id;
+
+  if (isClient && !isLoading) {
+    console.log("AUTH USER:", authUser);
+    console.log("ACTIVE CLIENT:", activeClient);
+    console.log("CLIENT ID:", linkedClientId);
+    console.log("CLIENT FOUND:", !!activeClient);
+  }
+
+  const baseClients = isClient && linkedClientId ? clients.filter(c => c.id === linkedClientId) : clients;
+  const baseInvoices = isClient && linkedClientId ? invoices.filter(i => i.clientId === linkedClientId) : invoices;
+  const baseTasks = isClient && linkedClientId ? tasks.filter(t => t.client === linkedClientId) : tasks;
+  const baseBookings = isClient && linkedClientId ? bookings.filter(b => b.clientId === linkedClientId) : bookings;
+
+  // Step 2: Company/Division Filtering (Existing)
+  const filteredClients = selectedCompanyId === 'All' ? baseClients : baseClients.filter(c => c.brandId === selectedCompanyId || c.projectType === companies.find(comp => comp.id === selectedCompanyId)?.projectType);
+  const filteredInvoices = selectedCompanyId === 'All' ? baseInvoices : baseInvoices.filter(i => i.brandId === selectedCompanyId);
+  const filteredTasks = selectedCompanyId === 'All' ? baseTasks : baseTasks.filter(t => t.brand === companies.find(comp => comp.id === selectedCompanyId)?.companyName);
+  const filteredBookings = selectedCompanyId === 'All' ? baseBookings : baseBookings.filter(b => b.brand === companies.find(comp => comp.id === selectedCompanyId)?.companyName);
+
+  // App Level Diagnostic
+  console.log(`[App Render] Diagnostic - authUser:`, authUser, `| authRole:`, authRole, `| activeClient:`, activeClient);
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col overflow-hidden font-sans selection-primary">
+    <div className="min-h-screen bg-black text-white flex flex-col font-sans selection-primary">
       {authRole !== 'Client' && (
         <header className="px-6 py-4 flex flex-col gap-4 glass-panel-dark z-50 pt-safe font-sans sticky top-0 lg:hidden">
           <div className="flex items-center justify-between">
@@ -422,7 +478,7 @@ const App: React.FC = () => {
         </header>
       )}
 
-      <div className="flex flex-1 overflow-hidden relative font-sans">
+      <div className="flex flex-1 relative font-sans">
         {/* Main Sidebar (Responsive) - Dynamic based on Permissions */}
         <Sidebar
           isMobileOpen={isMobileOpen}
@@ -430,7 +486,7 @@ const App: React.FC = () => {
           onLogout={handleLogout}
         />
 
-        <main className="flex-1 lg:pl-72 overflow-y-auto no-scrollbar pb-safe relative">
+        <main className="flex-1 lg:pl-72 overflow-y-auto pb-safe relative">
           {/* Matte Glass Noise Texture Background */}
           <div className="fixed inset-0 pointer-events-none bg-noise z-0 opacity-50" />
 
@@ -462,8 +518,9 @@ const App: React.FC = () => {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/login" element={<Navigate to="/" replace />} />
               
-              {/* Management Routes - Admin and Staff Only */}
-              <Route path="/dashboard" element={<PermissionRoute allowedRoles={['Admin', 'Staff']} permission="dashboard"><Dashboard invoices={filteredInvoices} clients={filteredClients} bookings={filteredBookings} tasks={filteredTasks} selectedBrand={selectedCompanyId} userRole={authRole} divisions={divisions} addDivision={async (d) => { await api.saveDivision(d); fetchData(true); }} deleteDivision={async (id) => { 
+              {/* Management Routes - Admin, Staff, and Client substitution */}
+              <Route path="/dashboard" element={<PermissionRoute allowedRoles={['Admin', 'Staff', 'Client']} permission="dashboard">
+                {authRole === 'Client' ? <ClientDashboard client={activeClient} invoices={invoices} bookings={bookings} /> : <Dashboard invoices={filteredInvoices} clients={filteredClients} bookings={filteredBookings} tasks={filteredTasks} selectedBrand={selectedCompanyId} userRole={authRole} divisions={divisions} addDivision={async (d) => { await api.saveDivision(d); fetchData(true); }} deleteDivision={async (id) => { 
                 setDivisions(prev => prev.filter(div => div.id !== id));
                 await api.deleteDivision(id); 
                 fetchData(true); 
@@ -471,7 +528,8 @@ const App: React.FC = () => {
                 setClients(prev => [c, ...prev]);
                 await api.saveClient(c); 
                 fetchData(true); 
-              }} /></PermissionRoute>} />
+              }} />}
+              </PermissionRoute>} />
               <Route path="/project/:id" element={<PermissionRoute allowedRoles={['Admin', 'Staff']}><ProjectDetailsPage /></PermissionRoute>} />
               <Route path="/staff-dashboard" element={<PermissionRoute allowedRoles={['Admin', 'Staff']} permission="dashboard"><Dashboard invoices={filteredInvoices} clients={filteredClients} bookings={filteredBookings} tasks={filteredTasks} selectedBrand={selectedCompanyId} userRole={authRole} divisions={divisions} addDivision={async (d) => { await api.saveDivision(d); fetchData(true); }} deleteDivision={async (id) => { 
                 setDivisions(prev => prev.filter(div => div.id !== id));
@@ -482,8 +540,12 @@ const App: React.FC = () => {
                 await api.saveClient(c); 
                 fetchData(true); 
               }} /></PermissionRoute>} />
-              <Route path="/tasks" element={<PermissionRoute allowedRoles={['Admin', 'Staff']} permission="tasks"><ProductionHub clients={filteredClients} tasks={filteredTasks} selectedBrand={selectedCompanyId} companies={companies} /></PermissionRoute>} />
-              <Route path="/workflow" element={<PermissionRoute allowedRoles={['Admin', 'Staff']} permission="workflow"><PhotographyWorkflow /></PermissionRoute>} />
+              <Route path="/tasks" element={<PermissionRoute allowedRoles={['Admin', 'Staff']} permission="tasks">
+                <ProductionHub clients={filteredClients} tasks={filteredTasks} selectedBrand={selectedCompanyId} companies={companies} />
+              </PermissionRoute>} />
+              <Route path="/workflow" element={<PermissionRoute allowedRoles={['Admin', 'Staff', 'Client']} permission="workflow">
+                {authRole === 'Client' ? <ClientTimeline client={activeClient} /> : <PhotographyWorkflow />}
+              </PermissionRoute>} />
               <Route path="/analytics" element={<PermissionRoute allowedRoles={['Admin', 'Staff']} permission="analytics"><AnalyticsDashboard /></PermissionRoute>} />
               <Route path="/ledger" element={<PermissionRoute allowedRoles={['Admin', 'Staff', 'Client']} permission="finance"><FinanceManager invoices={filteredInvoices} expenses={expenses} clients={filteredClients} companies={companies} selectedBrand={selectedCompanyId} userRole={authRole} /></PermissionRoute>} />
               <Route path="/revenue" element={<PermissionRoute allowedRoles={['Admin', 'Staff', 'Client']} permission="finance"><FinanceManager invoices={filteredInvoices} expenses={expenses} clients={filteredClients} companies={companies} selectedBrand={selectedCompanyId} userRole={authRole} /></PermissionRoute>} />
@@ -492,7 +554,8 @@ const App: React.FC = () => {
               <Route path="/division/:divisionId" element={<PermissionRoute allowedRoles={['Admin', 'Staff']} permission="system"><DivisionDashboard /></PermissionRoute>} />
               <Route path="/client" element={<Navigate to="/directory" replace />} />
               <Route path="/client/:id" element={<PermissionRoute allowedRoles={['Admin', 'Staff']} permission="clients"><ClientDetailsPage /></PermissionRoute>} />
-              <Route path="/directory" element={<PermissionRoute permission="clients"><ClientManager clients={filteredClients} divisions={divisions} addClient={async (c) => { 
+              <Route path="/directory" element={<PermissionRoute allowedRoles={['Admin', 'Staff', 'Client']} permission="clients">
+                {authRole === 'Client' ? <ClientDirectory client={activeClient} /> : <ClientManager clients={filteredClients} divisions={divisions} addClient={async (c) => { 
                 setClients(prev => [c, ...prev]);
                 await api.saveClient(c); 
                 fetchData(true); 
@@ -500,24 +563,38 @@ const App: React.FC = () => {
                 setClients(prev => prev.filter(cl => cl.id !== id));
                 await api.deleteClient(id); 
                 fetchData(true);
-              }} selectedDivisionId={selectedCompanyId} onOpenPortal={(client) => navigate(authRole === 'Client' ? `/portal/${client.id}` : `/client/${client.id}`)} userRole={authRole} userId={safeParse<Record<string, any>>('auth_user', {}).id} /></PermissionRoute>} />
+              }} selectedDivisionId={selectedCompanyId} onOpenPortal={(client) => navigate(`/client/${client.id}`)} userRole={authRole} userId={getAuthUser()?.id} />}
+              </PermissionRoute>} />
               <Route path="/ecosystem" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><SettingsView onOpenTeam={() => navigate('/team')} isAdmin={authRole === 'Admin'} /></PermissionRoute>} />
               <Route path="/ecosystem/brand/:brandId" element={<PermissionRoute allowedRoles={['Admin', 'Staff']} permission="system"><BrandDetailPage /></PermissionRoute>} />
               <Route path="/system" element={<Navigate to="/ecosystem" replace />} />
               <Route path="/team" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><TeamPage /></PermissionRoute>} />
               <Route path="/logs" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><AuditLogsView /></PermissionRoute>} />
-              <Route path="/calendar" element={<PermissionRoute allowedRoles={['Admin', 'Staff']} permission="tasks"><TaskManager tasks={filteredTasks} onSaveTask={async (t) => { await api.saveTask(t); fetchData(true); }} onDeleteTask={async (id) => { 
+              <Route path="/calendar" element={<PermissionRoute allowedRoles={['Admin', 'Staff', 'Client']} permission="tasks"><TaskManager tasks={filteredTasks} onSaveTask={async (t) => { await api.saveTask(t); fetchData(true); }} onDeleteTask={async (id) => { 
                 setTasks(prev => prev.filter(task => task.id !== id));
                 await api.deleteTask(id); 
                 fetchData(true); 
               }} companies={companies} selectedBrand={selectedCompanyId} /></PermissionRoute>} />
               <Route path="/settings" element={<PermissionRoute allowedRoles={['Admin', 'Staff']}><CompanySettingsPage /></PermissionRoute>} />
               <Route path="/alerts" element={<PermissionRoute allowedRoles={['Admin', 'Staff']}><AlertsPage /></PermissionRoute>} />
-              <Route path="/coordination" element={<PermissionRoute allowedRoles={['Admin', 'Staff']}><CoordinationPage /></PermissionRoute>} />
+              <Route path="/coordination" element={<PermissionRoute allowedRoles={['Admin', 'Staff']}>
+                <CoordinationPage />
+              </PermissionRoute>} />
+              <Route path="/security" element={<PermissionRoute allowedRoles={['Admin', 'Staff']}><SecurityHubPage /></PermissionRoute>} />
 
-              {/* Client Restricted Routes */}
-              <Route path="/client-dashboard" element={<RoleProtectedRoute allowedRoles={['Client']}>{activeClient ? <Navigate to={`/portal/${activeClient.id}`} replace /> : <div className="min-h-screen bg-black flex items-center justify-center"><p className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest animate-pulse">Establishing Identity...</p></div>}</RoleProtectedRoute>} />
-              <Route path="/portal/:clientId" element={<RoleProtectedRoute allowedRoles={['Client']}><ClientPortal client={activeClient || {} as Client} onUpdateClient={() => {}} onBack={() => navigate('/login')} userRole={authRole} /></RoleProtectedRoute>} />
+              {/* Deliverables Top-level route for client */}
+              <Route path="/deliverables" element={<PermissionRoute allowedRoles={['Admin', 'Staff', 'Client']}><ClientDeliverables client={activeClient} /></PermissionRoute>} />
+
+              {/* Client Restricted Top-level Routes */}
+              <Route path="/events" element={<PermissionRoute allowedRoles={['Client']}><ClientEvents client={activeClient} /></PermissionRoute>} />
+              <Route path="/timeline" element={<PermissionRoute allowedRoles={['Client']}><ClientActivityPage client={activeClient} invoices={invoices} bookings={bookings} /></PermissionRoute>} />
+              <Route path="/invoices" element={<PermissionRoute allowedRoles={['Client']}><ClientInvoices client={activeClient} invoices={invoices} /></PermissionRoute>} />
+              <Route path="/agreements" element={<PermissionRoute allowedRoles={['Client']}><ClientAgreements client={activeClient} /></PermissionRoute>} />
+              <Route path="/messages" element={<PermissionRoute allowedRoles={['Client']}><ClientMessages client={activeClient} /></PermissionRoute>} />
+              <Route path="/support" element={<PermissionRoute allowedRoles={['Client']}><ClientSupport client={activeClient} /></PermissionRoute>} />
+
+              {/* Legacy portal route for backward compatibility / staff view */}
+              <Route path="/portal/:clientId" element={<RoleProtectedRoute allowedRoles={['Client', 'Admin', 'Staff']}><ClientPortal client={activeClient || {} as Client} onUpdateClient={() => {}} onBack={() => navigate('/login')} userRole={authRole} /></RoleProtectedRoute>} />
               <Route path="/agreement/:quoteId" element={<RoleProtectedRoute allowedRoles={['Client']}><AgreementPage /></RoleProtectedRoute>} />
 
               <Route path="/unauthorized" element={<div className="min-h-screen bg-black flex flex-col items-center justify-center p-10"><h1 className="text-4xl font-black text-white mb-4">RESTRICTED ACCESS</h1><p className="text-zinc-500 font-mono text-xs mb-8">Permission Profile Conflict Detected</p><button onClick={() => navigate('/')} className="px-6 py-2 bg-white text-black text-[10px] font-black uppercase rounded-full">Return Base</button></div>} />

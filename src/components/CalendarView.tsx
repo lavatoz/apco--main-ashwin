@@ -1,25 +1,61 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Calendar as CalendarIcon, MapPin, Clock, Tag } from 'lucide-react';
 // Fix: removed non-existent Brand import
-import { type Booking, type Client, BookingStatus } from '../types';
+import { type Booking, type Client } from '../types';
 
 interface CalendarViewProps {
-  bookings: Booking[];
+  bookings?: Booking[];
   clients: Client[];
   // Fix: replaced non-existent Brand with string
   selectedBrand: string | 'All';
 }
 
-const CalendarView: React.FC<CalendarViewProps> = ({ bookings, clients, selectedBrand }) => {
-  const filteredBookings = selectedBrand === 'All' ? bookings : bookings.filter(b => b.brand === selectedBrand);
+const CalendarView: React.FC<CalendarViewProps> = ({ bookings = [], clients, selectedBrand }) => {
+  const allEvents = useMemo(() => {
+    const evs: any[] = [];
+    clients.forEach(c => {
+       if (c.events && c.events.length > 0) {
+          c.events.forEach(ev => {
+             evs.push({
+                id: ev.id,
+                date: ev.date,
+                status: ev.status,
+                title: ev.name,
+                clientId: c.id,
+                clientName: c.name,
+                brand: c.brand || 'Artisans',
+                type: 'Event'
+             });
+          });
+       } else if (c.eventDate || c.weddingDate) {
+          evs.push({
+             id: c.id + '_legacy',
+             date: c.eventDate || c.weddingDate || '',
+             status: 'Scheduled',
+             title: c.projectName || 'Legacy Event',
+             clientId: c.id,
+             clientName: c.name,
+             brand: c.brand || 'Artisans',
+             type: 'Event'
+          });
+       }
+    });
+    return evs;
+  }, [clients]);
+
+  const combinedItems = [...bookings, ...allEvents];
+  const filteredBookings = selectedBrand === 'All' ? combinedItems : combinedItems.filter(b => b.brand === selectedBrand);
   const sortedBookings = [...filteredBookings].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const getStatusColor = (status: BookingStatus) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case BookingStatus.Confirmed: return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50';
-      case BookingStatus.Pending: return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50';
-      case BookingStatus.Completed: return 'bg-blue-500/20 text-blue-400 border-blue-500/50';
-      case BookingStatus.Cancelled: return 'bg-red-500/20 text-red-400 border-red-500/50';
+      case 'Confirmed': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50';
+      case 'Pending': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50';
+      case 'Completed': return 'bg-blue-500/20 text-blue-400 border-blue-500/50';
+      case 'Cancelled': return 'bg-red-500/20 text-red-400 border-red-500/50';
+      case 'Scheduled': return 'bg-purple-500/20 text-purple-400 border-purple-500/50';
+      case 'In Preparation': return 'bg-amber-500/20 text-amber-400 border-amber-500/50';
+      case 'In Progress': return 'bg-blue-500/20 text-blue-400 border-blue-500/50';
       default: return 'bg-zinc-500/20 text-zinc-400 border-zinc-500/50';
     }
   };
@@ -50,8 +86,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ bookings, clients, selected
             <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">No Events Found</p>
           </div>
         )}
-        {sortedBookings.map(booking => {
-          const client = clients.find(c => c.id === booking.clientId);
+        {sortedBookings.map((booking: any) => {
+          const clientName = booking.clientName || (clients.find(c => c.id === booking.clientId)?.projectName || 'TBD Client');
           const dateObj = new Date(booking.date);
 
           return (
@@ -69,7 +105,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ bookings, clients, selected
               </div>
 
               <h3 className="text-lg font-black text-white group-hover:text-yellow-500 transition-colors uppercase tracking-tight mb-1">{booking.title}</h3>
-              <p className="text-xs text-zinc-500 font-bold uppercase mb-4">{client?.projectName || 'TBD Client'}</p>
+              <p className="text-xs text-zinc-500 font-bold uppercase mb-4">{clientName}</p>
 
               <div className="space-y-3 pt-4 border-t border-zinc-800/50">
                 <div className="flex items-center gap-3 text-[10px] font-bold uppercase text-zinc-400 tracking-wider">

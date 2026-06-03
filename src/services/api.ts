@@ -329,8 +329,9 @@ export const api = {
     }
 
     // Calculations (Requirement 6: include draft, unpaid, paid)
-    const revenueInvoices = filteredInvoices.filter(i => !i.isQuotation);
-    const quotes = filteredInvoices.filter(i => i.isQuotation);
+    const isQuote = (i: Invoice) => i.isQuotation || i.type === 'quotation' || ['Quotation', 'Draft', 'Approved'].includes(i.status);
+    const revenueInvoices = filteredInvoices.filter(i => !isQuote(i));
+    const quotes = filteredInvoices.filter(i => isQuote(i));
 
     const totalRevenue = revenueInvoices.reduce((sum, inv) => {
         const total = inv.total || inv.totalAmount || (inv.items?.reduce((s, it) => s + (it.price * it.quantity), 0) || 0);

@@ -13,6 +13,7 @@ import {
   AlertCircle,
   AlertTriangle,
 } from "lucide-react";
+import { getAuthUser } from "../utils/storage";
 import { type User, type UserPermission } from "../types";
 
 interface UserAccessManagerProps {}
@@ -71,8 +72,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
     };
   }, [isDeleteModalOpen]);
 
-  const currentUserStr = localStorage.getItem("auth_user");
-  const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null;
+  const currentUser = getAuthUser();
   const isAdmin = currentUser?.role === "Admin";
 
   const staffUsers = users.filter(u => u.role === "Staff" || u.role === "Admin");
@@ -95,7 +95,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
     permissions: ["dashboard", "files"],
   });
 
-  const availablePermissions: UserPermission[] = [
+  const staffPermissions: UserPermission[] = [
     "dashboard",
     "clients",
     "tasks",
@@ -104,6 +104,17 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
     "analytics",
     "system",
     "workflow",
+  ];
+
+  const clientPermissions: UserPermission[] = [
+    "events",
+    "timeline",
+    "gallery",
+    "deliverables",
+    "invoices",
+    "agreements",
+    "messages",
+    "support"
   ];
 
   useEffect(() => {
@@ -420,8 +431,24 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
      u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const clientActiveItems = filteredClients.filter(u => u.password);
-  const clientPendingItems = filteredClients.filter(u => !u.password);
+  const getClientStatus = (user: User) => {
+    if (user.password) return 'ACTIVE';
+    if (user.inviteToken) return 'PENDING';
+    return 'REVOKED';
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'ACTIVE': return 'bg-emerald-500/10 text-emerald-500';
+      case 'PENDING': return 'bg-amber-500/10 text-amber-500';
+      case 'REVOKED': return 'bg-red-500/10 text-red-500';
+      default: return 'bg-zinc-500/10 text-zinc-500';
+    }
+  };
+
+  const clientActiveItems = filteredClients.filter(u => getClientStatus(u) === 'ACTIVE');
+  const clientPendingItems = filteredClients.filter(u => getClientStatus(u) === 'PENDING');
+  const clientRevokedItems = filteredClients.filter(u => getClientStatus(u) === 'REVOKED');
 
   return (
     <>
@@ -559,7 +586,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                         )}
 
                         <div className="flex flex-wrap gap-1.5 mb-2">
-                          {availablePermissions?.map((p) => (
+                          {(user.role === 'Client' ? clientPermissions : staffPermissions)?.map((p) => (
                             <button
                               key={p}
                               onClick={() => updateUserPermissions(user.id, p)}
@@ -680,6 +707,40 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               </div>
             )}
 
+            {/* REVOKED CLIENTS */}
+            {clientRevokedItems.length > 0 && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 px-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                  <h4 className="text-xs font-bold uppercase text-zinc-500 tracking-widest">Revoked ({clientRevokedItems.length})</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {clientRevokedItems.map(user => (
+                    <div key={user.id} onClick={() => { setSelectedClientUser(user); setIsClientPanelOpen(true); }} className={`glass-panel p-6 border border-white/5 rounded-3xl cursor-pointer hover:bg-white/5 transition-all group relative ${fadingId === user.id ? 'animate-fade-out' : ''}`}>
+                      <div className="absolute top-0 right-0 w-1.5 h-full bg-red-500 opacity-40" />
+                      
+                      {isAdmin && user.email !== currentUser?.email && user.id !== 'admin_root' && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setUserToDelete(user); setIsDeleteModalOpen(true); }}
+                            className="absolute top-4 right-4 p-2 bg-black/40 text-zinc-500 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-500/20 hover:text-red-500 transition-all z-10"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                      )}
+
+                      <h4 className="text-sm font-bold text-white truncate max-w-[85%]">{user.name || 'Client User'}</h4>
+                      <p className="text-xs font-medium text-zinc-400 truncate mb-4">{user.email}</p>
+                      <div className="flex items-center gap-2">
+                         <span className="px-2 py-1 rounded text-xs font-bold uppercase tracking-widest bg-red-500/10 text-red-500">
+                           Revoked
+                         </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {filteredClients.length === 0 && !searchQuery && (
                 <div className="p-8 border border-dashed border-white/5 rounded-[2rem] text-center col-span-full">
                     <p className="text-xs font-bold uppercase text-zinc-800 tracking-widest">No clients provisioned</p>
@@ -723,7 +784,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                 <div className="space-y-4">
                   <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Base Permission Profile</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {availablePermissions.map((p) => (
+                    {clientPermissions.map((p) => (
                       <button
                         key={p}
                         type="button"
@@ -763,8 +824,8 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                    
                    <div className="mt-4 pt-4 border-t border-white/5">
                       <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Registration Status</p>
-                      <span className={`px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest inline-block ${selectedClientUser.password ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                        {selectedClientUser.password ? 'Active (Authenticated)' : 'Pending (Invited)'}
+                      <span className={`px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest inline-block ${getStatusColor(getClientStatus(selectedClientUser))}`}>
+                        {getClientStatus(selectedClientUser)}
                       </span>
                    </div>
                </div>
@@ -797,7 +858,14 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                   </button>
                )}
                <button 
-                  onClick={() => { setUserToDelete(selectedClientUser); setIsDeleteModalOpen(true); }}
+                  onClick={() => {
+                     const updatedUser = { ...selectedClientUser, inviteToken: undefined, inviteLink: undefined, password: undefined, isActive: false };
+                     const updatedUsers = users.map(u => u.id === selectedClientUser.id ? updatedUser : u);
+                     setUsers(updatedUsers);
+                     localStorage.setItem('users', JSON.stringify(updatedUsers));
+                     setSelectedClientUser(updatedUser);
+                     showSuccess("Access Revoked");
+                  }}
                   className="w-full py-3 text-red-500 hover:bg-red-500/10 border border-red-500/20 rounded-xl font-bold uppercase text-xs tracking-widest transition-all gap-2 flex items-center justify-center active:scale-95"
                >
                   <Trash2 className="w-3.5 h-3.5" /> Revoke Access
@@ -928,7 +996,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
               <div className="space-y-4">
                 <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Infrastructure Permissions</label>
                 <div className="grid grid-cols-4 gap-2">
-                  {availablePermissions.map((p) => (
+                  {staffPermissions.map((p) => (
                     <button
                       key={p}
                       type="button"

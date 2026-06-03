@@ -1,21 +1,19 @@
 import { useMemo } from 'react';
+import { getAuthUser } from '../utils/storage';
 import type { UserPermission, UserRole } from '../types';
 
 interface UserSession {
+  id: string;
+  email: string;
+  name?: string;
   role: UserRole;
   permissions: UserPermission[];
 }
 
 export const usePermissions = () => {
   const user = useMemo(() => {
-    const userStr = localStorage.getItem('auth_user');
-    if (!userStr) return null;
-    try {
-      return JSON.parse(userStr) as UserSession;
-    } catch {
-      return null;
-    }
-  }, [localStorage.getItem('auth_user')]);
+    return getAuthUser() as UserSession | null;
+  }, []);
 
   const hasPermission = (permission: UserPermission) => {
     if (!user) return false;

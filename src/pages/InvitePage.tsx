@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Command, Layout, CheckCircle } from 'lucide-react';
-import type { Invite, User } from '../types';
+import { removeAuthUser } from '../utils/storage';
+import type { User } from '../types';
 
 interface InvitePageProps {
   onLogin: (user: any) => void;
 }
 
-const InvitePage: React.FC<InvitePageProps> = ({ onLogin }) => {
+const InvitePage: React.FC<InvitePageProps> = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const [invite, setInvite] = useState<Invite | null>(null);
+  const [inviteUser, setInviteUser] = useState<User | null>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -19,14 +20,15 @@ const InvitePage: React.FC<InvitePageProps> = ({ onLogin }) => {
 
   useEffect(() => {
     // Clear existing session for security
-    localStorage.removeItem('auth_user');
+    removeAuthUser();
     
-    const invites: Invite[] = JSON.parse(localStorage.getItem('invites') || '[]');
-    const found = invites.find(i => i.token === token);
-    if (!found) {
+    const users: User[] = JSON.parse(localStorage.getItem('users') || '[]');
+    const foundUser = users.find(u => u.inviteToken === token);
+    
+    if (!foundUser) {
       setError('Invalid or expired invitation link.');
     } else {
-      setInvite(found);
+      setInviteUser(foundUser);
     }
   }, [token]);
 
@@ -46,44 +48,27 @@ const InvitePage: React.FC<InvitePageProps> = ({ onLogin }) => {
 
     try {
       const users: User[] = JSON.parse(localStorage.getItem('users') || '[]');
-      const invites: Invite[] = JSON.parse(localStorage.getItem('invites') || '[]');
       
-      const newUser: User = {
-        id: invite!.email.split('@')[0] + '_' + Date.now().toString().slice(-4),
-        email: invite!.email,
-        password,
-        role: invite!.role,
-        permissions: invite!.permissions,
-        isActive: true,
-        name: invite!.email.split('@')[0],
-        createdAt: new Date().toISOString()
-      };
+      const updatedUsers = users.map(u => {
+        if (u.id === inviteUser!.id) {
+          const { inviteToken: _inviteToken, inviteLink: _inviteLink, ...rest } = u; // Remove tokens
+          return {
+            ...rest,
+            password,
+            isActive: true,
+          };
+        }
+        return u;
+      });
 
-      users.push(newUser);
-      const remainingInvites = invites.filter(i => i.token !== token);
-
-      localStorage.setItem('users', JSON.stringify(users));
-      localStorage.setItem('invites', JSON.stringify(remainingInvites));
+      localStorage.setItem('users', JSON.stringify(updatedUsers));
       
-      // Auto-Login
-      const sessionUser = {
-        id: newUser.id,
-        email: newUser.email,
-        role: newUser.role,
-        permissions: newUser.permissions || []
-      };
-      localStorage.setItem('auth_user', JSON.stringify(sessionUser));
-      onLogin(sessionUser);
-
       setIsSuccess(true);
       
-      // Role-based redirection
       setTimeout(() => {
-        if (newUser.role === 'Admin') navigate('/dashboard');
-        else if (newUser.role === 'Staff') navigate('/staff-dashboard');
-        else navigate('/client-dashboard');
+        navigate('/login');
       }, 2000);
-    } catch (err) {
+    } catch {
       setError('Onboarding failed. Please contact admin.');
     } finally {
       setIsLoading(false);
@@ -119,14 +104,15 @@ const InvitePage: React.FC<InvitePageProps> = ({ onLogin }) => {
           </p>
         </div>
 
-        {invite ? (
+        {inviteUser ? (
           <div className="glass-panel-dark border border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
             <div className="mb-8 p-4 bg-white/5 rounded-2xl border border-white/5 space-y-2">
               <p className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Invited Identity</p>
-              <p className="text-sm font-bold text-white uppercase">{invite.email}</p>
+              <h2 className="text-lg font-bold text-white uppercase">Welcome, {inviteUser.name || 'Client'}</h2>
+              <p className="text-sm font-bold text-zinc-300">{inviteUser.email}</p>
               <div className="flex gap-2 pt-2">
                 <span className="px-3 py-1 bg-white/10 rounded-full text-xs font-bold uppercase tracking-widest text-zinc-400">
-                  {invite.role}
+                  {inviteUser.role}
                 </span>
               </div>
             </div>

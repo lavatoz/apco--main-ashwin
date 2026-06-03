@@ -18,7 +18,19 @@ interface SettingsViewProps {
 
 const SettingsView: React.FC<SettingsViewProps> = ({ onOpenTeam, isAdmin }) => {
   const { settings } = useCompanySettings();
-  const [roles, setRoles] = useState<Role[]>([]);
+  const [roles, setRoles] = useState<Role[]>(() => {
+    const savedRoles = localStorage.getItem('artisans_roles');
+    if (savedRoles) {
+      return JSON.parse(savedRoles);
+    }
+    const defaultRoles = [
+      { id: 'photographer', name: 'Photographer', icon: '📷' },
+      { id: 'videographer', name: 'Videographer', icon: '🎬' },
+      { id: 'editor', name: 'Editor', icon: '✂️' },
+      { id: 'assistant', name: 'Assistant', icon: '👥' },
+    ];
+    return defaultRoles;
+  });
   const [isAddingRole, setIsAddingRole] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [roleForm, setRoleForm] = useState({ name: '', icon: '👥' });
@@ -28,20 +40,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onOpenTeam, isAdmin }) => {
   const availableIcons = ['📷', '🎬', '✂️', '👥', '🚁', '💄', '🌸', '🎵', '🎨', '👔'];
 
   useEffect(() => {
-    const savedRoles = localStorage.getItem('artisans_roles');
-    if (savedRoles) {
-      setRoles(JSON.parse(savedRoles));
-    } else {
-      const defaultRoles = [
-        { id: 'photographer', name: 'Photographer', icon: '📷' },
-        { id: 'videographer', name: 'Videographer', icon: '🎬' },
-        { id: 'editor', name: 'Editor', icon: '✂️' },
-        { id: 'assistant', name: 'Assistant', icon: '👥' },
-      ];
-      setRoles(defaultRoles);
-      localStorage.setItem('artisans_roles', JSON.stringify(defaultRoles));
+    if (!localStorage.getItem('artisans_roles')) {
+      localStorage.setItem('artisans_roles', JSON.stringify(roles));
     }
-  }, []);
+  }, [roles]);
 
   const saveRoles = (updatedRoles: Role[]) => {
     setRoles(updatedRoles);

@@ -10,6 +10,7 @@ import { api } from '../services/api';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { safeParse } from '../utils/storage';
+import { agreementTemplates, getTemplate } from '../templates/registry';
 
 const AgreementPage: React.FC = () => {
   const { quoteId } = useParams<{ quoteId: string }>();
@@ -300,7 +301,7 @@ const AgreementPage: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_0.9fr] gap-12">
            
-           {/* Section A & B: Terms & Conditions */}
+           {/* Section A & B: Document Rendering (Dynamic Template) */}
            <div className="space-y-10">
               {/* Quote Summary Card */}
               <div className="glass-panel p-10 squircle-lg border border-white/5 bg-white/[0.02] flex flex-col md:flex-row md:items-center justify-between gap-8">
@@ -317,37 +318,26 @@ const AgreementPage: React.FC = () => {
                  </div>
               </div>
 
-              <div className="glass-panel p-10 squircle-lg border border-white/5 bg-white/[0.01] relative overflow-hidden flex flex-col h-[600px]">
-                 <div className="flex items-center gap-4 mb-8 shrink-0">
-                    <FileText className="w-6 h-6 text-blue-500" />
-                    <h3 className="text-xl font-black uppercase tracking-widest text-white">Terms of Engagement</h3>
-                 </div>
-                 
-                  <div 
-                    className="flex-1 overflow-y-auto pr-6 no-scrollbar space-y-10 text-gray-300 text-lg leading-8 font-medium select-none agreement-body"
-                    onContextMenu={(e) => e.preventDefault()}
-                  >
-                     {client?.activeAgreement?.body ? (
-                        <div className="whitespace-pre-wrap py-2">
-                           {client.activeAgreement.body}
-                        </div>
-                     ) : (
-                        <div className="py-20 text-center space-y-4 opacity-50">
-                           <AlertCircle className="w-12 h-12 mx-auto text-zinc-600" />
-                           <p className="text-sm font-black uppercase tracking-[0.2em] text-zinc-500">No active agreement has been assigned yet.</p>
-                           <p className="text-xs font-bold uppercase tracking-widest text-zinc-600">Please contact your account manager to initialize terms.</p>
-                        </div>
-                     )}
-                  </div>
+              {/* Dynamic Template Injection */}
+              <div className="relative">
+                {(() => {
+                   const templateId = settings.defaultAgreementTemplate || 'default_v1';
+                   const TemplateComponent = getTemplate(agreementTemplates, templateId, 'default_v1').component;
+                   
+                   return (
+                     <TemplateComponent 
+                        company={settings} 
+                        client={client || undefined} 
+                        document={quote} 
+                        agreement={client?.activeAgreement} 
+                     />
+                   );
+                })()}
+              </div>
 
-                  <div className="mt-4 text-center">
-                    <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest flex items-center justify-center gap-2">
-                       <Lock size={10} className="opacity-50" /> 🔒 This agreement is view-only and securely stored on Artisans. For a copy, please contact your account manager.
-                    </p>
-                  </div>
-
-                 {/* Checkbox / Status */}
-                 <div className="mt-10 pt-10 border-t border-white/10 shrink-0">
+              {/* Checkbox / Status (Business Logic separated from Presentation) */}
+              <div className="glass-panel p-10 squircle-lg border border-white/5 bg-white/[0.01]">
+                 <div className="shrink-0">
                      {isAgreed ? (
                         <div className="flex flex-col gap-4 animate-ios-slide-up">
                            <div className="flex items-center gap-6 p-6 bg-emerald-500/5 border border-emerald-500/10 rounded-3xl">

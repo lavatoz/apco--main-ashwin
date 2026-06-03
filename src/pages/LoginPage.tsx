@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Command, Layout } from 'lucide-react';
+import { setAuthUser } from '../utils/storage';
 
 interface LoginPageProps {
   onLogin: (user: any) => void;
@@ -39,12 +40,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           role: foundUser.role,
           permissions: foundUser.permissions || []
         };
-        localStorage.setItem('auth_user', JSON.stringify(sessionUser));
+        setAuthUser(sessionUser);
         onLogin(sessionUser);
       } else {
         setError('Invalid credentials or unauthorized role access.');
       }
-    } catch (err) {
+    } catch {
       setError('System verification failure. Please try again.');
     } finally {
       setIsLoading(false);
@@ -184,7 +185,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                     <button 
                       onClick={() => {
                         const sessionUser = { id: u.id, email: u.email, name: u.name, role: u.role, permissions: u.permissions || [] };
-                        localStorage.setItem('auth_user', JSON.stringify(sessionUser));
+                        setAuthUser(sessionUser);
                         onLogin(sessionUser);
                       }}
                       className="flex items-center gap-3 flex-1 text-left"
@@ -222,7 +223,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             onClick={() => {
               if (confirm('EMERGENCY PROTOCOL: This will clear local user data and reset the admin password to "admin". Continue?')) {
                 localStorage.removeItem('users');
-                localStorage.removeItem('invites');
                 window.location.reload();
               }
             }}

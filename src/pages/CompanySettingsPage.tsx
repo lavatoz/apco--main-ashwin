@@ -1,19 +1,22 @@
-
 import React, { useState } from 'react';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import { type CompanyProfile } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { quoteTemplates, invoiceTemplates, agreementTemplates, proposalTemplates } from '../templates/registry';
 import { 
   Building, Palette, CreditCard, FileText, Upload, Trash2, 
   CheckCircle2, Plus, X, 
   Star, Settings as Gear, Shield, Copy, Check, Info,
   Eye, EyeOff, Edit3, Save, AlertTriangle, QrCode, Hash, FileImage
 } from 'lucide-react';
+import { saveCustomTemplate } from '../templates/registry';
+import { TemplateEditor } from '../components/TemplateEditor';
 
 const CompanySettingsPage: React.FC = () => {
   const { companies, saveCompanies, globalSettings, saveGlobalSettings } = useCompanySettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyProfile | null>(null);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showPdfPassword, setShowPdfPassword] = useState(false);
@@ -56,7 +59,7 @@ const CompanySettingsPage: React.FC = () => {
     } else {
       setEditingCompany(null);
       setFormData({
-        id: `comp_${Date.now()}`,
+        id: `comp_${new Date().getTime()}`,
         companyName: '',
         tagline: '',
         projectType: '',
@@ -798,10 +801,85 @@ const CompanySettingsPage: React.FC = () => {
 
                  {/* Document Protocols Section */}
                  <div className="space-y-8">
-                    <div className="flex items-center gap-4 border-l-2 border-amber-500 pl-4 py-1">
-                       <FileText className="w-5 h-5 text-amber-500" />
-                       <h3 className="text-sm font-black uppercase tracking-widest text-white">Document Protocols</h3>
+                    <div className="flex items-center justify-between border-l-2 border-amber-500 pl-4 py-1">
+                       <div className="flex items-center gap-4">
+                          <FileText className="w-5 h-5 text-amber-500" />
+                          <h3 className="text-sm font-black uppercase tracking-widest text-white">Document Protocols & Templates</h3>
+                       </div>
+                       <button
+                         type="button"
+                         onClick={() => setShowTemplateEditor(true)}
+                         className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 rounded text-[10px] font-bold uppercase tracking-widest transition-colors"
+                       >
+                         <Plus className="w-3 h-3" /> Custom PDF Template
+                       </button>
                     </div>
+                    
+                    {showTemplateEditor && (
+                       <TemplateEditor 
+                          onSave={(metadata) => {
+                             saveCustomTemplate(metadata);
+                             setShowTemplateEditor(false);
+                          }}
+                          onCancel={() => setShowTemplateEditor(false)}
+                       />
+                    )}
+                    
+                    {/* Template Selection */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 pb-8 border-b border-white/5">
+                       <div className="space-y-3">
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Quote Template</label>
+                          <select 
+                            className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none cursor-pointer appearance-none"
+                            value={formData.defaultQuoteTemplate || 'default_v1'}
+                            onChange={e => setFormData(p => ({...p, defaultQuoteTemplate: e.target.value}))}
+                          >
+                             {Object.keys(quoteTemplates).length === 0 ? <option value="default_v1">Default Layout</option> : null}
+                             {Object.values(quoteTemplates).map(t => (
+                                <option key={t.metadata.id} value={t.metadata.id}>{t.metadata.name} (v{t.metadata.version})</option>
+                             ))}
+                          </select>
+                       </div>
+                       <div className="space-y-3">
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Invoice Template</label>
+                          <select 
+                            className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none cursor-pointer appearance-none"
+                            value={formData.defaultInvoiceTemplate || 'default_v1'}
+                            onChange={e => setFormData(p => ({...p, defaultInvoiceTemplate: e.target.value}))}
+                          >
+                             {Object.keys(invoiceTemplates).length === 0 ? <option value="default_v1">Default Layout</option> : null}
+                             {Object.values(invoiceTemplates).map(t => (
+                                <option key={t.metadata.id} value={t.metadata.id}>{t.metadata.name} (v{t.metadata.version})</option>
+                             ))}
+                          </select>
+                       </div>
+                       <div className="space-y-3">
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Agreement Terms</label>
+                          <select 
+                            className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none cursor-pointer appearance-none"
+                            value={formData.defaultAgreementTemplate || 'default_v1'}
+                            onChange={e => setFormData(p => ({...p, defaultAgreementTemplate: e.target.value}))}
+                          >
+                             {Object.values(agreementTemplates).map(t => (
+                                <option key={t.metadata.id} value={t.metadata.id}>{t.metadata.name} (v{t.metadata.version})</option>
+                             ))}
+                          </select>
+                       </div>
+                       <div className="space-y-3">
+                          <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Proposal Template</label>
+                          <select 
+                            className="w-full bg-black border border-white/10 rounded-2xl p-5 text-sm font-bold text-white focus:border-white/20 outline-none cursor-pointer appearance-none"
+                            value={formData.defaultProposalTemplate || 'default_v1'}
+                            onChange={e => setFormData(p => ({...p, defaultProposalTemplate: e.target.value}))}
+                          >
+                             {Object.keys(proposalTemplates).length === 0 ? <option value="default_v1">Default Layout</option> : null}
+                             {Object.values(proposalTemplates).map(t => (
+                                <option key={t.metadata.id} value={t.metadata.id}>{t.metadata.name} (v{t.metadata.version})</option>
+                             ))}
+                          </select>
+                       </div>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                        <div className="space-y-3">
                           <label className="text-xs font-bold uppercase text-zinc-600 tracking-widest px-1">Baseline Payment Terms</label>

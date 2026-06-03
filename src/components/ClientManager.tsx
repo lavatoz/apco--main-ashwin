@@ -38,7 +38,11 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
     eventDate: '',
     projectType: 'Wedding',
     projectId: '',
-    projectName: ''
+    projectName: '',
+    locationType: '' as 'Bride' | 'Groom' | '',
+    brideAddress: '',
+    groomAddress: '',
+    venueAddress: ''
   });
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -94,7 +98,11 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
       eventDate: client.eventDate || '',
       projectType: client.projectType || 'Wedding',
       projectId: client.divisionId || '',
-      projectName: client.brand || ''
+      projectName: client.brand || '',
+      locationType: client.eventLogistics?.locationType || '',
+      brideAddress: client.eventLogistics?.brideAddress || '',
+      groomAddress: client.eventLogistics?.groomAddress || '',
+      venueAddress: client.eventLogistics?.venueAddress || ''
     });
     setIsEditing(true);
     setIsAdding(true);
@@ -112,6 +120,16 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
     if (!formData.name) {
       setFormError("Name is required");
       return;
+    }
+    if (formData.email) {
+      const emailExists = allClients.some(c => 
+        c.email?.toLowerCase() === formData.email.toLowerCase() && 
+        (!isEditing || c.id !== editingClient?.id)
+      );
+      if (emailExists) {
+        setFormError("Client email must be unique");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -133,7 +151,13 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
       notes: editingClient?.notes || '',
       people: editingClient?.people || [],
       status: editingClient?.status || 'pending',
-      createdAt: isEditing && editingClient ? editingClient.createdAt : new Date().toISOString()
+      createdAt: isEditing && editingClient ? editingClient.createdAt : new Date().toISOString(),
+      eventLogistics: {
+        locationType: (formData.locationType as 'Bride' | 'Groom') || undefined,
+        brideAddress: formData.brideAddress,
+        groomAddress: formData.groomAddress,
+        venueAddress: formData.venueAddress
+      }
     };
 
     try {
@@ -147,7 +171,11 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
         eventDate: '',
         projectType: 'Wedding',
         projectId: preselectedId !== 'All' ? preselectedId : '',
-        projectName: divisions.find(d => d.id === preselectedId)?.name || ''
+        projectName: divisions.find(d => d.id === preselectedId)?.name || '',
+        locationType: '',
+        brideAddress: '',
+        groomAddress: '',
+        venueAddress: ''
       });
       setIsAdding(false);
       setIsEditing(false);
@@ -297,7 +325,11 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
                    eventDate: '',
                    projectType: 'Wedding',
                    projectId: preselectedId !== 'All' ? preselectedId : '',
-                   projectName: divisions.find(d => d.id === preselectedId)?.name || ''
+                   projectName: divisions.find(d => d.id === preselectedId)?.name || '',
+                   locationType: '',
+                   brideAddress: '',
+                   groomAddress: '',
+                   venueAddress: ''
                  });
                  setIsAdding(true);
               }}
@@ -482,6 +514,41 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
                   <option value="Fashion" className="bg-zinc-900">Fashion Editorial</option>
                 </select>
               </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Location Type <span className="opacity-50">(Optional)</span></label>
+                <select className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={formData.locationType} onChange={e => setFormData(prev => ({ ...prev, locationType: e.target.value as any }))} disabled={isSubmitting}>
+                  <option value="" className="bg-zinc-900">None</option>
+                  <option value="Bride" className="bg-zinc-900">Bride</option>
+                  <option value="Groom" className="bg-zinc-900">Groom</option>
+                </select>
+              </div>
+
+              {formData.locationType === 'Bride' && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Bride Home Address</label>
+                    <textarea className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter full address" value={formData.brideAddress} onChange={e => setFormData(prev => ({ ...prev, brideAddress: e.target.value }))} disabled={isSubmitting} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Venue Address</label>
+                    <textarea className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter venue address" value={formData.venueAddress} onChange={e => setFormData(prev => ({ ...prev, venueAddress: e.target.value }))} disabled={isSubmitting} />
+                  </div>
+                </>
+              )}
+
+              {formData.locationType === 'Groom' && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Groom Home Address</label>
+                    <textarea className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter full address" value={formData.groomAddress} onChange={e => setFormData(prev => ({ ...prev, groomAddress: e.target.value }))} disabled={isSubmitting} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Venue Address</label>
+                    <textarea className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter venue address" value={formData.venueAddress} onChange={e => setFormData(prev => ({ ...prev, venueAddress: e.target.value }))} disabled={isSubmitting} />
+                  </div>
+                </>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">

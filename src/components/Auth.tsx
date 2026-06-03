@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Command, RefreshCw } from 'lucide-react';
-import { safeParse } from '../utils/storage';
+import { safeParse, setAuthUser } from '../utils/storage';
 
 const Auth: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -45,14 +45,14 @@ const Auth: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           localStorage.setItem('users', JSON.stringify(users));
           
           // Auto-login after successful registration
-          localStorage.setItem('auth_user', JSON.stringify(newUser));
+          setAuthUser(newUser);
           navigate('/dashboard');
         }
       } else {
         // Login Logic
         const user = users.find((u) => u.email === email && u.password === password);
         if (user) {
-          localStorage.setItem('auth_user', JSON.stringify(user));
+          setAuthUser(user);
           navigate('/dashboard');
         } else {
           setError('Invalid login credentials.');

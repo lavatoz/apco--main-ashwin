@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getAuthUser } from '../utils/storage';
 import UserAccessManager from '../components/UserAccessManager';
 
 export default function TeamPage() {
@@ -6,14 +7,13 @@ export default function TeamPage() {
   const [debugData, setDebugData] = useState<string>('');
 
   useEffect(() => {
-    const userStr = localStorage.getItem('auth_user');
-    console.log("Team Page Loaded - Auth Session:", userStr);
+    const sessionUser = getAuthUser();
+    console.log("Team Page Loaded - Auth Session:", sessionUser);
     
-    if (userStr) {
+    if (sessionUser) {
       try {
-        const parsed = JSON.parse(userStr);
-        setUser(parsed);
-        setDebugData(userStr);
+        setUser(sessionUser);
+        setDebugData(JSON.stringify(sessionUser));
       } catch (e) {
         console.error("Auth Parsing Error", e);
       }

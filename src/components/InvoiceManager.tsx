@@ -2,10 +2,12 @@
 /* eslint-disable react-hooks/purity */
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Trash2, Send, CheckCircle2, Clock, IndianRupee } from 'lucide-react';
+import { Plus, Trash2, Send, CheckCircle2, Clock, IndianRupee, Eye } from 'lucide-react';
 // Fix: removed non-existent Brand import from types
 import { type Invoice, type Client, InvoiceStatus, type InvoiceItem } from '../types';
 import { generateEmailDraft } from '../services/geminiService';
+import { useCompanySettings } from '../hooks/useCompanySettings';
+import { DocumentPreviewModal } from './DocumentPreviewModal';
 
 interface InvoiceManagerProps {
   invoices: Invoice[];
@@ -17,13 +19,15 @@ interface InvoiceManagerProps {
 }
 
 const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addInvoice, updateInvoiceStatus, selectedBrand }) => {
+  const { companies } = useCompanySettings();
   const [isCreating, setIsCreating] = useState(false);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [items, setItems] = useState<InvoiceItem[]>([{ id: '1', description: '', quantity: 1, price: 0 }]);
   const [dueDate, setDueDate] = useState<string>('');
+  const [previewDoc, setPreviewDoc] = useState<Invoice | null>(null);
 
   useEffect(() => {
-    if (isCreating) {
+    if (isCreating || previewDoc) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'auto';
@@ -31,7 +35,7 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
     return () => {
       document.body.style.overflow = 'auto';
     };
-  }, [isCreating]);
+  }, [isCreating, previewDoc]);
 
   const [aiDraft, setAiDraft] = useState<{ id: string, text: string } | null>(null);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
@@ -270,6 +274,13 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
                       <StatusBadge status={isOverdue ? InvoiceStatus.Overdue : inv.status} isBaby={isBaby} />
                     </td>
                     <td className="p-4 text-right flex justify-end gap-2">
+                      <button
+                        onClick={() => setPreviewDoc(inv)}
+                        className={`p-2 rounded-lg ${isBaby ? 'bg-blue-50 text-blue-600' : 'bg-zinc-800 text-blue-400 hover:text-white'}`}
+                        title="View Document"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                       {inv.status !== InvoiceStatus.Paid && (
                         <button
                           onClick={() => handleGenerateReminder(inv)}
@@ -316,6 +327,17 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
           <div className={`p-8 text-center ${textSecondary}`}>No invoices found for this selection.</div>
         )}
       </div>
+
+      {previewDoc && createPortal(
+        <DocumentPreviewModal 
+           documentData={previewDoc}
+           client={clients.find(c => c.id === previewDoc.clientId) || {} as any}
+           company={companies.find(c => c.companyName === previewDoc.brand) || companies[0]}
+           type={previewDoc.type === 'quotation' ? 'quote' : 'invoice'}
+           onClose={() => setPreviewDoc(null)}
+        />,
+        document.body
+      )}
     </div>
   );
 };
@@ -330,6 +352,7 @@ const StatusBadge = ({ status, isBaby }: { status: InvoiceStatus, isBaby: boolea
     [InvoiceStatus.Quotation]: isBaby ? 'bg-yellow-100 text-yellow-700' : 'bg-yellow-900/30 text-yellow-400 border border-yellow-900',
     [InvoiceStatus.Partial]: isBaby ? 'bg-blue-100 text-blue-700' : 'bg-blue-900/30 text-blue-400 border border-blue-900',
     [InvoiceStatus.Approved]: isBaby ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20',
+    [InvoiceStatus['Payment Submitted']]: isBaby ? 'bg-purple-100 text-purple-700' : 'bg-purple-900/30 text-purple-400 border border-purple-900',
   };
 
   return (

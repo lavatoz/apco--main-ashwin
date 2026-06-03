@@ -1,12 +1,13 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import {
-  Plus, Trash2, FileText, TrendingDown, X, Calculator, FileQuestion, Loader2
+  Plus, Trash2, FileText, TrendingDown, X, Calculator, FileQuestion, Loader2, Eye
 } from 'lucide-react';
 import { api } from '../services/api';
 import { type Invoice, type Expense, type Client, type CompanyProfile, InvoiceStatus } from '../types';
+import { advanceProjectWorkflow } from '../utils/workflowEngine';
+import { DocumentPreviewModal } from './DocumentPreviewModal';
 
 interface FinanceManagerProps {
   invoices: Invoice[];
@@ -36,34 +37,37 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const isRevenue = location.pathname === '/revenue';
-  const [activeTab, setActiveTab] = useState<'all' | 'unpaid' | 'paid' | 'quotations' | 'expenses'>(
+  const [activeTab, setActiveTab] = useState<'all' | 'unpaid' | 'paid' | 'quotations' | 'expenses' | 'verifications'>(
     (searchParams.get('filter') as any) || 'all'
   );
-  
+
   React.useEffect(() => {
     const filter = searchParams.get('filter');
-    if (filter && ['all', 'unpaid', 'paid', 'quotations', 'expenses'].includes(filter)) {
-        setActiveTab(filter as any);
+    if (filter && ['all', 'unpaid', 'paid', 'quotations', 'expenses', 'verifications'].includes(filter)) {
+      setActiveTab(filter as any);
     }
   }, [searchParams]);
+
+  const [activeVerificationScreenshot, setActiveVerificationScreenshot] = useState<string | null>(null);
 
   const [isCreating, setIsCreating] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [fadingId, setFadingId] = useState<string | null>(null);
-  const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, id: string | null, type: 'entry' | 'expense' | null}>({ isOpen: false, id: null, type: null });
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean, id: string | null, type: 'entry' | 'expense' | null }>({ isOpen: false, id: null, type: null });
   const [localExpenses, setLocalExpenses] = useState<Expense[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [toast, setToast] = useState<{message: string; visible: boolean}>({message: '', visible: false});
+  const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
   const [entryForm, setEntryForm] = useState({ date: new Date().toISOString().split('T')[0], client: '', desc: '', amount: 0, status: 'Unpaid', type: 'invoice', brand: 'AAHA Kalyanam' });
-  const [newExpense, setNewExpense] = useState<{ category: string; amount: number; description: string; client: string; brand?: string }>({ 
-    category: 'Production', 
-    amount: 0, 
-    description: '', 
-    client: 'General', 
+  const [previewDoc, setPreviewDoc] = useState<Invoice | null>(null);
+  const [newExpense, setNewExpense] = useState<{ category: string; amount: number; description: string; client: string; brand?: string }>({
+    category: 'Production',
+    amount: 0,
+    description: '',
+    client: 'General',
     brand: 'AAHA Kalyanam'
   });
 
-  const showToast = (message: string) => { setToast({message, visible: true}); setTimeout(() => setToast({message: '', visible: false}), 3000); };
+  const showToast = (message: string) => { setToast({ message, visible: true }); setTimeout(() => setToast({ message: '', visible: false }), 3000); };
 
   React.useEffect(() => {
     if (deleteModal.isOpen || isCreating || isExpenseModalOpen) {
@@ -88,18 +92,20 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
     invoices.forEach(inv => {
       if (selectedBrand !== 'All' && inv.brandId !== selectedBrand && inv.brand !== selectedBrand) return;
-      
+
       const totalAmt = inv.totalAmount || inv.amount || 0;
+
+      const isQuote = inv.isQuotation || inv.type === 'quotation' || ['Quotation', 'Draft', 'Approved'].includes(inv.status);
 
       records.push({
         id: String(inv.id),
         date: inv.issueDate || inv.createdAt || '',
-        description: inv.isQuotation ? `Quotation: ${inv.id}` : `Invoice: ${inv.id}`,
+        description: isQuote ? `Quotation: ${inv.id}` : `Invoice: ${inv.id}`,
         client: inv.client?.name || clients.find(c => String(c.id) === String(inv.clientId))?.name || 'Unknown Client',
         brand: inv.brand || 'General',
         amount: totalAmt,
         status: inv.status || 'Unpaid',
-        type: inv.isQuotation ? 'quotation' : 'income',
+        type: isQuote ? 'quotation' : 'income',
         source: 'api_inv',
         metadata: inv
       });
@@ -107,7 +113,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
     combinedExpenses.forEach(exp => {
       if (selectedBrand !== 'All' && exp.brand !== selectedBrand) return;
-      
+
       records.push({
         id: String(exp.id),
         date: exp.date,
@@ -132,9 +138,12 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
       if (activeTab === 'paid') return r.type === 'income' && r.status.toLowerCase() === 'paid';
       if (activeTab === 'quotations') return r.type === 'quotation';
       if (activeTab === 'expenses') return r.type === 'expense';
+      if (activeTab === 'verifications') return r.type === 'income' && r.status === 'Payment Submitted';
       return true;
     });
   }, [unifiedRecords, activeTab]);
+
+  const pendingVerificationsCount = invoices.filter(i => i.status === 'Payment Submitted').length;
 
   const totalRevenue = unifiedRecords.filter(r => r.type === 'income' && r.status.toLowerCase() === 'paid').reduce((s, r) => s + r.amount, 0);
   const totalExpenses = unifiedRecords.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
@@ -159,20 +168,20 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
     };
 
     try {
-        await api.saveInvoice(newDoc);
-        setIsCreating(false);
-        setEntryForm({ date: new Date().toISOString().split('T')[0], client: '', desc: '', amount: 0, status: 'Unpaid', type: 'invoice', brand: 'AAHA Kalyanam' });
-        window.dispatchEvent(new CustomEvent('finance-updated'));
+      await api.saveInvoice(newDoc);
+      setIsCreating(false);
+      setEntryForm({ date: new Date().toISOString().split('T')[0], client: '', desc: '', amount: 0, status: 'Unpaid', type: 'invoice', brand: 'AAHA Kalyanam' });
+      window.dispatchEvent(new CustomEvent('finance-updated'));
     } catch (err) {
-        console.error(err);
-        alert("Failed to save entry");
+      console.error(err);
+      alert("Failed to save entry");
     }
   };
 
   const handleExpenseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const expenseToSave = {
-      id: `EXP-${Date.now().toString().slice(-6)}`,
+      id: `EXP-${new Date().getTime().toString().slice(-6)}`,
       description: newExpense.description,
       amount: Number(newExpense.amount),
       date: new Date().toISOString(),
@@ -183,6 +192,97 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
       await api.saveExpense(expenseToSave);
       showToast("Expense saved");
       setIsExpenseModalOpen(false);
+      window.dispatchEvent(new CustomEvent('finance-updated'));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleApprovePayment = async (inv: Invoice) => {
+    try {
+      const updatedInvoice = {
+        ...inv,
+        status: 'Paid' as InvoiceStatus,
+        paidAmount: inv.totalAmount,
+        paymentVerification: inv.paymentVerification ? { ...inv.paymentVerification, status: 'approved' as const } : undefined
+      };
+      await api.saveInvoice(updatedInvoice);
+
+      // Advance workflow if this is the advance invoice
+      const isAdvance = updatedInvoice.id.toLowerCase().includes('adv') || (updatedInvoice.totalAmount && updatedInvoice.totalAmount > 0);
+      if (updatedInvoice.project?.id || updatedInvoice.clientId) {
+        const projectsStr = localStorage.getItem('projects');
+        if (projectsStr) {
+          const projects = JSON.parse(projectsStr);
+          const proj = projects.find((p: any) => p.id === updatedInvoice.project?.id || p.clientId === updatedInvoice.clientId);
+          if (proj && isAdvance) {
+            await advanceProjectWorkflow(proj.id, 'Advance Paid', `Payment approved for invoice ${updatedInvoice.id}`);
+          }
+        }
+        
+        // Log timeline activity
+        const clientsStr = localStorage.getItem('clients');
+        if (clientsStr) {
+            const clientsArr = JSON.parse(clientsStr);
+            const clientIdx = clientsArr.findIndex((c: any) => c.id === updatedInvoice.clientId);
+            if (clientIdx >= 0) {
+                const c = clientsArr[clientIdx];
+                const timelineEvent = {
+                   id: new Date().getTime().toString(),
+                   title: 'Payment Approved',
+                   description: `Admin approved payment of ₹${updatedInvoice.totalAmount?.toLocaleString('en-IN')} for Invoice ${updatedInvoice.id}`,
+                   date: new Date().toISOString(),
+                   status: 'Completed' as const,
+                   category: 'finance'
+                };
+                c.portal = c.portal || { timeline: [], deliverables: [], internalSpends: [] };
+                c.portal.timeline = [...(c.portal.timeline || []), timelineEvent];
+                clientsArr[clientIdx] = c;
+                localStorage.setItem('clients', JSON.stringify(clientsArr));
+            }
+        }
+      }
+
+      showToast("Payment Approved & Workflow Advanced");
+      window.dispatchEvent(new CustomEvent('finance-updated'));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to approve payment");
+    }
+  };
+
+  const handleRejectPayment = async (inv: Invoice) => {
+    try {
+      const updatedInvoice = {
+        ...inv,
+        status: 'Unpaid' as InvoiceStatus,
+        paymentVerification: inv.paymentVerification ? { ...inv.paymentVerification, status: 'rejected' as const } : undefined
+      };
+      await api.saveInvoice(updatedInvoice);
+      
+      // Log timeline activity
+      const clientsStr = localStorage.getItem('clients');
+      if (clientsStr) {
+          const clientsArr = JSON.parse(clientsStr);
+          const clientIdx = clientsArr.findIndex((c: any) => c.id === updatedInvoice.clientId);
+          if (clientIdx >= 0) {
+              const c = clientsArr[clientIdx];
+              const timelineEvent = {
+                 id: new Date().getTime().toString(),
+                 title: 'Payment Rejected',
+                 description: `Payment verification for Invoice ${updatedInvoice.id} was rejected. Please re-submit.`,
+                 date: new Date().toISOString(),
+                 status: 'Pending' as const,
+                 category: 'finance'
+              };
+              c.portal = c.portal || { timeline: [], deliverables: [], internalSpends: [] };
+              c.portal.timeline = [...(c.portal.timeline || []), timelineEvent];
+              clientsArr[clientIdx] = c;
+              localStorage.setItem('clients', JSON.stringify(clientsArr));
+          }
+      }
+      
+      showToast("Payment Rejected");
       window.dispatchEvent(new CustomEvent('finance-updated'));
     } catch (err) {
       console.error(err);
@@ -231,21 +331,24 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-white/5 pb-6">
-          <div className="flex bg-zinc-900/50 p-1.5 rounded-[1.2rem] border border-white/5 overflow-x-auto max-w-full">
-            {['all', 'unpaid', 'paid', 'quotations', 'expenses'].map(t => (
+          <div className="flex bg-zinc-900/50 p-1.5 rounded-[1.2rem] border border-white/5 overflow-x-auto max-w-full relative">
+            {['all', 'unpaid', 'paid', 'quotations', 'expenses', 'verifications'].map(t => (
               <button
                 key={t} onClick={() => setActiveTab(t as any)}
-                className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${activeTab === t ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+                className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap relative ${activeTab === t ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}
               >
-                {t}
+                {t === 'verifications' ? 'Verifications' : t}
+                {t === 'verifications' && pendingVerificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full">{pendingVerificationsCount}</span>
+                )}
               </button>
             ))}
           </div>
           <div className="flex gap-3">
             {userRole !== 'Client' && (
-               <button onClick={() => activeTab === 'expenses' ? setIsExpenseModalOpen(true) : setIsCreating(true)} className="bg-white text-black px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 hover:bg-zinc-200 transition-all shadow-xl active:scale-95 whitespace-nowrap">
-                 <Plus className="w-4 h-4" /> {activeTab === 'expenses' ? 'Log Expense' : 'Create Bill / Quote'}
-               </button>
+              <button onClick={() => activeTab === 'expenses' ? setIsExpenseModalOpen(true) : setIsCreating(true)} className="bg-white text-black px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 hover:bg-zinc-200 transition-all shadow-xl active:scale-95 whitespace-nowrap">
+                <Plus className="w-4 h-4" /> {activeTab === 'expenses' ? 'Log Expense' : 'Create Bill / Quote'}
+              </button>
             )}
           </div>
         </div>
@@ -255,20 +358,20 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
             const isExpense = record.type === 'expense';
             const isQuote = record.type === 'quotation';
             const isPaid = record.status.toLowerCase() === 'paid';
+            const isVerification = record.status === 'Payment Submitted';
 
             return (
-              <div 
-                key={`${record.source}-${record.id}`} 
+              <div
+                key={`${record.source}-${record.id}`}
                 className={`glass-panel p-8 squircle-lg flex flex-col md:flex-row justify-between items-start md:items-center group hover:bg-white/5 transition-all border border-white/5 relative overflow-hidden ${fadingId === record.id ? 'animate-fade-out' : ''}`}
               >
                 <div className={`absolute top-0 right-0 w-1.5 h-full opacity-30 ${isExpense ? 'bg-red-500' : isQuote ? 'bg-zinc-500' : isPaid ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                
+
                 <div className="flex items-center gap-6">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-lg ${
-                    isExpense ? 'bg-red-500/10 border-red-500/20 text-red-500' : 
-                    isQuote ? 'bg-zinc-800 border-white/10 text-zinc-400' : 
-                    'bg-amber-500/10 border-amber-500/20 text-amber-500'
-                  }`}>
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-lg ${isExpense ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                    isQuote ? 'bg-zinc-800 border-white/10 text-zinc-400' :
+                      'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                    }`}>
                     {isExpense ? <TrendingDown className="w-6 h-6" /> : isQuote ? <FileQuestion className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
                   </div>
                   <div>
@@ -282,26 +385,43 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
                     <p className="text-xl font-black text-white font-mono">₹{record.amount.toLocaleString('en-IN')}</p>
                     <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest mt-1">{record.status} • {new Date(record.date).toLocaleDateString()}</p>
                   </div>
-                  
-                  {userRole !== 'Client' && (
-                    <div className="flex gap-2">
-                      {!isExpense && !isQuote && !isPaid && (
-                        <button onClick={async () => {
-                           const updated = { ...record.metadata, status: 'Paid' };
-                           await api.saveInvoice(updated);
-                           window.dispatchEvent(new CustomEvent('finance-updated'));
-                        }} className="px-4 py-3 bg-emerald-500 text-black rounded-lg font-black text-[9px] uppercase tracking-widest">Mark Paid</button>
-                      )}
-                      {isQuote && (
-                        <button onClick={async () => {
-                           const updated = { ...record.metadata, type: 'invoice', isQuotation: false, status: 'Unpaid' };
-                           await api.saveInvoice(updated);
-                           window.dispatchEvent(new CustomEvent('finance-updated'));
-                        }} className="px-4 py-3 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest">To Invoice</button>
-                      )}
-                      <button onClick={() => setDeleteModal({ isOpen: true, id: record.id, type: isExpense ? 'expense' : 'entry' })} className="p-3 bg-white/5 text-zinc-500 hover:text-red-500 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+
+                  {isVerification && activeTab === 'verifications' ? (
+                    <div className="flex flex-col gap-2 w-full md:w-auto mt-4 md:mt-0">
+                      <div className="text-left text-xs bg-black/40 p-3 rounded-xl border border-white/5 mb-2">
+                        <p className="font-mono text-zinc-300">UTR: <span className="text-white font-bold">{record.metadata.paymentVerification?.utrNumber}</span></p>
+                        {record.metadata.paymentVerification?.screenshot && (
+                          <button onClick={() => setActiveVerificationScreenshot(record.metadata.paymentVerification.screenshot)} className="text-[9px] uppercase tracking-widest text-blue-400 font-bold mt-1 hover:underline">View Screenshot</button>
+                        )}
+                        <p className="text-[8px] text-zinc-500 mt-1">Submitted: {new Date(record.metadata.paymentVerification?.submittedAt).toLocaleString()}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleApprovePayment(record.metadata)} className="flex-1 px-4 py-2 bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500 text-black rounded-lg font-black text-[9px] uppercase tracking-widest transition-colors border border-emerald-500/30">Approve</button>
+                        <button onClick={() => handleRejectPayment(record.metadata)} className="flex-1 px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-black text-[9px] uppercase tracking-widest transition-colors border border-red-500/20">Reject</button>
+                      </div>
                     </div>
-                  )}
+                  ) : userRole !== 'Client' && (
+                      <div className="flex gap-2">
+                        {!isExpense && (
+                          <button onClick={() => setPreviewDoc(record.metadata)} className="p-3 bg-white/5 text-blue-400 hover:text-white rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
+                        )}
+                        {!isExpense && !isQuote && !isPaid && (
+                          <button onClick={async () => {
+                            const updated = { ...record.metadata, status: 'Paid' };
+                            await api.saveInvoice(updated);
+                            window.dispatchEvent(new CustomEvent('finance-updated'));
+                          }} className="px-4 py-3 bg-emerald-500 text-black rounded-lg font-black text-[9px] uppercase tracking-widest">Mark Paid</button>
+                        )}
+                        {isQuote && (
+                          <button onClick={async () => {
+                            const updated = { ...record.metadata, type: 'invoice', isQuotation: false, status: 'Unpaid' };
+                            await api.saveInvoice(updated);
+                            window.dispatchEvent(new CustomEvent('finance-updated'));
+                          }} className="px-4 py-3 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest">To Invoice</button>
+                        )}
+                        <button onClick={() => setDeleteModal({ isOpen: true, id: record.id, type: isExpense ? 'expense' : 'entry' })} className="p-3 bg-white/5 text-zinc-500 hover:text-red-500 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    )}
                 </div>
               </div>
             );
@@ -310,11 +430,11 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
       </div>
 
       {isCreating && createPortal(
-        <div 
+        <div
           className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-ios-fade-in"
           onClick={() => setIsCreating(false)}
         >
-          <div 
+          <div
             className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-xl p-10 shadow-2xl animate-ios-slide-up relative overflow-y-auto max-h-[90vh] no-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
@@ -359,34 +479,34 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
       )}
 
       {isExpenseModalOpen && createPortal(
-        <div 
+        <div
           className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-ios-fade-in"
           onClick={() => setIsExpenseModalOpen(false)}
         >
-          <div 
+          <div
             className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-lg p-10 shadow-2xl animate-ios-slide-up relative overflow-y-auto max-h-[90vh] no-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
-             <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-10">Log Expense</h2>
-             <form onSubmit={handleExpenseSubmit} className="space-y-6">
-                <input required className="w-full bg-black border border-white/5 rounded-xl p-4 text-sm font-bold" placeholder="Description" value={newExpense.description} onChange={e => setNewExpense({ ...newExpense, description: e.target.value })} />
-                <div className="grid grid-cols-2 gap-4">
-                  <input type="number" required className="bg-black border border-white/5 rounded-xl p-4 text-sm font-bold" placeholder="Amount" value={newExpense.amount || ''} onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })} />
-                  <select className="bg-black border border-white/5 rounded-xl p-4 text-sm font-bold w-full" value={newExpense.category} onChange={e => setNewExpense({ ...newExpense, category: e.target.value })}>
-                     <option value="Production">Production</option>
-                     <option value="Travel">Travel</option>
-                     <option value="Marketing">Marketing</option>
-                     <option value="Office">Office</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-zinc-600 px-1 tracking-widest">Entity</label>
-                  <select required className="w-full bg-black border border-white/5 rounded-xl p-4 text-sm font-bold" value={newExpense.brand} onChange={e => setNewExpense({ ...newExpense, brand: e.target.value })}>
-                    {companies.map(c => <option key={c.id} value={c.companyName}>{c.companyName}</option>)}
-                  </select>
-                </div>
-                <button type="submit" className="w-full py-5 bg-white text-black font-black uppercase text-[11px] rounded-2xl tracking-widest shadow-xl mt-4">Commit Transaction</button>
-             </form>
+            <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-10">Log Expense</h2>
+            <form onSubmit={handleExpenseSubmit} className="space-y-6">
+              <input required className="w-full bg-black border border-white/5 rounded-xl p-4 text-sm font-bold" placeholder="Description" value={newExpense.description} onChange={e => setNewExpense({ ...newExpense, description: e.target.value })} />
+              <div className="grid grid-cols-2 gap-4">
+                <input type="number" required className="bg-black border border-white/5 rounded-xl p-4 text-sm font-bold" placeholder="Amount" value={newExpense.amount || ''} onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })} />
+                <select className="bg-black border border-white/5 rounded-xl p-4 text-sm font-bold w-full" value={newExpense.category} onChange={e => setNewExpense({ ...newExpense, category: e.target.value })}>
+                  <option value="Production">Production</option>
+                  <option value="Travel">Travel</option>
+                  <option value="Marketing">Marketing</option>
+                  <option value="Office">Office</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-zinc-600 px-1 tracking-widest">Entity</label>
+                <select required className="w-full bg-black border border-white/5 rounded-xl p-4 text-sm font-bold" value={newExpense.brand} onChange={e => setNewExpense({ ...newExpense, brand: e.target.value })}>
+                  {companies.map(c => <option key={c.id} value={c.companyName}>{c.companyName}</option>)}
+                </select>
+              </div>
+              <button type="submit" className="w-full py-5 bg-white text-black font-black uppercase text-[11px] rounded-2xl tracking-widest shadow-xl mt-4">Commit Transaction</button>
+            </form>
           </div>
         </div>,
         document.body
@@ -398,36 +518,36 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
             <Trash2 className="w-12 h-12 text-red-500 mx-auto mb-6" />
             <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-4">Confirm Deletion</h3>
             <div className="flex gap-4">
-              <button 
-                disabled={isDeleting} 
-                onClick={() => setDeleteModal({ isOpen: false, id: null, type: null })} 
+              <button
+                disabled={isDeleting}
+                onClick={() => setDeleteModal({ isOpen: false, id: null, type: null })}
                 className="flex-1 py-4 bg-white/5 text-white rounded-xl font-black uppercase text-[10px] disabled:opacity-50"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 disabled={isDeleting}
                 onClick={async () => {
-                const targetId = deleteModal.id!;
-                const targetType = deleteModal.type!;
-                setIsDeleting(true);
-                setFadingId(targetId);
-                setTimeout(async () => {
-                   try {
-                     if (targetType === 'expense') await api.deleteExpense(targetId);
-                     else await api.deleteInvoice(targetId);
-                     window.dispatchEvent(new CustomEvent('finance-updated'));
-                   } catch (err) { console.error(err); }
-                   setDeleteModal({ isOpen: false, id: null, type: null });
-                   setIsDeleting(false);
-                   setFadingId(null);
-                }, 300);
-              }} className="flex-1 py-4 bg-red-500 text-white rounded-xl font-black uppercase text-[10px] disabled:opacity-50 flex items-center justify-center gap-2">
+                  const targetId = deleteModal.id!;
+                  const targetType = deleteModal.type!;
+                  setIsDeleting(true);
+                  setFadingId(targetId);
+                  setTimeout(async () => {
+                    try {
+                      if (targetType === 'expense') await api.deleteExpense(targetId);
+                      else await api.deleteInvoice(targetId);
+                      window.dispatchEvent(new CustomEvent('finance-updated'));
+                    } catch (err) { console.error(err); }
+                    setDeleteModal({ isOpen: false, id: null, type: null });
+                    setIsDeleting(false);
+                    setFadingId(null);
+                  }, 300);
+                }} className="flex-1 py-4 bg-red-500 text-white rounded-xl font-black uppercase text-[10px] disabled:opacity-50 flex items-center justify-center gap-2">
                 {isDeleting ? (
-                   <>
-                     <Loader2 className="w-4 h-4 animate-spin" />
-                     Removing...
-                   </>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Removing...
+                  </>
                 ) : 'Delete'}
               </button>
             </div>
@@ -440,6 +560,27 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
         <div className="fixed bottom-4 right-4 bg-emerald-500 text-white px-6 py-4 rounded-xl shadow-2xl font-black uppercase text-[10px] tracking-widest z-[200]">
           {toast.message}
         </div>
+      )}
+
+      {activeVerificationScreenshot && createPortal(
+        <div className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setActiveVerificationScreenshot(null)}>
+          <div className="relative max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setActiveVerificationScreenshot(null)} className="absolute -top-12 right-0 p-2 bg-white/10 rounded-full hover:bg-white/20 text-white"><X size={24} /></button>
+            <img src={activeVerificationScreenshot} alt="Payment Screenshot" className="max-w-full max-h-[85vh] object-contain rounded-xl border border-white/10" />
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {previewDoc && createPortal(
+        <DocumentPreviewModal 
+           documentData={previewDoc}
+           client={clients.find(c => c.id === previewDoc.clientId) || {} as any}
+           company={companies.find(c => c.companyName === previewDoc.brand) || companies.find(c => c.id === previewDoc.brandId) || companies[0]}
+           type={previewDoc.isQuotation ? 'quote' : 'invoice'}
+           onClose={() => setPreviewDoc(null)}
+        />,
+        document.body
       )}
     </div>
   );

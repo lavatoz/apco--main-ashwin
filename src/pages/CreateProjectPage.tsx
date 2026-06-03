@@ -210,7 +210,7 @@ const CreateProjectPage: React.FC = () => {
   const handleAddNewStaffSubmit = (e: React.FormEvent) => {
      e.preventDefault();
      const newUser: User = {
-       id: `staff_${Date.now()}`,
+       id: `staff_${new Date().getTime()}`,
        name: newStaffForm.name,
        email: newStaffForm.contact || `${newStaffForm.name.replace(/\s+/g,'').toLowerCase()}@staff.local`,
        role: 'Staff',
@@ -297,7 +297,7 @@ const CreateProjectPage: React.FC = () => {
     if (finalTeam.assistants!.length > 0) finalTeam.assistant = finalTeam.assistants![0];
 
     const newProject: Project = {
-      id: `proj_${Date.now()}`,
+      id: `proj_${new Date().getTime()}`,
       clientId: clientId!,
       divisionId: client.divisionId!,
       name: projectName,

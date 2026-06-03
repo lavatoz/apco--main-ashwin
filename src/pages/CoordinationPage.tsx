@@ -1,21 +1,18 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { 
-  Calendar, Clock, MapPin, Users, ArrowLeft, 
-  ArrowUpRight
+  Clock, MapPin, ArrowLeft
 } from 'lucide-react';
 import { api } from '../services/api';
-import { type Client } from '../types';
+import { type Client, type ClientEvent } from '../types';
+import { calculateEventStatusAndProgress } from '../utils/eventUtils';
 
 const CoordinationPage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const initialView = searchParams.get('view') || 'upcoming';
 
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(initialView);
+  const [timeCounter, setTimeCounter] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -30,26 +27,57 @@ const CoordinationPage: React.FC = () => {
       }
     };
     fetchData();
+
+    // Setup interval to dynamically update event status buckets based on real-time
+    const interval = setInterval(() => {
+       setTimeCounter(c => c + 1);
+    }, 30000); // 30 seconds
+    return () => clearInterval(interval);
   }, []);
 
-  const eventData = useMemo(() => {
-    const today = new Date();
-    today.setHours(0,0,0,0);
+  const eventBuckets = useMemo(() => {
+    // We use timeCounter here to force re-evaluation
+    void timeCounter;
 
-    const upcoming = clients.filter(c => {
-      const dateStr = c.eventDate || c.weddingDate;
-      return dateStr && new Date(dateStr) >= today;
-    }).sort((a,b) => new Date(a.eventDate || a.weddingDate!).getTime() - new Date(b.eventDate || b.weddingDate!).getTime());
+    type MappedEvent = ClientEvent & { clientId: string, clientName: string, clientBrand?: string, calcStatus: string, calcProgress: number };
+    const allEvents: MappedEvent[] = [];
+    
+    clients.forEach(c => {
+       if (c.events && c.events.length > 0) {
+          c.events.forEach(ev => {
+             const { status, progress } = calculateEventStatusAndProgress(ev);
+             allEvents.push({ ...ev, clientId: c.id || c._id || '', clientName: c.name || 'Unknown Client', clientBrand: c.brand, calcStatus: status, calcProgress: progress });
+          });
+       } else if (c.eventDate || c.weddingDate) {
+          // Legacy support for clients without explicit events array but have a date
+          const legacyEvent: ClientEvent = {
+             id: (c.id || c._id || '') + '_legacy',
+             name: c.projectName || 'Legacy Event',
+             date: c.eventDate || c.weddingDate || '',
+             status: 'Scheduled'
+          };
+          const { status, progress } = calculateEventStatusAndProgress(legacyEvent);
+          
+          allEvents.push({
+             ...legacyEvent,
+             venueLocation: c.eventLogistics?.venueAddress || '',
+             brideLocation: c.eventLogistics?.brideAddress || '',
+             groomLocation: c.eventLogistics?.groomAddress || '',
+             clientId: c.id || c._id || '',
+             clientName: c.name || 'Unknown Client',
+             clientBrand: c.brand,
+             calcStatus: status,
+             calcProgress: progress
+          });
+       }
+    });
 
-    const past = clients.filter(c => {
-      const dateStr = c.eventDate || c.weddingDate;
-      return dateStr && new Date(dateStr) < today;
-    }).sort((a,b) => new Date(b.eventDate || b.weddingDate!).getTime() - new Date(a.eventDate || a.weddingDate!).getTime());
-
-    return { upcoming, past };
-  }, [clients]);
-
-  const displayedEvents = activeTab === 'upcoming' ? eventData.upcoming : eventData.past;
+    return {
+      scheduled: allEvents.filter(ev => ev.calcStatus === 'Scheduled' || ev.calcStatus === 'In Preparation').sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+      inProgress: allEvents.filter(ev => ev.calcStatus === 'In Progress').sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+      completed: allEvents.filter(ev => ev.calcStatus === 'Completed' || ev.calcStatus === 'Cancelled').sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    };
+  }, [clients, timeCounter]);
 
   if (loading) {
     return (
@@ -60,6 +88,62 @@ const CoordinationPage: React.FC = () => {
     );
   }
 
+  const renderEventCard = (ev: any) => (
+      <div 
+         key={ev.id}
+         onClick={() => navigate(`/client/${ev.clientId}`)}
+         className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 hover:bg-white/[0.02] hover:border-white/20 transition-all cursor-pointer relative overflow-hidden flex flex-col gap-4 group"
+      >
+         {/* Dynamic Progress Bar */}
+         {ev.startTime && ev.endTime && (
+            <div className="absolute top-0 left-0 h-1 bg-white/5 w-full overflow-hidden">
+               <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${ev.calcProgress}%` }} />
+            </div>
+         )}
+         
+         <div className="flex justify-between items-start">
+            <div>
+               <span className="px-3 py-1 bg-white/5 rounded-md text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-3 inline-block">{ev.clientName}</span>
+               <h3 className="text-lg font-black text-white tracking-tight uppercase group-hover:text-blue-400 transition-colors">{ev.name}</h3>
+            </div>
+            <div className="text-right shrink-0">
+               <span className="text-[10px] font-bold uppercase tracking-widest block text-zinc-500 mb-1">{new Date(ev.date).toLocaleDateString('en-US', { month: 'short' })}</span>
+               <span className="text-2xl font-black leading-none">{new Date(ev.date).toLocaleDateString('en-US', { day: 'numeric' })}</span>
+            </div>
+         </div>
+
+         {(ev.startTime || ev.endTime) && (
+            <div className="flex gap-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+               {ev.startTime && <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-emerald-500" /> Start: {ev.startTime}</span>}
+               {ev.endTime && <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-red-500" /> End: {ev.endTime}</span>}
+            </div>
+         )}
+
+         {(ev.brideLocation || ev.groomLocation || ev.venueLocation) && (
+            <div className="p-4 bg-black/40 rounded-xl border border-white/5 flex flex-col gap-2 text-left mt-2">
+               {ev.brideLocation && (
+                  <div className="flex items-start gap-2">
+                     <MapPin className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
+                     <p className="text-[10px] font-medium text-zinc-400 truncate"><span className="font-black uppercase tracking-widest text-zinc-600 mr-2">Bride</span>{ev.brideLocation}</p>
+                  </div>
+               )}
+               {ev.groomLocation && (
+                  <div className="flex items-start gap-2">
+                     <MapPin className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
+                     <p className="text-[10px] font-medium text-zinc-400 truncate"><span className="font-black uppercase tracking-widest text-zinc-600 mr-2">Groom</span>{ev.groomLocation}</p>
+                  </div>
+               )}
+               {ev.venueLocation && (
+                  <div className="flex items-start gap-2 pt-2 border-t border-white/5">
+                     <MapPin className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" />
+                     <p className="text-[10px] font-medium text-zinc-400 truncate"><span className="font-black uppercase tracking-widest text-zinc-600 mr-2">Venue</span>{ev.venueLocation}</p>
+                  </div>
+               )}
+            </div>
+         )}
+      </div>
+  );
+
   return (
     <div className="space-y-12 animate-ios-slide-up pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -69,98 +153,54 @@ const CoordinationPage: React.FC = () => {
             <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Command Center</span>
           </button>
           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase leading-none">
-            Event Coordination
+            Live Execution Board
           </h1>
-          <p className="text-xs font-bold uppercase text-zinc-400 tracking-[0.3em] mt-4">Logistics Timeline & Site Management</p>
-        </div>
-
-        <div className="bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5 flex gap-1">
-          {['upcoming', 'past'].map((tab) => (
-             <button
-               key={tab}
-               onClick={() => setActiveTab(tab)}
-               className={`px-8 py-3 text-xs font-bold uppercase tracking-widest rounded-xl transition-all ${activeTab === tab ? 'bg-white text-black shadow-xl shadow-white/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
-             >
-               {tab} Events
-             </button>
-          ))}
+          <p className="text-xs font-bold uppercase text-zinc-400 tracking-[0.3em] mt-4">Automated Lifecycle Tracking</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <div className="lg:col-span-3 space-y-6">
-           {displayedEvents.length === 0 ? (
-              <div className="bg-zinc-900/20 border border-dashed border-white/5 rounded-[3rem] p-32 text-center">
-                <Calendar className="w-16 h-16 text-zinc-800 mx-auto mb-8" />
-                <h2 className="text-2xl font-black text-white uppercase tracking-tighter">No Events Scheduled</h2>
-                <p className="text-xs font-bold uppercase text-zinc-400 tracking-widest mt-2 px-10 leading-relaxed">The timeline is currently clear. Add events in the Directory to see them here.</p>
-              </div>
-           ) : (
-             displayedEvents.map((ev, idx) => (
-                <div 
-                  key={ev.id || idx}
-                  onClick={() => navigate(`/client/${ev.id}`)}
-                  className="group bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-10 flex flex-col md:flex-row items-center gap-10 hover:bg-white/[0.05] transition-all cursor-pointer relative overflow-hidden"
-                >
-                   <div className="flex flex-col items-center justify-center w-24 h-24 bg-white/5 rounded-[1.5rem] shrink-0 group-hover:bg-white group-hover:text-black transition-all">
-                      <span className="text-xs font-bold uppercase tracking-widest mb-1">{new Date(ev.eventDate || ev.weddingDate!).toLocaleDateString('en-US', { month: 'short' })}</span>
-                      <span className="text-4xl font-black leading-none">{new Date(ev.eventDate || ev.weddingDate!).toLocaleDateString('en-US', { day: 'numeric' })}</span>
-                   </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+         {/* TO DO COLUMN */}
+         <div className="space-y-6">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+               <h2 className="text-xs font-black uppercase text-zinc-400 tracking-widest flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-zinc-500" /> Scheduled
+               </h2>
+               <span className="bg-white/5 text-zinc-300 text-[10px] font-bold px-2 py-1 rounded">{eventBuckets.scheduled.length}</span>
+            </div>
+            <div className="space-y-4">
+               {eventBuckets.scheduled.map(renderEventCard)}
+               {eventBuckets.scheduled.length === 0 && <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest text-center py-8">No Scheduled Events</p>}
+            </div>
+         </div>
 
-                   <div className="flex-1 text-center md:text-left">
-                      <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-3">
-                         <span className="px-4 py-1 bg-white/5 rounded-md text-xs font-bold uppercase tracking-widest text-zinc-400 group-hover:text-black group-hover:bg-white/10 transition-all">{ev.projectType || 'Event'}</span>
-                         <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                            <Clock className="w-3 h-3" /> 09:00 AM Onwards
-                         </span>
-                      </div>
-                      <h3 className="text-3xl font-black text-white tracking-tighter uppercase group-hover:text-blue-400 transition-colors">{ev.projectName || ev.name}</h3>
-                      <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 mt-4 text-zinc-500 font-bold text-xs uppercase tracking-widest">
-                         <span className="flex items-center gap-2"><MapPin className="w-4 h-4 text-blue-500" /> {ev.brand || 'Artisans'}</span>
-                         <span className="flex items-center gap-2"><Users className="w-4 h-4 text-blue-500" /> Crew Confirmed</span>
-                      </div>
-                   </div>
+         {/* IN PROGRESS COLUMN */}
+         <div className="space-y-6">
+            <div className="flex items-center justify-between border-b border-blue-500/20 pb-4">
+               <h2 className="text-xs font-black uppercase text-blue-400 tracking-widest flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" /> In Progress
+               </h2>
+               <span className="bg-blue-500/10 text-blue-400 text-[10px] font-bold px-2 py-1 rounded">{eventBuckets.inProgress.length}</span>
+            </div>
+            <div className="space-y-4">
+               {eventBuckets.inProgress.map(renderEventCard)}
+               {eventBuckets.inProgress.length === 0 && <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest text-center py-8">No Active Events</p>}
+            </div>
+         </div>
 
-                   <div className="shrink-0 flex items-center gap-6">
-                      <div className="hidden md:block text-right">
-                         <p className="text-xs font-bold uppercase text-zinc-400 tracking-widest mb-1">Status</p>
-                         <p className="text-sm font-bold text-emerald-500 uppercase tracking-widest">Confirmed</p>
-                      </div>
-                      <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center group-hover:bg-white group-hover:text-black transition-all">
-                         <ArrowUpRight className="w-6 h-6" />
-                      </div>
-                   </div>
-                </div>
-             ))
-           )}
-        </div>
-
-        <div className="space-y-8">
-           <div className="glass-panel p-8 squircle-xl border border-white/5 space-y-6 bg-zinc-900/40">
-              <h4 className="text-xs font-bold uppercase tracking-[0.3em] text-white flex items-center gap-3">
-                 <Clock className="w-4 h-4 text-blue-500" /> Stats Profile
-              </h4>
-              <div className="space-y-4 pt-4 border-t border-white/5">
-                 <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Upcoming</span>
-                    <span className="text-xl font-black text-white font-mono">{eventData.upcoming.length}</span>
-                 </div>
-                 <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Past Year</span>
-                    <span className="text-xl font-black text-zinc-400 font-mono">{eventData.past.length}</span>
-                 </div>
-              </div>
-           </div>
-           
-           <div className="bg-blue-600/10 border border-blue-500/20 p-8 squircle-xl space-y-6">
-              <h4 className="text-xs font-bold uppercase tracking-[0.3em] text-blue-400">Quick Filters</h4>
-              <div className="space-y-3 font-bold uppercase text-xs tracking-widest">
-                 <button className="w-full text-left p-3 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-black transition-all">Next 7 Days</button>
-                 <button className="w-full text-left p-3 rounded-lg bg-zinc-900/40 text-zinc-500 hover:text-white transition-all">This Month</button>
-                 <button className="w-full text-left p-3 rounded-lg bg-zinc-900/40 text-zinc-500 hover:text-white transition-all">By Brand</button>
-              </div>
-           </div>
-        </div>
+         {/* COMPLETED COLUMN */}
+         <div className="space-y-6">
+            <div className="flex items-center justify-between border-b border-emerald-500/20 pb-4">
+               <h2 className="text-xs font-black uppercase text-emerald-500 tracking-widest flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> Completed
+               </h2>
+               <span className="bg-emerald-500/10 text-emerald-500 text-[10px] font-bold px-2 py-1 rounded">{eventBuckets.completed.length}</span>
+            </div>
+            <div className="space-y-4">
+               {eventBuckets.completed.map(renderEventCard)}
+               {eventBuckets.completed.length === 0 && <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest text-center py-8">No Completed Events</p>}
+            </div>
+         </div>
       </div>
     </div>
   );
