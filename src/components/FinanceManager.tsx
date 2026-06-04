@@ -335,7 +335,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
             {['all', 'unpaid', 'paid', 'quotations', 'expenses', 'verifications'].map(t => (
               <button
                 key={t} onClick={() => setActiveTab(t as any)}
-                className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap relative ${activeTab === t ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+                className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap relative ${activeTab === t ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'} touch-target`}
               >
                 {t === 'verifications' ? 'Verifications' : t}
                 {t === 'verifications' && pendingVerificationsCount > 0 && (
@@ -346,7 +346,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
           </div>
           <div className="flex gap-3">
             {userRole !== 'Client' && (
-              <button onClick={() => activeTab === 'expenses' ? setIsExpenseModalOpen(true) : setIsCreating(true)} className="bg-white text-black px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 hover:bg-zinc-200 transition-all shadow-xl active:scale-95 whitespace-nowrap">
+              <button onClick={() => activeTab === 'expenses' ? setIsExpenseModalOpen(true) : setIsCreating(true)} className="bg-white text-black px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 hover:bg-zinc-200 transition-all shadow-xl active:scale-95 whitespace-nowrap touch-target">
                 <Plus className="w-4 h-4" /> {activeTab === 'expenses' ? 'Log Expense' : 'Create Bill / Quote'}
               </button>
             )}
@@ -396,30 +396,30 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
                         <p className="text-[8px] text-zinc-500 mt-1">Submitted: {new Date(record.metadata.paymentVerification?.submittedAt).toLocaleString()}</p>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => handleApprovePayment(record.metadata)} className="flex-1 px-4 py-2 bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500 text-black rounded-lg font-black text-[9px] uppercase tracking-widest transition-colors border border-emerald-500/30">Approve</button>
-                        <button onClick={() => handleRejectPayment(record.metadata)} className="flex-1 px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-black text-[9px] uppercase tracking-widest transition-colors border border-red-500/20">Reject</button>
+                        <button onClick={() => handleApprovePayment(record.metadata)} className="touch-target flex-1 px-4 py-2 bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500 text-black rounded-lg font-black text-[9px] uppercase tracking-widest transition-colors border border-emerald-500/30">Approve</button>
+                        <button onClick={() => handleRejectPayment(record.metadata)} className="touch-target flex-1 px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-black text-[9px] uppercase tracking-widest transition-colors border border-red-500/20">Reject</button>
                       </div>
                     </div>
                   ) : userRole !== 'Client' && (
                       <div className="flex gap-2">
                         {!isExpense && (
-                          <button onClick={() => setPreviewDoc(record.metadata)} className="p-3 bg-white/5 text-blue-400 hover:text-white rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
+                          <button onClick={() => setPreviewDoc(record.metadata)} className="touch-target p-3 bg-white/5 text-blue-400 hover:text-white rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
                         )}
                         {!isExpense && !isQuote && !isPaid && (
                           <button onClick={async () => {
                             const updated = { ...record.metadata, status: 'Paid' };
                             await api.saveInvoice(updated);
                             window.dispatchEvent(new CustomEvent('finance-updated'));
-                          }} className="px-4 py-3 bg-emerald-500 text-black rounded-lg font-black text-[9px] uppercase tracking-widest">Mark Paid</button>
+                          }} className="touch-target px-4 py-3 bg-emerald-500 text-black rounded-lg font-black text-[9px] uppercase tracking-widest">Mark Paid</button>
                         )}
                         {isQuote && (
                           <button onClick={async () => {
                             const updated = { ...record.metadata, type: 'invoice', isQuotation: false, status: 'Unpaid' };
                             await api.saveInvoice(updated);
                             window.dispatchEvent(new CustomEvent('finance-updated'));
-                          }} className="px-4 py-3 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest">To Invoice</button>
+                          }} className="touch-target px-4 py-3 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest">To Invoice</button>
                         )}
-                        <button onClick={() => setDeleteModal({ isOpen: true, id: record.id, type: isExpense ? 'expense' : 'entry' })} className="p-3 bg-white/5 text-zinc-500 hover:text-red-500 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => setDeleteModal({ isOpen: true, id: record.id, type: isExpense ? 'expense' : 'entry' })} className="touch-target p-3 bg-white/5 text-zinc-500 hover:text-red-500 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     )}
                 </div>
@@ -431,16 +431,16 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
       {isCreating && createPortal(
         <div
-          className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-ios-fade-in"
+          className="fixed inset-0 bg-black/90 md:bg-black/70 z-[9999] flex items-center justify-center p-0 md:p-4 pt-safe md:pt-4 backdrop-blur-md md:backdrop-blur-sm animate-ios-fade-in"
           onClick={() => setIsCreating(false)}
         >
           <div
-            className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-xl p-10 shadow-2xl animate-ios-slide-up relative overflow-y-auto max-h-[90vh] no-scrollbar"
+            className="bg-zinc-950 md:bg-zinc-900 border border-white/10 rounded-none md:rounded-2xl w-full h-full md:h-auto md:max-w-xl p-6 md:p-10 shadow-2xl animate-ios-slide-up relative overflow-y-auto pb-safe md:pb-10 no-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-10">
-              <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Finance Registry</h2>
-              <button onClick={() => setIsCreating(false)} className="p-2 bg-white/5 rounded-full"><X className="w-6 h-6 text-zinc-500" /></button>
+              <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tighter">Finance Registry</h2>
+              <button onClick={() => setIsCreating(false)} className="touch-target p-2 bg-white/5 rounded-full"><X className="w-6 h-6 text-zinc-500" /></button>
             </div>
 
             <form onSubmit={handleGenerateEntry} className="space-y-6">
@@ -480,14 +480,17 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
       {isExpenseModalOpen && createPortal(
         <div
-          className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-ios-fade-in"
+          className="fixed inset-0 bg-black/90 md:bg-black/70 z-[9999] flex items-center justify-center p-0 md:p-4 pt-safe md:pt-4 backdrop-blur-md md:backdrop-blur-sm animate-ios-fade-in"
           onClick={() => setIsExpenseModalOpen(false)}
         >
           <div
-            className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-lg p-10 shadow-2xl animate-ios-slide-up relative overflow-y-auto max-h-[90vh] no-scrollbar"
+            className="bg-zinc-950 md:bg-zinc-900 border border-white/10 rounded-none md:rounded-2xl w-full h-full md:h-auto md:max-w-lg p-6 md:p-10 shadow-2xl animate-ios-slide-up relative overflow-y-auto pb-safe md:pb-10 no-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-10">Log Expense</h2>
+            <div className="flex justify-between items-center mb-10">
+              <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tighter">Log Expense</h2>
+              <button onClick={() => setIsExpenseModalOpen(false)} className="touch-target p-2 bg-white/5 rounded-full"><X className="w-6 h-6 text-zinc-500" /></button>
+            </div>
             <form onSubmit={handleExpenseSubmit} className="space-y-6">
               <input required className="w-full bg-black border border-white/5 rounded-xl p-4 text-sm font-bold" placeholder="Description" value={newExpense.description} onChange={e => setNewExpense({ ...newExpense, description: e.target.value })} />
               <div className="grid grid-cols-2 gap-4">

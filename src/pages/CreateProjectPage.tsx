@@ -548,9 +548,9 @@ const CreateProjectPage: React.FC = () => {
 
       {/* Add Staff Modal */}
       {isAddStaffModalOpen && (
-         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-ios-fade-in">
-            <div className="w-full max-w-sm bg-zinc-950 border border-white/10 rounded-3xl p-8 shadow-2xl animate-ios-slide-up relative">
-               <button onClick={() => setIsAddStaffModalOpen(false)} className="absolute top-6 right-6 p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
+         <div className="fixed inset-0 bg-black/90 md:bg-black/80 backdrop-blur-md md:backdrop-blur-sm z-[200] flex items-center justify-center p-0 md:p-4 pt-safe md:pt-4 animate-ios-fade-in">
+            <div className="w-full h-full md:h-auto md:max-w-sm bg-zinc-950 border border-white/10 rounded-none md:rounded-3xl p-6 md:p-8 shadow-2xl animate-ios-slide-up relative overflow-y-auto flex flex-col justify-center pb-safe md:pb-8">
+               <button onClick={() => setIsAddStaffModalOpen(false)} className="absolute top-4 right-4 md:top-6 md:right-6 p-3 md:p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors touch-target">
                   <X className="w-4 h-4 text-zinc-400" />
                </button>
                <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Add Personnel</h3>

@@ -521,3 +521,21 @@ export interface CatalogItem {
   categoryId: string;
   workflowStage?: ProjectStage;
 }
+
+export interface AttendanceRecord {
+  id: string;
+  staffId: string;
+  date: string;
+  clockIn: string;
+  clockOut?: string;
+  totalHours?: number;
+}
+
+export interface Equipment {
+  id: string;
+  staffId?: string;
+  name: string;
+  type: string; // Camera, Lens, Drone, Accessory
+  serialNumber?: string;
+  status: 'Assigned' | 'Available' | 'Maintenance';
+}

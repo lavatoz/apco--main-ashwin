@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { Lock, ArrowRight, ShieldCheck, Download, Search } from 'lucide-react';
 import { sha256 } from 'js-sha256';
 import { api } from '../services/api';
@@ -95,72 +94,65 @@ export const SecurityHubPage: React.FC = () => {
 
   // Password gate check
   if (globalSettings.pdfOwnerPassword && !isUnlocked) {
-    return createPortal(
-      <div 
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'fixed',
-          inset: 0,
-        }}
-        className="z-[9999] p-6"
-      >
-        {/* Dark Cinematic Backdrop Blur */}
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-2xl" />
+    return (
+      <AnimatedDashboard className="min-h-[80vh] relative overflow-hidden rounded-3xl border border-white/5 bg-zinc-950/20">
+        <div className="w-full h-full min-h-[80vh] flex items-center justify-center relative">
+          {/* Dark Cinematic Backdrop Blur */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-md z-0" />
 
-        <div 
-          className="absolute inset-0 opacity-15 pointer-events-none z-0"
-          style={{
-            backgroundImage: `
-              linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-              linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
-            `,
-            backgroundSize: '3rem 3rem',
-          }}
-        />
-        <form 
-          onSubmit={handleUnlock}
-          className={`relative max-w-md w-full bg-zinc-950/70 border ${
-            lockError ? 'border-red-500 animate-[shake_0.5s_ease-in-out]' : 'border-white/10'
-          } rounded-[2.5rem] p-10 backdrop-blur-2xl text-center space-y-8 shadow-[0_24px_50px_rgba(0,0,0,0.8)] z-10`}
-        >
-          <div className="flex flex-col items-center gap-3">
-            <div className="p-5 bg-white/5 border border-white/5 rounded-[2rem] text-zinc-400">
-              <Lock className="w-10 h-10" />
-            </div>
-            <h1 className="text-2xl font-black uppercase tracking-tighter text-white">DOCUMENT LOCKED</h1>
-            <p className="text-[10px] font-black tracking-[0.2em] text-zinc-500 uppercase">Hub Access Protection Required</p>
-          </div>
-
-          <div className="space-y-4">
-            <div className="relative">
-              <input
-                type="password"
-                placeholder="ENTER MASTER SECRET..."
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full bg-black/60 border border-white/10 rounded-2xl px-6 py-4 text-center font-mono font-bold text-white text-sm tracking-widest outline-none focus:border-white/20 transition-all"
-                autoFocus
-              />
-            </div>
-            {lockError && (
-              <p className="text-[9px] font-black uppercase text-red-500 tracking-widest">
-                VERIFICATION FAILURE: INVALID SECURITY PROTOCOL
-              </p>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            className="w-full flex items-center justify-center gap-2 py-4 bg-white text-black hover:bg-zinc-200 transition-colors font-black text-[10px] uppercase tracking-widest rounded-2xl"
+          <div 
+            className="absolute inset-0 opacity-15 pointer-events-none z-0"
+            style={{
+              backgroundImage: `
+                linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
+              `,
+              backgroundSize: '3rem 3rem',
+            }}
+          />
+          
+          <form 
+            onSubmit={handleUnlock}
+            className={`relative max-w-md w-full bg-zinc-950/70 border ${
+              lockError ? 'border-red-500 animate-[shake_0.5s_ease-in-out]' : 'border-white/10'
+            } rounded-[2.5rem] p-10 backdrop-blur-2xl text-center space-y-8 shadow-[0_24px_50px_rgba(0,0,0,0.8)] z-10`}
           >
-            <span>Decrypt Access</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </form>
-      </div>,
-      document.body
+            <div className="flex flex-col items-center gap-3">
+              <div className="p-5 bg-white/5 border border-white/5 rounded-[2rem] text-zinc-400">
+                <Lock className="w-10 h-10" />
+              </div>
+              <h1 className="text-2xl font-black uppercase tracking-tighter text-white">DOCUMENT LOCKED</h1>
+              <p className="text-[10px] font-black tracking-[0.2em] text-zinc-500 uppercase">Hub Access Protection Required</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="relative">
+                <input
+                  type="password"
+                  placeholder="ENTER MASTER SECRET..."
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  className="w-full bg-black/60 border border-white/10 rounded-2xl px-6 py-4 text-center font-mono font-bold text-white text-sm tracking-widest outline-none focus:border-white/20 transition-all"
+                  autoFocus
+                />
+              </div>
+              {lockError && (
+                <p className="text-[9px] font-black uppercase text-red-500 tracking-widest">
+                  VERIFICATION FAILURE: INVALID SECURITY PROTOCOL
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full flex items-center justify-center gap-2 py-4 bg-white text-black hover:bg-zinc-200 transition-colors font-black text-[10px] uppercase tracking-widest rounded-2xl"
+            >
+              <span>Decrypt Access</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </form>
+        </div>
+      </AnimatedDashboard>
     );
   }
 

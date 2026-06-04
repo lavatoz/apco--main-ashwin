@@ -1683,11 +1683,11 @@ const ClientDetailsPage: React.FC = () => {
                   </div>
                </div>
             </div>
-            <div className="flex items-center gap-3 w-full xl:w-auto overflow-x-auto no-scrollbar pt-2 xl:pt-0">
-               <button onClick={() => openModal('quotation')} className="shrink-0 px-6 py-3.5 bg-white/5 text-white border border-white/5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-white/10 hover:border-white/20 transition-all active:scale-95 flex items-center gap-2">
+            <div className="flex items-center gap-3 w-full xl:w-auto overflow-x-auto no-scrollbar pt-2 xl:pt-0 pb-2">
+               <button onClick={() => openModal('quotation')} className="touch-target shrink-0 px-6 py-3.5 bg-white/5 text-white border border-white/5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-white/10 hover:border-white/20 transition-all active:scale-95 flex items-center gap-2">
                   <Plus className="w-4 h-4" /> Create Quote
                </button>
-               <button onClick={() => openModal('invoice')} className="shrink-0 px-6 py-3.5 bg-white text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all active:scale-95 flex items-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+               <button onClick={() => openModal('invoice')} className="touch-target shrink-0 px-6 py-3.5 bg-white text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all active:scale-95 flex items-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                   <Plus className="w-4 h-4 text-black/50" /> Create Invoice
                </button>
             </div>
@@ -1699,7 +1699,7 @@ const ClientDetailsPage: React.FC = () => {
                <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-8 py-4 rounded-t-2xl font-black uppercase text-[11px] tracking-widest transition-all ${activeTab === tab
+                  className={`touch-target px-4 md:px-8 py-3 md:py-4 rounded-t-2xl font-black uppercase text-[11px] tracking-widest transition-all whitespace-nowrap ${activeTab === tab
                      ? 'bg-zinc-900 text-white border-t border-x border-white/5 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-10'
                      : 'text-zinc-600 hover:text-zinc-300 hover:bg-white/5 border-t border-x border-transparent translate-y-1'
                      }`}
@@ -1736,7 +1736,7 @@ const ClientDetailsPage: React.FC = () => {
                            <Edit2 className="w-3 h-3" /> Edit
                         </button>
                      </div>
-                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
                         <div>
                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Client ID</p>
                            <p className="text-sm font-bold text-white">{client.id || (client as any)._id}</p>
@@ -1778,7 +1778,7 @@ const ClientDetailsPage: React.FC = () => {
                         <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em]">Event Schedule</h3>
                         <button
                            onClick={() => setIsAddEventModalOpen(true)}
-                           className="text-[10px] font-black uppercase tracking-widest text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-all flex items-center gap-2"
+                           className="touch-target text-[10px] font-black uppercase tracking-widest text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-all flex items-center gap-2"
                         >
                            <Plus className="w-3 h-3" /> Add Event
                         </button>
@@ -2586,14 +2586,14 @@ const ClientDetailsPage: React.FC = () => {
          {/* -------------------- UNIFIED FINANCIAL BUILDER MODAL -------------------- */}
          {isModalOpen && createPortal(
             <div
-               className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-ios-fade-in"
+               className="fixed inset-0 bg-black/90 md:bg-black/70 z-[9999] flex items-center justify-center p-0 md:p-4 pt-safe md:pt-4 backdrop-blur-md md:backdrop-blur-sm animate-ios-fade-in"
                onClick={() => setIsModalOpen(false)}
             >
                <div
-                  className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-zinc-900 border border-white/10 rounded-2xl p-10 shadow-2xl relative animate-ios-slide-up no-scrollbar"
+                  className="w-full h-full md:h-auto md:max-w-4xl max-h-none md:max-h-[90vh] overflow-y-auto bg-zinc-950 md:bg-zinc-900 border border-white/10 rounded-none md:rounded-2xl p-6 md:p-10 shadow-2xl relative animate-ios-slide-up no-scrollbar pb-safe md:pb-10"
                   onClick={(e) => e.stopPropagation()}
                >
-                  <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
+                  <button onClick={() => setIsModalOpen(false)} className="touch-target absolute top-4 md:top-6 right-4 md:right-6 p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
                      <X className="w-5 h-5 text-zinc-400 hover:text-white" />
                   </button>
 
@@ -2614,8 +2614,8 @@ const ClientDetailsPage: React.FC = () => {
                            <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Structure Type</label>
                               <div className="flex bg-black border border-white/10 squircle-sm p-1">
-                                 <button type="button" onClick={() => { setModalType('quotation'); setAutoGeneratedId(generateAutoId('quotation', selectedCompanyIdForDoc)); }} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${modalType === 'quotation' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Quotation</button>
-                                 <button type="button" onClick={() => { setModalType('invoice'); setAutoGeneratedId(generateAutoId('invoice', selectedCompanyIdForDoc)); }} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${modalType === 'invoice' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Invoice</button>
+                                 <button type="button" onClick={() => { setModalType('quotation'); setAutoGeneratedId(generateAutoId('quotation', selectedCompanyIdForDoc)); }} className={`touch-target flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${modalType === 'quotation' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Quotation</button>
+                                 <button type="button" onClick={() => { setModalType('invoice'); setAutoGeneratedId(generateAutoId('invoice', selectedCompanyIdForDoc)); }} className={`touch-target flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${modalType === 'invoice' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Invoice</button>
                               </div>
                            </div>
                            <div className="space-y-2">
@@ -3341,18 +3341,18 @@ const ClientDetailsPage: React.FC = () => {
             />
          )}
          {isAddEventModalOpen && createPortal(
-            <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-6 backdrop-blur-2xl">
-               <div className="bg-zinc-900 border border-white/10 rounded-[2.5rem] w-full max-w-xl p-12 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="fixed inset-0 bg-black/90 md:bg-black/80 z-[200] flex items-center justify-center p-0 md:p-6 backdrop-blur-md md:backdrop-blur-2xl">
+               <div className="bg-zinc-950 md:bg-zinc-900 border border-white/10 rounded-none md:rounded-[2.5rem] w-full h-full md:h-auto md:max-w-xl p-6 md:p-12 shadow-2xl animate-ios-slide-up overflow-y-auto custom-scrollbar pb-safe md:pb-12 pt-safe md:pt-12">
                   <div className="flex justify-between items-center mb-8">
-                     <h2 className="text-3xl font-black text-white uppercase tracking-tight">Add Event</h2>
-                     <button onClick={() => setIsAddEventModalOpen(false)} className="p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
+                     <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight">Add Event</h2>
+                     <button onClick={() => setIsAddEventModalOpen(false)} className="touch-target p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
                   </div>
                   <form onSubmit={handleSaveEvent} className="space-y-6">
                      <div className="space-y-2">
                         <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Event Name *</label>
                         <input required className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" placeholder="e.g. Mehendi" value={newEventForm.name || ''} onChange={e => setNewEventForm({ ...newEventForm, name: e.target.value })} />
                      </div>
-                     <div className="grid grid-cols-3 gap-4">
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                            <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Date *</label>
                            <input required type="date" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={newEventForm.date || ''} onChange={e => setNewEventForm({ ...newEventForm, date: e.target.value })} />
@@ -3391,11 +3391,11 @@ const ClientDetailsPage: React.FC = () => {
             , document.body)}
 
          {isEditProjectModalOpen && createPortal(
-            <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-6 backdrop-blur-2xl">
-               <div className="bg-zinc-900 border border-white/10 rounded-[2.5rem] w-full max-w-2xl p-12 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="fixed inset-0 bg-black/90 md:bg-black/80 z-[200] flex items-center justify-center p-0 md:p-6 backdrop-blur-md md:backdrop-blur-2xl">
+               <div className="bg-zinc-950 md:bg-zinc-900 border border-white/10 rounded-none md:rounded-[2.5rem] w-full h-full md:h-auto md:max-w-2xl p-6 md:p-12 shadow-2xl animate-ios-slide-up overflow-y-auto custom-scrollbar pb-safe md:pb-12 pt-safe md:pt-12">
                   <div className="flex justify-between items-center mb-8">
-                     <h2 className="text-3xl font-black text-white uppercase tracking-tight">Edit Project Info</h2>
-                     <button onClick={() => setIsEditProjectModalOpen(false)} className="p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
+                     <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight">Edit Project Info</h2>
+                     <button onClick={() => setIsEditProjectModalOpen(false)} className="touch-target p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
                   </div>
                   <form onSubmit={handleUpdateProjectInfo} className="space-y-6">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3442,18 +3442,18 @@ const ClientDetailsPage: React.FC = () => {
             , document.body)}
 
          {isEditEventModalOpen && editingEvent && createPortal(
-            <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-6 backdrop-blur-2xl">
-               <div className="bg-zinc-900 border border-white/10 rounded-[2.5rem] w-full max-w-xl p-12 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="fixed inset-0 bg-black/90 md:bg-black/80 z-[200] flex items-center justify-center p-0 md:p-6 backdrop-blur-md md:backdrop-blur-2xl">
+               <div className="bg-zinc-950 md:bg-zinc-900 border border-white/10 rounded-none md:rounded-[2.5rem] w-full h-full md:h-auto md:max-w-xl p-6 md:p-12 shadow-2xl animate-ios-slide-up overflow-y-auto custom-scrollbar pb-safe md:pb-12 pt-safe md:pt-12">
                   <div className="flex justify-between items-center mb-8">
-                     <h2 className="text-3xl font-black text-white uppercase tracking-tight">Edit Event</h2>
-                     <button onClick={() => { setIsEditEventModalOpen(false); setEditingEvent(null); }} className="p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
+                     <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight">Edit Event</h2>
+                     <button onClick={() => { setIsEditEventModalOpen(false); setEditingEvent(null); }} className="touch-target p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
                   </div>
                   <form onSubmit={handleUpdateEvent} className="space-y-6">
                      <div className="space-y-2">
                         <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Event Name *</label>
                         <input required className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" placeholder="e.g. Mehendi" value={editingEvent.name || ''} onChange={e => setEditingEvent({ ...editingEvent, name: e.target.value })} />
                      </div>
-                     <div className="grid grid-cols-3 gap-4">
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                            <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Date *</label>
                            <input required type="date" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all" value={editingEvent.date || ''} onChange={e => setEditingEvent({ ...editingEvent, date: e.target.value })} />

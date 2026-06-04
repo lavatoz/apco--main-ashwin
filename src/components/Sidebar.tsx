@@ -52,12 +52,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
     { path: '/support', label: 'Support', icon: HelpCircle, permission: 'dashboard' },
   ];
 
+  const STAFF_MENU = [
+    { path: '/workspace', label: 'My Workspace', icon: LayoutDashboard, permission: 'dashboard' },
+  ];
+
   let menuItems = ADMIN_MENU;
 
   if (user?.role === 'Client') {
     menuItems = CLIENT_MENU;
   } else if (user?.role === 'Staff') {
-    menuItems = ADMIN_MENU.filter(item => user.permissions && user.permissions.includes(item.permission));
+    menuItems = STAFF_MENU;
   } else if (user?.role === 'Admin') {
     menuItems = ADMIN_MENU;
   } else {

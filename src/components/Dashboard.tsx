@@ -466,7 +466,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
             <button 
               key={m.id} 
               onClick={() => m.targetPath && navigate(m.targetPath)} 
-              className={`${m.bg} border border-white/5 p-8 squircle-lg flex flex-col justify-between h-48 group cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:border-white/20 active:scale-95 text-left w-full outline-none focus:ring-2 focus:ring-white/20 relative overflow-hidden`}
+              className={`${m.bg} border border-white/5 p-4 md:p-8 squircle-lg flex flex-col justify-between h-36 md:h-48 group cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:border-white/20 active:scale-95 text-left w-full outline-none focus:ring-2 focus:ring-white/20 relative overflow-hidden touch-target`}
               aria-label={`View ${m.label}`}
             >
               <div 
@@ -480,8 +480,8 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
                 <ArrowUpRight className="w-5 h-5 text-zinc-700 group-hover:text-white group-hover:translate-x-1 group-hover:-translate-y-1 transition-all duration-200" />
               </div>
               <div className="relative z-10">
-                <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-zinc-400 transition-colors">{m.label}</p>
-                <h3 className="text-3xl font-black text-white tracking-tight">{m.value}</h3>
+                <p className="text-zinc-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-zinc-400 transition-colors truncate">{m.label}</p>
+                <h3 className="text-2xl md:text-3xl font-black text-white tracking-tight truncate">{m.value}</h3>
               </div>
             </button>
           );
@@ -489,34 +489,34 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
       </div>
 
       {/* Workflow Warnings Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-         <div className="bg-white/5 border border-white/10 p-6 squircle-lg flex flex-col justify-between hover:bg-white/10 transition-colors">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+         <div className="bg-white/5 border border-white/10 p-4 md:p-6 squircle-lg flex flex-col justify-between hover:bg-white/10 transition-colors touch-target">
             <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center mb-4">
                <AlertCircle className="w-4 h-4 text-red-500" />
             </div>
-            <h4 className="text-3xl font-black text-white">{pendingAgreementsCount}</h4>
-            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Agreements Pending</p>
+            <h4 className="text-2xl md:text-3xl font-black text-white">{pendingAgreementsCount}</h4>
+            <p className="text-[8px] md:text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Agreements Pending</p>
          </div>
-         <div className="bg-white/5 border border-white/10 p-6 squircle-lg flex flex-col justify-between hover:bg-white/10 transition-colors">
+         <div className="bg-white/5 border border-white/10 p-4 md:p-6 squircle-lg flex flex-col justify-between hover:bg-white/10 transition-colors touch-target">
             <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center mb-4">
                <IndianRupee className="w-4 h-4 text-amber-500" />
             </div>
-            <h4 className="text-3xl font-black text-white">{pendingAdvancesCount}</h4>
-            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Advances Pending</p>
+            <h4 className="text-2xl md:text-3xl font-black text-white">{pendingAdvancesCount}</h4>
+            <p className="text-[8px] md:text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Advances Pending</p>
          </div>
-         <div className="bg-white/5 border border-white/10 p-6 squircle-lg flex flex-col justify-between hover:bg-white/10 transition-colors">
+         <div className="bg-white/5 border border-white/10 p-4 md:p-6 squircle-lg flex flex-col justify-between hover:bg-white/10 transition-colors touch-target">
             <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center mb-4">
                <Users className="w-4 h-4 text-orange-500" />
             </div>
-            <h4 className="text-3xl font-black text-white">{missingTeamsCount}</h4>
-            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Teams Missing</p>
+            <h4 className="text-2xl md:text-3xl font-black text-white">{missingTeamsCount}</h4>
+            <p className="text-[8px] md:text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Teams Missing</p>
          </div>
-         <div className="bg-white/5 border border-white/10 p-6 squircle-lg flex flex-col justify-between hover:bg-white/10 transition-colors">
+         <div className="bg-white/5 border border-white/10 p-4 md:p-6 squircle-lg flex flex-col justify-between hover:bg-white/10 transition-colors touch-target">
             <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mb-4">
                <Package className="w-4 h-4 text-blue-500" />
             </div>
-            <h4 className="text-3xl font-black text-white">{pendingDeliveriesCount}</h4>
-            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Deliveries Pending</p>
+            <h4 className="text-2xl md:text-3xl font-black text-white">{pendingDeliveriesCount}</h4>
+            <p className="text-[8px] md:text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Deliveries Pending</p>
          </div>
       </div>
 
@@ -651,7 +651,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
             const isLoss = client.profit < 0;
             const isLow = client.profit > 0 && client.profit < 10000;
             return (
-              <div key={idx} className="glass-panel p-8 border border-white/5 squircle-xl space-y-5 hover:bg-white/5 transition-all group relative overflow-hidden bg-white/[0.02]">
+              <div key={idx} className="glass-panel p-5 md:p-8 border border-white/5 squircle-xl space-y-5 hover:bg-white/5 transition-all group relative overflow-hidden bg-white/[0.02]">
                 <div className={`absolute top-0 right-0 w-1 h-full ${isLoss ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                 <div>
                   <h4 className="text-xl font-black text-white uppercase tracking-tight truncate">{client.name}</h4>

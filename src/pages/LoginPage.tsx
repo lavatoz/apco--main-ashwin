@@ -59,22 +59,22 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-white/[0.02] rounded-full blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-md animate-ios-slide-up relative z-10">
-        <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-white mx-auto squircle-sm flex items-center justify-center text-black mb-6 shadow-[0_0_50px_rgba(255,255,255,0.15)]">
-            <Layout className="w-8 h-8" />
+        <div className="text-center mb-6 md:mb-10">
+          <div className="w-10 h-10 md:w-16 md:h-16 bg-white mx-auto squircle-sm flex items-center justify-center text-black mb-4 md:mb-6 shadow-[0_0_50px_rgba(255,255,255,0.15)]">
+            <Layout className="w-5 h-5 md:w-8 md:h-8" />
           </div>
-          <h1 className="text-3xl font-black uppercase tracking-[0.2em] text-white">Artisans<span className="text-zinc-600">OS</span></h1>
-          <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mt-2">v5.5 Secure Identity Protocol</p>
+          <h1 className="text-xl md:text-3xl font-black uppercase tracking-[0.2em] text-white">Artisans<span className="text-zinc-600">OS</span></h1>
+          <p className="text-[10px] md:text-xs font-mono text-zinc-500 uppercase tracking-widest mt-1 md:mt-2">v5.5 Secure Identity Protocol</p>
         </div>
 
-        <div className="glass-panel-dark border border-white/10 rounded-[2.5rem] p-2 shadow-2xl overflow-hidden shadow-black/80">
+        <div className="glass-panel-dark border border-white/10 rounded-[2.5rem] p-1 md:p-2 shadow-2xl overflow-hidden shadow-black/80">
           {/* Role Selector */}
           <div className="bg-black/40 p-1.5 rounded-[2rem] border border-white/5 flex gap-1 mb-6 backdrop-blur-md">
             {(['Client', 'Staff', 'Admin'] as const).map((r) => (
               <button
                 key={r}
                 onClick={() => setRole(r)}
-                className={`flex-1 py-3 rounded-[1.8rem] text-xs font-bold uppercase tracking-widest transition-all ${
+                className={`touch-target flex-1 py-2 md:py-3 rounded-[1.8rem] text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all ${
                   role === r ? 'bg-white text-black shadow-lg scale-100' : 'text-zinc-500 hover:text-white hover:bg-white/5 scale-95'
                 }`}
               >
@@ -91,7 +91,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 placeholder="EMAIL ADDRESS"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm focus:ring-1 focus:ring-white/10"
+                className="touch-target w-full bg-black/40 border border-white/5 rounded-2xl py-3.5 md:p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-xs md:text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm focus:ring-1 focus:ring-white/10"
               />
               <input
                 required
@@ -99,7 +99,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 placeholder="PASSWORD"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm focus:ring-1 focus:ring-white/10"
+                className="touch-target w-full bg-black/40 border border-white/5 rounded-2xl py-3.5 md:p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-xs md:text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm focus:ring-1 focus:ring-white/10"
               />
             </div>
 
@@ -113,7 +113,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-white text-black font-bold py-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-zinc-200 active:scale-[0.98] transition-all shadow-xl text-xs uppercase tracking-[0.3em]"
+                className="touch-target w-full bg-white text-black font-bold py-4 md:py-5 rounded-2xl flex items-center justify-center gap-3 hover:bg-zinc-200 active:scale-[0.98] transition-all shadow-xl text-[10px] md:text-xs uppercase tracking-[0.3em]"
               >
                 {isLoading ? (
                   <div className="flex items-center gap-3">

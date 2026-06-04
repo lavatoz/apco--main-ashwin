@@ -547,7 +547,7 @@ const CompanySettingsPage: React.FC = () => {
                              <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full uppercase tracking-widest">Active Protection</span>
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              {/* Watermark Toggle */}
                              <button 
                                onClick={() => saveGlobalSettings({...globalSettings, pdfWatermarkEnabled: !globalSettings.pdfWatermarkEnabled})}
@@ -620,20 +620,20 @@ const CompanySettingsPage: React.FC = () => {
 
       {/* Add/Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 md:p-12">
-           <div className="absolute inset-0 bg-black/90 backdrop-blur-3xl animate-ios-fade-in" onClick={closeModal} />
-           <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto glass-panel border border-white/10 rounded-[3rem] shadow-4xl animate-ios-slide-up no-scrollbar">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-12 pt-safe md:pt-12">
+           <div className="absolute inset-0 bg-black/90 backdrop-blur-md md:backdrop-blur-3xl animate-ios-fade-in" onClick={closeModal} />
+           <div className="relative w-full h-full md:max-h-[90vh] md:w-full md:max-w-5xl overflow-y-auto glass-panel border border-white/10 rounded-none md:rounded-[3rem] shadow-4xl animate-ios-slide-up no-scrollbar flex flex-col bg-zinc-950/50 md:bg-transparent">
               
-              <div className="sticky top-0 z-10 p-8 border-b border-white/5 bg-zinc-950/80 backdrop-blur-md flex items-center justify-between">
+              <div className="sticky top-0 z-10 p-6 md:p-8 border-b border-white/5 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-between">
                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-500/10 text-blue-500 rounded-2xl">
+                    <div className="p-3 bg-blue-500/10 text-blue-500 rounded-2xl hidden md:block">
                        <Building className="w-6 h-6" />
                     </div>
                     <div>
-                       <h2 className="text-2xl font-black text-white uppercase tracking-tighter">
-                          {editingCompany ? 'Recalibrate Brand' : 'Deploy Brand Instance'}
-                       </h2>
-                       <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Portal ID: {formData.id}</p>
+                        <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter">
+                           {editingCompany ? 'Recalibrate Brand' : 'Deploy Brand Instance'}
+                        </h2>
+                        <p className="text-[10px] md:text-xs font-bold text-zinc-500 uppercase tracking-widest truncate max-w-[200px] md:max-w-none">Portal ID: {formData.id}</p>
                     </div>
                  </div>
                  <button onClick={closeModal} className="p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all">
@@ -641,7 +641,7 @@ const CompanySettingsPage: React.FC = () => {
                  </button>
               </div>
 
-              <form onSubmit={handleSaveCompany} className="p-10 space-y-12 pb-20">
+               <form onSubmit={handleSaveCompany} className="p-6 md:p-10 space-y-10 md:space-y-12 pb-safe md:pb-20 flex-1">
                  
                  {/* Branding Section */}
                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
@@ -927,13 +927,13 @@ const CompanySettingsPage: React.FC = () => {
                        <button 
                          type="button" 
                          onClick={closeModal}
-                         className="px-8 py-5 bg-white/5 text-zinc-400 hover:text-white rounded-3xl text-xs font-bold uppercase tracking-widest transition-all"
+                         className="px-6 md:px-8 py-4 md:py-5 bg-white/5 text-zinc-400 hover:text-white rounded-2xl md:rounded-3xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all touch-target"
                        >
                           Abort
                        </button>
                        <button 
                          type="submit"
-                         className="px-12 py-5 bg-white text-black font-black uppercase text-xs tracking-[0.2em] rounded-3xl shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3"
+                         className="px-8 md:px-12 py-4 md:py-5 bg-white text-black font-black uppercase text-[10px] md:text-xs tracking-[0.2em] rounded-2xl md:rounded-3xl shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 md:gap-3 touch-target"
                        >
                           Deploy Settings
                        </button>

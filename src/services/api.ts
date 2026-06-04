@@ -514,6 +514,32 @@ export const api = {
     localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(config));
   },
 
+  // Attendance (Staff Portal)
+  getAttendance: async (staffId: string) => {
+    await delay(100);
+    const records = safeParse<any[]>('attendance_records', []);
+    return records.filter(r => r.staffId === staffId);
+  },
+  saveAttendance: async (record: any) => {
+    await delay(100);
+    const records = safeParse<any[]>('attendance_records', []);
+    const idx = records.findIndex(r => r.id === record.id);
+    if (idx >= 0) records[idx] = record;
+    else records.push(record);
+    localStorage.setItem('attendance_records', JSON.stringify(records));
+    return record;
+  },
+
+  // Equipment (Staff Portal)
+  getEquipment: async (staffId: string) => {
+    await delay(100);
+    const records = safeParse<any[]>('equipment_records', [
+      { id: 'EQ-001', staffId, name: 'Sony A7S III', type: 'Camera', serialNumber: 'SNY-1234', status: 'Assigned' },
+      { id: 'EQ-002', staffId, name: 'Sony 24-70mm f/2.8 GM', type: 'Lens', serialNumber: 'LNS-9876', status: 'Assigned' }
+    ]);
+    return records.filter(r => r.staffId === staffId);
+  },
+
   // Sync Placeholder
   syncToRemote: async () => {
     await delay(1500);

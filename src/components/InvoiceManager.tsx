@@ -238,91 +238,165 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
 
       {/* Invoice List */}
       <div className={`${cardBg} rounded-xl shadow-sm border overflow-hidden`}>
-        <table className="w-full text-left">
-          <thead className={`${tableHeader} text-xs font-semibold uppercase tracking-wider`}>
-            <tr>
-              <th className="p-4">Invoice ID</th>
-              <th className="p-4">Brand</th>
-              <th className="p-4">Client</th>
-              <th className="p-4">Amount</th>
-              <th className="p-4">Due Date</th>
-              <th className="p-4">Status</th>
-              <th className="p-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className={`divide-y ${borderColor}`}>
-            {filteredInvoices.map((inv) => {
-              const client = clients.find(c => c.id === inv.clientId);
-              const total = calculateTotal(inv.items || []);
-              const isOverdue = inv.status !== InvoiceStatus.Paid && inv.dueDate && new Date(inv.dueDate) < new Date();
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className={`${tableHeader} text-xs font-semibold uppercase tracking-wider`}>
+              <tr>
+                <th className="p-4">Invoice ID</th>
+                <th className="p-4">Brand</th>
+                <th className="p-4">Client</th>
+                <th className="p-4">Amount</th>
+                <th className="p-4">Due Date</th>
+                <th className="p-4">Status</th>
+                <th className="p-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className={`divide-y ${borderColor}`}>
+              {filteredInvoices.map((inv) => {
+                const client = clients.find(c => c.id === inv.clientId);
+                const total = calculateTotal(inv.items || []);
+                const isOverdue = inv.status !== InvoiceStatus.Paid && inv.dueDate && new Date(inv.dueDate) < new Date();
 
-              return (
-                <React.Fragment key={inv.id}>
-                  <tr className={`${tableRowHover} transition-colors`}>
-                    <td className={`p-4 font-mono text-sm ${textSecondary}`}>#{inv.id}</td>
-                    <td className="p-4">
-                      {/* Fix: changed 'Aaha Kalayanam' to 'AAHA Kalyanam' for consistency */}
+                return (
+                  <React.Fragment key={inv.id}>
+                    <tr className={`${tableRowHover} transition-colors`}>
+                      <td className={`p-4 font-mono text-sm ${textSecondary}`}>#{inv.id}</td>
+                      <td className="p-4">
+                        <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-sm ${inv.brand === 'AAHA Kalyanam' ? 'bg-yellow-900/30 text-yellow-500' : 'bg-blue-100 text-blue-600'}`}>
+                          {inv.brand === 'AAHA Kalyanam' ? 'Wedding' : 'Baby'}
+                        </span>
+                      </td>
+                      <td className={`p-4 font-medium ${textPrimary}`}>{client?.projectName || 'Unknown'}</td>
+                      <td className={`p-4 font-medium ${textPrimary}`}>₹{total.toLocaleString('en-IN')}</td>
+                      <td className={`p-4 text-sm ${textSecondary}`}>{new Date(inv.dueDate).toLocaleDateString()}</td>
+                      <td className="p-4">
+                        <StatusBadge status={isOverdue ? InvoiceStatus.Overdue : inv.status} isBaby={isBaby} />
+                      </td>
+                      <td className="p-4 text-right flex justify-end gap-2">
+                        <button
+                          onClick={() => setPreviewDoc(inv)}
+                          className={`touch-target p-2 rounded-lg ${isBaby ? 'bg-blue-50 text-blue-600' : 'bg-zinc-800 text-blue-400 hover:text-white'}`}
+                          title="View Document"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {inv.status !== InvoiceStatus.Paid && (
+                          <button
+                            onClick={() => handleGenerateReminder(inv)}
+                            className={`touch-target p-2 rounded-lg ${isBaby ? 'bg-indigo-50 text-indigo-600' : 'bg-zinc-800 text-zinc-300 hover:text-white'}`}
+                            title="Generate Reminder Email"
+                          >
+                            {generatingFor === inv.id ? <Clock className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            if (inv.id) {
+                              updateInvoiceStatus(inv.id, inv.status === InvoiceStatus.Paid ? InvoiceStatus.Unpaid : InvoiceStatus.Paid);
+                            }
+                          }}
+                          className={`touch-target p-2 rounded-lg ${inv.status === InvoiceStatus.Paid ? (isBaby ? 'text-amber-600 bg-amber-50' : 'text-yellow-500 bg-yellow-900/20') : (isBaby ? 'text-emerald-600 bg-emerald-50' : 'text-emerald-400 bg-emerald-900/20')}`}
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                    {aiDraft?.id === inv.id && (
+                      <tr>
+                        <td colSpan={7} className="bg-zinc-900/50 p-4">
+                          <div className="bg-white border rounded-lg p-4 relative text-slate-800">
+                            <h4 className="text-xs font-bold text-indigo-600 uppercase mb-2">AI Drafted Email ({inv.brand})</h4>
+                            <p className="text-sm whitespace-pre-wrap">{aiDraft.text}</p>
+                            <button
+                              onClick={() => setAiDraft(null)}
+                              className="touch-target absolute top-2 right-2 text-slate-400 hover:text-slate-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-white/5">
+          {filteredInvoices.map((inv) => {
+            const client = clients.find(c => c.id === inv.clientId);
+            const total = calculateTotal(inv.items || []);
+            const isOverdue = inv.status !== InvoiceStatus.Paid && inv.dueDate && new Date(inv.dueDate) < new Date();
+
+            return (
+              <div key={inv.id} className={`p-4 space-y-4 ${tableRowHover} transition-colors`}>
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`font-mono text-sm ${textSecondary}`}>#{inv.id}</span>
                       <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-sm ${inv.brand === 'AAHA Kalyanam' ? 'bg-yellow-900/30 text-yellow-500' : 'bg-blue-100 text-blue-600'}`}>
                         {inv.brand === 'AAHA Kalyanam' ? 'Wedding' : 'Baby'}
                       </span>
-                    </td>
-                    {/* Fix: Client interface uses projectName instead of name */}
-                    <td className={`p-4 font-medium ${textPrimary}`}>{client?.projectName || 'Unknown'}</td>
-                    <td className={`p-4 font-medium ${textPrimary}`}>₹{total.toLocaleString('en-IN')}</td>
-                    <td className={`p-4 text-sm ${textSecondary}`}>{new Date(inv.dueDate).toLocaleDateString()}</td>
-                    <td className="p-4">
-                      <StatusBadge status={isOverdue ? InvoiceStatus.Overdue : inv.status} isBaby={isBaby} />
-                    </td>
-                    <td className="p-4 text-right flex justify-end gap-2">
+                    </div>
+                    <p className={`font-medium ${textPrimary} truncate`}>{client?.projectName || 'Unknown'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-medium ${textPrimary}`}>₹{total.toLocaleString('en-IN')}</p>
+                    <p className={`text-xs ${textSecondary} mt-1`}>{new Date(inv.dueDate).toLocaleDateString()}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <StatusBadge status={isOverdue ? InvoiceStatus.Overdue : inv.status} isBaby={isBaby} />
+                  
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPreviewDoc(inv)}
+                      className={`touch-target p-2 rounded-lg ${isBaby ? 'bg-blue-50 text-blue-600' : 'bg-zinc-800 text-blue-400 hover:text-white'}`}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    {inv.status !== InvoiceStatus.Paid && (
                       <button
-                        onClick={() => setPreviewDoc(inv)}
-                        className={`p-2 rounded-lg ${isBaby ? 'bg-blue-50 text-blue-600' : 'bg-zinc-800 text-blue-400 hover:text-white'}`}
-                        title="View Document"
+                        onClick={() => handleGenerateReminder(inv)}
+                        className={`touch-target p-2 rounded-lg ${isBaby ? 'bg-indigo-50 text-indigo-600' : 'bg-zinc-800 text-zinc-300 hover:text-white'}`}
                       >
-                        <Eye className="w-4 h-4" />
+                        {generatingFor === inv.id ? <Clock className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                       </button>
-                      {inv.status !== InvoiceStatus.Paid && (
-                        <button
-                          onClick={() => handleGenerateReminder(inv)}
-                          className={`p-2 rounded-lg ${isBaby ? 'bg-indigo-50 text-indigo-600' : 'bg-zinc-800 text-zinc-300 hover:text-white'}`}
-                          title="Generate Reminder Email"
-                        >
-                          {generatingFor === inv.id ? <Clock className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          if (inv.id) {
-                            updateInvoiceStatus(inv.id, inv.status === InvoiceStatus.Paid ? InvoiceStatus.Unpaid : InvoiceStatus.Paid);
-                          }
-                        }}
-                        className={`p-2 rounded-lg ${inv.status === InvoiceStatus.Paid ? (isBaby ? 'text-amber-600 bg-amber-50' : 'text-yellow-500 bg-yellow-900/20') : (isBaby ? 'text-emerald-600 bg-emerald-50' : 'text-emerald-400 bg-emerald-900/20')}`}
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                  {aiDraft?.id === inv.id && (
-                    <tr>
-                      <td colSpan={7} className="bg-zinc-900/50 p-4">
-                        <div className="bg-white border rounded-lg p-4 relative text-slate-800">
-                          <h4 className="text-xs font-bold text-indigo-600 uppercase mb-2">AI Drafted Email ({inv.brand})</h4>
-                          <p className="text-sm whitespace-pre-wrap">{aiDraft.text}</p>
-                          <button
-                            onClick={() => setAiDraft(null)}
-                            className="absolute top-2 right-2 text-slate-400 hover:text-slate-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (inv.id) {
+                          updateInvoiceStatus(inv.id, inv.status === InvoiceStatus.Paid ? InvoiceStatus.Unpaid : InvoiceStatus.Paid);
+                        }
+                      }}
+                      className={`touch-target p-2 rounded-lg ${inv.status === InvoiceStatus.Paid ? (isBaby ? 'text-amber-600 bg-amber-50' : 'text-yellow-500 bg-yellow-900/20') : (isBaby ? 'text-emerald-600 bg-emerald-50' : 'text-emerald-400 bg-emerald-900/20')}`}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                
+                {aiDraft?.id === inv.id && (
+                  <div className="mt-4 bg-white border rounded-lg p-4 relative text-slate-800">
+                    <h4 className="text-xs font-bold text-indigo-600 uppercase mb-2">AI Drafted Email ({inv.brand})</h4>
+                    <p className="text-sm whitespace-pre-wrap">{aiDraft.text}</p>
+                    <button
+                      onClick={() => setAiDraft(null)}
+                      className="touch-target absolute top-2 right-2 text-slate-400 hover:text-slate-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
         {filteredInvoices.length === 0 && (
           <div className={`p-8 text-center ${textSecondary}`}>No invoices found for this selection.</div>
         )}

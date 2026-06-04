@@ -91,14 +91,14 @@ const ClientPortalLayout: React.FC<ClientPortalLayoutProps> = ({ onLogout }) => 
                 <NavLink
                   key={item.path}
                   to={item.path}
-                  className={({ isActive }) => `
+                  className={({ isActive }: { isActive: boolean }) => `
                     w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all group relative overflow-hidden
                     ${isActive
                       ? 'bg-white text-black shadow-xl'
                       : 'text-zinc-500 hover:text-white hover:bg-white/5'}
                   `}
                 >
-                  {({ isActive }) => (
+                  {({ isActive }: { isActive: boolean }) => (
                     <>
                       <Icon className={`w-5 h-5 shrink-0 transition-transform duration-300 ${isActive ? 'text-black scale-110' : 'group-hover:text-white group-hover:scale-110'}`} />
                       <span className="truncate transition-all tracking-wide">{item.label}</span>
