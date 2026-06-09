@@ -135,7 +135,7 @@ const AnalyticsDashboard: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-center gap-6">
         <div>
           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase leading-none flex items-center gap-4">
-            Analytics <TrendingUp className="w-10 h-10 text-emerald-500" />
+            Analytics <TrendingUp className="w-10 h-10 text-primary" />
           </h1>
           <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em] mt-3">Comprehensive Financial Intelligence</p>
         </div>
@@ -170,7 +170,7 @@ const AnalyticsDashboard: React.FC = () => {
         </div>
         <div className="glass-panel p-8 squircle-lg border border-white/5 bg-zinc-900/40">
            <p className="text-zinc-500 text-[9px] font-black uppercase tracking-widest mb-1">Operating Margin</p>
-           <h3 className="text-3xl font-black text-emerald-500 font-mono">
+           <h3 className="text-3xl font-black text-primary font-mono">
              {((chartData.reduce((s,d) => s+d.profit, 0) / (chartData.reduce((s,d) => s+d.revenue, 0) || 1)) * 100).toFixed(1)}%
            </h3>
         </div>
@@ -251,3 +251,4 @@ const AnalyticsDashboard: React.FC = () => {
 };
 
 export default AnalyticsDashboard;
+

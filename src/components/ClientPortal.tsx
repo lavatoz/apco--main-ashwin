@@ -90,11 +90,11 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
     fetchInvoices();
   }, [clientId, activeTab]);
 
-  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center"><div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>;
+  if (loading) return <div className="min-h-screen bg-transparent flex items-center justify-center"><div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>;
 
   if (projects.length === 0) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
          <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-8 border border-white/10">
             <LayoutDashboard className="w-8 h-8 text-zinc-600" />
          </div>
@@ -115,7 +115,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
   // If we haven't selected a project yet, show the list
   if (!activeProject) {
     return (
-      <div className="min-h-screen bg-black p-10 space-y-12 animate-ios-slide-up">
+      <div className="min-h-screen bg-transparent p-10 space-y-12 animate-ios-slide-up">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-4xl font-black text-white uppercase tracking-tight leading-none">Management Portal</h1>
@@ -138,14 +138,14 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
               onClick={() => setActiveProject(p)}
               className="glass-panel p-10 squircle-lg border border-white/5 text-left group hover:scale-[1.02] transition-all relative overflow-hidden"
             >
-              <div className="absolute top-0 right-0 w-1 h-full bg-white/10 group-hover:bg-blue-500 transition-colors" />
+              <div className="absolute top-0 right-0 w-1 h-full bg-white/10 group-hover:bg-primary transition-colors" />
               <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 mb-8">{new Date(p.date).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</p>
-              <h3 className="text-2xl font-black text-white uppercase tracking-tighter leading-none mb-1 group-hover:text-blue-500 transition-colors">{p.name}</h3>
+              <h3 className="text-2xl font-black text-white uppercase tracking-tighter leading-none mb-1 group-hover:text-primary transition-colors">{p.name}</h3>
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-10">{p.type}</p>
               
               <div className={`inline-block px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${
-                p.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 
-                p.status === 'Ongoing' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' : 
+                p.status === 'Completed' ? 'bg-primary/10 text-primary border border-primary/20' : 
+                p.status === 'Ongoing' ? 'bg-primary/10 text-primary border border-primary/20' : 
                 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
               }`}>
                 {p.status}
@@ -164,7 +164,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
     card: 'glass-panel',
     text: 'text-white',
     sub: 'text-zinc-500',
-    accent: isWedding ? 'text-yellow-500' : 'text-blue-500'
+    accent: isWedding ? 'text-yellow-500' : 'text-primary'
   };
 
   const portal = project.portal || { timeline: [], deliverables: [], internalSpends: [] };
@@ -473,15 +473,15 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
                {/* Invoices Section */}
                <div className="glass-panel p-10 squircle-lg">
                   <h2 className="text-xl font-black uppercase tracking-widest flex items-center gap-3 mb-10">
-                    <IndianRupee className="w-5 h-5 text-emerald-500" /> Invoice History
+                    <IndianRupee className="w-5 h-5 text-primary" /> Invoice History
                   </h2>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      {clientInvoices.map(inv => (
                         <div key={inv.id} className="p-8 bg-black/40 border border-white/5 rounded-3xl flex flex-col gap-6 relative group overflow-hidden hover:border-white/10 transition-all">
                            <div className="flex justify-between items-start">
-                              <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl"><IndianRupee className="w-5 h-5" /></div>
-                              <div className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${inv.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
+                              <div className="p-3 bg-primary/10 text-primary rounded-xl"><IndianRupee className="w-5 h-5" /></div>
+                              <div className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${inv.status === 'Paid' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
                                  {inv.status}
                               </div>
                            </div>
@@ -553,7 +553,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
                              <IndianRupee className="w-3 h-3" /> Net Project Profit
                           </p>
                           <div className="flex items-baseline gap-2">
-                             <p className={`text-3xl font-black ${((project.totalAmount || 0) - Object.values(project.team || {}).reduce((sum: number, s: any) => sum + (s.payment || 0), 0)) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                             <p className={`text-3xl font-black ${((project.totalAmount || 0) - Object.values(project.team || {}).reduce((sum: number, s: any) => sum + (s.payment || 0), 0)) >= 0 ? 'text-primary' : 'text-red-500'}`}>
                                ₹{((project.totalAmount || 0) - Object.values(project.team || {}).reduce((sum: number, s: any) => sum + (s.payment || 0), 0)).toLocaleString('en-IN')}
                              </p>
                              <span className="text-[10px] font-black text-zinc-700 uppercase">/ Total {project.totalAmount?.toLocaleString('en-IN')}</span>
@@ -595,7 +595,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
                              return (
                                 <div key={role} className="p-6 bg-white/5 rounded-3xl border border-white/5 flex justify-between items-center group hover:bg-white/10 transition-all">
                                    <div className="flex items-center gap-5">
-                                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${staff.type === 'external' ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-500'} border border-white/5`}>
+                                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${staff.type === 'external' ? 'bg-primary/10 text-blue-400' : 'bg-primary/10 text-primary'} border border-white/5`}>
                                          {role.charAt(0).toUpperCase()}
                                       </div>
                                       <div>
@@ -603,8 +603,8 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
                                          <p className="text-sm font-black text-white flex items-center gap-2">
                                             {staff.name} 
                                             {staff.type === 'external' ? 
-                                              <span className="text-[7px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">External Agent</span> : 
-                                              <span className="text-[7px] bg-emerald-500/20 text-emerald-500 px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">Registry Staff</span>
+                                              <span className="text-[7px] bg-primary/20 text-blue-400 px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">External Agent</span> : 
+                                              <span className="text-[7px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">Registry Staff</span>
                                             }
                                          </p>
                                       </div>
@@ -633,8 +633,8 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
                     </div>
 
                     <div className="p-10 border-t border-white/5 flex flex-col items-center">
-                        <div className="p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/10 mb-6 max-w-sm text-center">
-                            <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1 leading-tight">Ledger Synchronized</p>
+                        <div className="p-4 bg-primary/10 rounded-2xl border border-primary/10 mb-6 max-w-sm text-center">
+                            <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1 leading-tight">Ledger Synchronized</p>
                             <p className="text-[8px] font-bold text-zinc-600 uppercase leading-tight">All manual adjustments are instantly persisted in the project's financial metadata.</p>
                         </div>
                         <button 
@@ -798,3 +798,4 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
 };
 
 export default ClientPortal;
+

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  BarChart3, FolderOpen,
+  BarChart3,
   LayoutDashboard, Users, Calendar, Wallet, Sparkles,
   LogOut, Settings, X, RefreshCw,
   CloudRain, Cpu,
   Activity, Shield,
-  CalendarClock, FolderDown, Receipt, FileSignature, MessageSquare, HelpCircle
+  FolderDown, Receipt, FileSignature, MessageSquare, HelpCircle
 } from 'lucide-react';
 
 import { api } from '../services/api';
@@ -33,7 +33,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
     { path: '/ledger', label: 'Ledger', icon: Wallet, permission: 'finance' },
     { path: '/copilot', label: 'Copilot', icon: Sparkles, permission: 'ai' },
     { path: '/analytics', label: 'Analytics', icon: BarChart3, permission: 'analytics' },
-    { path: '/client-dashboard', label: 'Portal', icon: FolderOpen, permission: 'files' },
     { path: '/security', label: 'Security Hub', icon: Shield, permission: 'system' },
     { path: '/ecosystem', label: 'Ecosystem', icon: Settings, permission: 'system' },
     { path: '/settings', label: 'Settings', icon: Settings, permission: 'dashboard' },
@@ -41,10 +40,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
 
   const CLIENT_MENU = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard' },
-    { path: '/events', label: 'My Events', icon: Calendar, permission: 'dashboard' },
+    { path: '/events', label: 'My Event', icon: Calendar, permission: 'dashboard' },
     { path: '/timeline', label: 'Timeline', icon: Activity, permission: 'dashboard' },
-    { path: '/workflow', label: 'Workflow', icon: CalendarClock, permission: 'dashboard' },
-    { path: '/directory', label: 'Directory', icon: Users, permission: 'dashboard' },
     { path: '/deliverables', label: 'Deliverables', icon: FolderDown, permission: 'dashboard' },
     { path: '/invoices', label: 'Invoices', icon: Receipt, permission: 'dashboard' },
     { path: '/agreements', label: 'Agreements', icon: FileSignature, permission: 'dashboard' },
@@ -133,7 +130,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
 
       <div className="p-6 mt-auto space-y-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/10"><Cpu className="w-4 h-4" /></div>
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/10"><Cpu className="w-4 h-4" /></div>
             <div>
               <p className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Core Status</p>
               <p className="text-[10px] font-bold text-white shadow-emerald-500/50">Encrypted & Online</p>
@@ -160,3 +157,4 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
 };
 
 export default Sidebar;
+

@@ -59,7 +59,7 @@ const Packages: React.FC = () => {
         <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-12">
           <div className="space-y-4">
             {activePackage.tag && (
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em] animate-pulse">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em] animate-pulse">
                 <Sparkles className="w-3 h-3" />
                 {activePackage.tag}
               </span>
@@ -107,3 +107,4 @@ const Packages: React.FC = () => {
 };
 
 export default Packages;
+

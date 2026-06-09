@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Calendar, CalendarClock, Image,
+  LayoutDashboard, Calendar, CalendarClock,
   FolderDown, Receipt, FileSignature, MessageSquare,
   HelpCircle, LogOut, X, Menu, Building2
 } from 'lucide-react';
@@ -28,23 +28,20 @@ const ClientPortalLayout: React.FC<ClientPortalLayoutProps> = ({ onLogout }) => 
   }
 
   const allModules = [
-    { path: '/client-portal/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard', isDefault: true },
-    { path: '/client-portal/events', label: 'My Events', icon: Calendar, permission: 'events' },
-    { path: '/client-portal/timeline', label: 'Timeline', icon: CalendarClock, permission: 'timeline' },
-    { path: '/client-portal/gallery', label: 'Gallery', icon: Image, permission: 'gallery' },
-    { path: '/client-portal/deliverables', label: 'Deliverables', icon: FolderDown, permission: 'deliverables' },
-    { path: '/client-portal/invoices', label: 'Invoices', icon: Receipt, permission: 'invoices' },
-    { path: '/client-portal/agreements', label: 'Agreements', icon: FileSignature, permission: 'agreements' },
-    { path: '/client-portal/messages', label: 'Messages', icon: MessageSquare, permission: 'messages' },
-    { path: '/client-portal/support', label: 'Support', icon: HelpCircle, permission: 'support' },
+    { path: '/client-portal/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/client-portal/events', label: 'My Event', icon: Calendar },
+    { path: '/client-portal/timeline', label: 'Timeline', icon: CalendarClock },
+    { path: '/client-portal/deliverables', label: 'Deliverables', icon: FolderDown },
+    { path: '/client-portal/invoices', label: 'Invoices', icon: Receipt },
+    { path: '/client-portal/agreements', label: 'Agreements', icon: FileSignature },
+    { path: '/client-portal/messages', label: 'Messages', icon: MessageSquare },
+    { path: '/client-portal/support', label: 'Support', icon: HelpCircle },
   ];
 
-  const visibleModules = allModules.filter(
-    (mod) => mod.isDefault || (user.permissions && user.permissions.includes(mod.permission as any))
-  );
+  const visibleModules = allModules;
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col font-sans selection-primary">
+    <div className="min-h-screen bg-transparent text-white flex flex-col font-sans selection-primary">
       {/* Mobile Header */}
       <header className="lg:hidden px-6 py-4 flex items-center justify-between glass-panel-dark z-50 pt-safe font-sans sticky top-0 border-b border-white/5">
         <div className="flex items-center gap-4">

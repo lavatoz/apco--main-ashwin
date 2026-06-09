@@ -102,7 +102,7 @@ const ClientDetails: React.FC = () => {
         </div>
       ) : client ? (
         <div className="glass-panel p-10 squircle-lg border border-white/5 relative overflow-hidden bg-gradient-to-br from-white/5 to-transparent shadow-2xl">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-3xl rounded-full" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-3xl rounded-full" />
           
           <div className="relative z-10">
             <div className="flex justify-between items-start mb-10">
@@ -186,7 +186,7 @@ const ClientDetails: React.FC = () => {
                               {client.name || client.projectName}
                             </h1>
                             {client.brandId?.name && (
-                              <p className="text-[14px] font-black uppercase tracking-[0.4em] text-blue-500 flex items-center gap-3 mt-4">
+                              <p className="text-[14px] font-black uppercase tracking-[0.4em] text-primary flex items-center gap-3 mt-4">
                                 <Briefcase className="w-5 h-5" /> {client.brandId.name}
                               </p>
                             )}
@@ -224,9 +224,9 @@ const ClientDetails: React.FC = () => {
             </div>
 
             {project && (
-                <div className="mt-8 p-10 bg-blue-600/5 border border-blue-500/10 squircle-lg flex flex-col md:flex-row items-center justify-between gap-8 group hover:bg-blue-600/10 transition-all duration-700">
+                <div className="mt-8 p-10 bg-blue-600/5 border border-primary/10 squircle-lg flex flex-col md:flex-row items-center justify-between gap-8 group hover:bg-blue-600/10 transition-all duration-700">
                     <div className="flex items-center gap-8">
-                        <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-500 shadow-[0_0_40px_rgba(37,99,235,0.2)] group-hover:scale-110 transition-transform">
+                        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shadow-[0_0_40px_rgba(37,99,235,0.2)] group-hover:scale-110 transition-transform">
                             <LayoutDashboard className="w-8 h-8" />
                         </div>
                         <div>
@@ -250,3 +250,4 @@ const ClientDetails: React.FC = () => {
 };
 
 export default ClientDetails;
+

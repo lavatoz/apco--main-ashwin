@@ -47,11 +47,11 @@ const ClientTimeline: React.FC<ClientTimelineProps> = ({ client }) => {
                     key={stage}
                     className={`flex flex-col items-center gap-3 flex-1 w-full md:w-auto ${isActive ? 'opacity-100 scale-110 transition-transform' : isCompleted ? 'opacity-80' : 'opacity-40'}`}
                  >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${isActive ? 'border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : isCompleted ? 'border-emerald-500 bg-emerald-500' : 'border-white/10 bg-black'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${isActive ? 'border-primary bg-primary/10 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : isCompleted ? 'border-primary bg-primary' : 'border-white/10 bg-black'}`}>
                        {isCompleted && <CheckCircle2 className="w-4 h-4 text-black" strokeWidth={3} />}
-                       {isActive && <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />}
+                       {isActive && <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />}
                     </div>
-                    <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-tight text-center max-w-[80px] leading-tight ${isActive ? 'text-emerald-500' : 'text-white'}`}>
+                    <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-tight text-center max-w-[80px] leading-tight ${isActive ? 'text-primary' : 'text-white'}`}>
                        {stage}
                     </span>
                  </div>
@@ -76,7 +76,7 @@ const ClientTimeline: React.FC<ClientTimelineProps> = ({ client }) => {
               const isCompleted = item.status === 'Completed';
               return (
                 <div key={item.id || index} className="relative flex gap-10 group">
-                  <div className={`z-10 w-6 h-6 rounded-full mt-1 flex items-center justify-center transition-all shadow-[0_0_0_4px_#0b0b0b] ${isCompleted ? 'bg-emerald-500 text-black' : 'bg-zinc-800 border-2 border-zinc-700'}`}>
+                  <div className={`z-10 w-6 h-6 rounded-full mt-1 flex items-center justify-center transition-all shadow-[0_0_0_4px_#0b0b0b] ${isCompleted ? 'bg-primary text-black' : 'bg-zinc-800 border-2 border-zinc-700'}`}>
                     {isCompleted && <CheckCircle2 className="w-4 h-4" />}
                   </div>
                   <div>
@@ -97,3 +97,4 @@ const ClientTimeline: React.FC<ClientTimelineProps> = ({ client }) => {
 };
 
 export default ClientTimeline;
+

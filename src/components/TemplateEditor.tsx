@@ -134,7 +134,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onSave, onCancel
         </div>
         <div className="flex items-center gap-3">
           <button onClick={onCancel} className="px-4 py-2 text-zinc-400 hover:text-white text-sm font-bold uppercase tracking-wider transition-colors">Cancel</button>
-          <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-black uppercase tracking-wider rounded-lg transition-colors">
+          <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-emerald-600 text-black text-sm font-black uppercase tracking-wider rounded-lg transition-colors">
             <Save className="w-4 h-4" /> Save Template
           </button>
         </div>
@@ -234,3 +234,4 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({ onSave, onCancel
     </div>
   );
 };
+

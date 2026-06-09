@@ -127,7 +127,7 @@ const SmartRoleDropdown: React.FC<{
               </div>
               
               <div className="border-t border-white/5 bg-black/20 p-2 shrink-0">
-                 <button type="button" onClick={() => { onAddNew(); setIsOpen(false); setSearch(''); }} className="w-full py-2.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-xs font-bold uppercase tracking-widest transition-all">+ Add New Member</button>
+                 <button type="button" onClick={() => { onAddNew(); setIsOpen(false); setSearch(''); }} className="w-full py-2.5 bg-primary/10 text-emerald-400 hover:bg-primary/20 rounded-lg text-xs font-bold uppercase tracking-widest transition-all">+ Add New Member</button>
               </div>
            </div>,
            document.body
@@ -321,7 +321,7 @@ const CreateProjectPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-transparent flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
       </div>
     );
@@ -329,7 +329,7 @@ const CreateProjectPage: React.FC = () => {
 
   if (!client) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
         <div className="w-20 h-20 bg-red-400/10 rounded-full flex items-center justify-center mb-8 border border-red-400/10">
            <Info className="w-8 h-8 text-red-400" />
         </div>
@@ -470,7 +470,7 @@ const CreateProjectPage: React.FC = () => {
                                   <input 
                                     type="number"
                                     placeholder="0"
-                                    className="bg-white/5 border border-white/5 rounded-xl p-3 pl-8 text-sm font-bold text-white outline-none w-full focus:border-blue-500/30"
+                                    className="bg-white/5 border border-white/5 rounded-xl p-3 pl-8 text-sm font-bold text-white outline-none w-full focus:border-primary/30"
                                     value={row.payment || ''}
                                     onChange={e => {
                                       const updated = [...teamData[role]];
@@ -526,7 +526,7 @@ const CreateProjectPage: React.FC = () => {
               onChange={e => setStatus(e.target.value as any)}
             >
               <option value="pending" className="bg-zinc-900 text-amber-500">Pending Authorization</option>
-              <option value="confirmed" className="bg-zinc-900 text-emerald-500">Confirmed</option>
+              <option value="confirmed" className="bg-zinc-900 text-primary">Confirmed</option>
             </select>
           </div>
         </div>
@@ -549,7 +549,7 @@ const CreateProjectPage: React.FC = () => {
       {/* Add Staff Modal */}
       {isAddStaffModalOpen && (
          <div className="fixed inset-0 bg-black/90 md:bg-black/80 backdrop-blur-md md:backdrop-blur-sm z-[200] flex items-center justify-center p-0 md:p-4 pt-safe md:pt-4 animate-ios-fade-in">
-            <div className="w-full h-full md:h-auto md:max-w-sm bg-zinc-950 border border-white/10 rounded-none md:rounded-3xl p-6 md:p-8 shadow-2xl animate-ios-slide-up relative overflow-y-auto flex flex-col justify-center pb-safe md:pb-8">
+            <div className="w-full h-full md:h-auto md:max-w-sm glass-panel rounded-none md:rounded-3xl p-6 md:p-8 shadow-2xl animate-ios-slide-up relative overflow-y-auto flex flex-col justify-center pb-safe md:pb-8">
                <button onClick={() => setIsAddStaffModalOpen(false)} className="absolute top-4 right-4 md:top-6 md:right-6 p-3 md:p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors touch-target">
                   <X className="w-4 h-4 text-zinc-400" />
                </button>
@@ -585,3 +585,5 @@ const CreateProjectPage: React.FC = () => {
 };
 
 export default CreateProjectPage;
+
+

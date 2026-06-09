@@ -90,7 +90,7 @@ export const QRVerifyCard: React.FC<QRVerifyCardProps> = ({ globalSettings, onSa
         {/* Title Block */}
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-3">
-            <div className={`p-3 rounded-2xl ${isEnabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-500 border border-white/5'}`}>
+            <div className={`p-3 rounded-2xl ${isEnabled ? 'bg-primary/10 text-emerald-400 border border-primary/20' : 'bg-zinc-800 text-zinc-500 border border-white/5'}`}>
               <QrCode className="w-6 h-6" />
             </div>
             <div>
@@ -141,3 +141,4 @@ export const QRVerifyCard: React.FC<QRVerifyCardProps> = ({ globalSettings, onSa
 };
 
 export default QRVerifyCard;
+

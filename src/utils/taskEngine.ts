@@ -1,6 +1,6 @@
 import type { Task, ProjectStage } from '../types';
 
-export const generateTasksForStage = (stage: ProjectStage, projectId: string, projectName: string, brand: string, clientId?: string): Task[] => {
+export const generateTasksForStage = (stage: ProjectStage, _projectId: string, projectName: string, brand: string, clientId?: string): Task[] => {
   const newTasks: Task[] = [];
   
   const createBaseTask = (title: string, priority: string = 'High'): Task => ({

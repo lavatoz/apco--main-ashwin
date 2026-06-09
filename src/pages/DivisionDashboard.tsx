@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Users, Briefcase, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import type { Division, Client, Project } from '../types';
@@ -11,7 +11,7 @@ const DivisionDashboard: React.FC = () => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const refreshData = () => {
+    const refreshData = useCallback(() => {
         const storedDivs = localStorage.getItem('divisions');
         const divs: Division[] = storedDivs ? JSON.parse(storedDivs) : [];
         const foundDiv = divs.find(d => d.id === divisionId);
@@ -27,13 +27,13 @@ const DivisionDashboard: React.FC = () => {
             const allProjects: Project[] = storedProjects ? JSON.parse(storedProjects) : [];
             setProjects(allProjects.filter((p: Project) => p.divisionId === divisionId));
         }
-    };
+    }, [divisionId]);
 
     useEffect(() => {
         setLoading(true);
         refreshData();
         setLoading(false);
-    }, [divisionId]);
+    }, [refreshData]);
 
     const handleConfirmProject = (projectId: string) => {
         const stored = localStorage.getItem('projects');
@@ -48,10 +48,10 @@ const DivisionDashboard: React.FC = () => {
         refreshData();
     };
 
-    if (loading) return <div className="min-h-screen bg-black flex items-center justify-center font-bold uppercase tracking-widest text-xs text-white">Initializing Unit...</div>;
+    if (loading) return <div className="min-h-screen bg-transparent flex items-center justify-center font-bold uppercase tracking-widest text-xs text-white">Initializing Unit...</div>;
 
     if (!division) return (
-        <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
+        <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
             <h1 className="text-3xl font-black text-white uppercase tracking-tighter">Project Hub Not Found</h1>
             <p className="text-xs font-bold uppercase text-zinc-400 tracking-[0.2em] mt-2 mb-10">Operational Unit mapping failed for ID: {divisionId}</p>
             <button onClick={() => navigate('/ecosystem')} className="px-8 py-4 bg-white text-black font-bold uppercase text-xs rounded-xl tracking-widest active:scale-95 transition-all">Return to Enterprise</button>
@@ -73,8 +73,8 @@ const DivisionDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Statistics */}
                 <div className="glass-panel p-10 squircle-lg border border-white/5 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-1 h-full bg-blue-500/20 group-hover:bg-blue-500 transition-all" />
-                    <div className="flex items-center gap-6 mb-8 text-blue-500">
+                    <div className="absolute top-0 right-0 w-1 h-full bg-white/10 group-hover:bg-primary transition-all" />
+                    <div className="flex items-center gap-6 mb-8 text-primary">
                         <Users className="w-10 h-10" />
                         <div>
                             <p className="text-xs font-bold uppercase tracking-widest text-zinc-400">Active Records</p>
@@ -84,8 +84,8 @@ const DivisionDashboard: React.FC = () => {
                 </div>
 
                 <div className="glass-panel p-10 squircle-lg border border-white/5 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-1 h-full bg-emerald-500/20 group-hover:bg-emerald-500 transition-all" />
-                    <div className="flex items-center gap-6 mb-8 text-emerald-500">
+                    <div className="absolute top-0 right-0 w-1 h-full bg-white/10 group-hover:bg-primary transition-all" />
+                    <div className="flex items-center gap-6 mb-8 text-primary">
                         <Briefcase className="w-10 h-10" />
                         <div>
                             <p className="text-xs font-bold uppercase tracking-widest text-zinc-400">Operations Ledger</p>
@@ -122,7 +122,7 @@ const DivisionDashboard: React.FC = () => {
                                 <button onClick={() => navigate(`/portal/${p.clientId}`)} className="flex-1 text-left">
                                     <h4 className="text-sm font-semibold text-white uppercase">{p.name}</h4>
                                     <div className="flex items-center gap-3 mt-1">
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest ${p.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest ${p.status === 'confirmed' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
                                             {p.status === 'confirmed' ? 'Authorization Confirmed' : 'Pending Auth'}
                                         </span>
                                         <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Stage: {p.stage} • {p.date}</p>
@@ -132,12 +132,12 @@ const DivisionDashboard: React.FC = () => {
                                     {p.status === 'pending' && (
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); handleConfirmProject(p.id); }}
-                                            className="px-4 py-2 bg-emerald-500 text-black font-bold uppercase text-xs rounded-lg tracking-widest hover:bg-emerald-400 active:scale-95 transition-all flex items-center gap-2"
+                                            className="px-4 py-2 bg-primary text-black font-bold uppercase text-xs rounded-lg tracking-widest hover:brightness-110 active:scale-95 transition-all flex items-center gap-2"
                                         >
                                             <CheckCircle2 className="w-3 h-3" /> Confirm
                                         </button>
                                     )}
-                                    <button onClick={() => navigate(`/portal/${p.clientId}`)} className="text-xs font-bold px-2 py-1 bg-white/5 text-zinc-400 rounded border border-white/5 group-hover:text-blue-500 uppercase transition-all tracking-widest">Navigate</button>
+                                    <button onClick={() => navigate(`/portal/${p.clientId}`)} className="text-xs font-bold px-2 py-1 bg-white/5 text-zinc-400 rounded border border-white/5 group-hover:text-primary uppercase transition-all tracking-widest">Navigate</button>
                                 </div>
                             </div>
                         ))}
@@ -150,3 +150,4 @@ const DivisionDashboard: React.FC = () => {
 };
 
 export default DivisionDashboard;
+

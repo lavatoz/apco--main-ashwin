@@ -167,7 +167,7 @@ const AnalyticsPage: React.FC = () => {
                    cursor={{ fill: '#ffffff05' }}
                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '1rem', color: '#fff' }}
                    itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
-                   formatter={(value: number | string | undefined) => [`₹${Number(value || 0).toLocaleString('en-IN')}`, 'Amount']}
+                   formatter={(value: any) => [`₹${Number(value || 0).toLocaleString('en-IN')}`, 'Amount']}
                  />
                  <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={60}>
                     {data.map((entry, index) => (

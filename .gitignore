@@ -66,3 +66,4 @@ coverage/
 *.tsbuildinfo
 scratch/
 *.broken
+lint*.txt

@@ -36,8 +36,8 @@ const ClientExperience: React.FC<ClientExperienceProps> = ({ client, loggedInPer
    }, [client.id, client.projectName, activePerson.id, activePerson.name, activePerson.role]);
 
    const isWedding = client.brand === 'AAHA Kalyanam';
-   const accentColor = isWedding ? 'text-yellow-500' : 'text-blue-500';
-   const accentBg = isWedding ? 'bg-yellow-500/10' : 'bg-blue-500/10';
+   const accentColor = isWedding ? 'text-yellow-500' : 'text-primary';
+   const accentBg = isWedding ? 'bg-yellow-500/10' : 'bg-primary/10';
    const portal = client.portal || { timeline: [], deliverables: [] };
 
    const filteredDeliverables = portal.deliverables.filter(d => !d.assignedTo || d.assignedTo === activePerson.id);
@@ -72,7 +72,7 @@ const ClientExperience: React.FC<ClientExperienceProps> = ({ client, loggedInPer
    const currentVault = cloudConfig?.vaults.find(v => v.id === client.vaultId);
 
    return (
-      <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-x-hidden">
+      <div className="min-h-screen bg-transparent text-white selection:bg-white selection:text-black overflow-x-hidden">
          <header className="fixed top-0 left-0 w-full p-8 z-50 flex justify-between items-center backdrop-blur-xl bg-black/40 border-b border-white/5">
             <div className="flex items-center gap-4">
                <div className="w-12 h-12 bg-white text-black squircle-sm flex items-center justify-center font-serif text-2xl font-black">A</div>
@@ -106,7 +106,7 @@ const ClientExperience: React.FC<ClientExperienceProps> = ({ client, loggedInPer
                            href={`https://drive.google.com/drive/folders/${client.driveFolderId}`}
                            target="_blank"
                            rel="noreferrer"
-                           className="px-5 py-3 rounded-2xl border border-blue-500/20 flex items-center gap-3 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white ios-transition shadow-lg shadow-blue-500/10 group"
+                           className="px-5 py-3 rounded-2xl border border-primary/20 flex items-center gap-3 bg-primary/10 text-blue-400 hover:bg-primary hover:text-white ios-transition shadow-lg shadow-blue-500/10 group"
                         >
                            <FolderOpen className="w-4 h-4" />
                            <div className="text-left">
@@ -153,7 +153,7 @@ const ClientExperience: React.FC<ClientExperienceProps> = ({ client, loggedInPer
                         <h3 className="text-xl font-black uppercase tracking-tight mb-1 group-hover:text-yellow-500 ios-transition">{d.title}</h3>
                         <div className="flex items-center justify-between mt-auto">
                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{d.type} Assets</p>
-                           {d.assignedTo && <span className="text-[8px] font-black uppercase bg-blue-500/20 text-blue-400 px-2 py-1 rounded-md border border-blue-500/20">Private for You</span>}
+                           {d.assignedTo && <span className="text-[8px] font-black uppercase bg-primary/20 text-blue-400 px-2 py-1 rounded-md border border-primary/20">Private for You</span>}
                         </div>
                      </div>
                   ))}
@@ -193,7 +193,7 @@ const ClientExperience: React.FC<ClientExperienceProps> = ({ client, loggedInPer
                      <button onClick={() => setIsRequesting(false)} className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-all"><X className="w-5 h-5" /></button>
                   </div>
                   <div className="space-y-6">
-                     <textarea className="w-full bg-black border border-white/5 p-5 rounded-3xl text-sm font-medium text-white focus:border-blue-500/50 outline-none h-40 resize-none transition-colors" placeholder="Submit a request..." value={requestText} onChange={(e) => setRequestText(e.target.value)} />
+                     <textarea className="w-full bg-black border border-white/5 p-5 rounded-3xl text-sm font-medium text-white focus:border-primary/50 outline-none h-40 resize-none transition-colors" placeholder="Submit a request..." value={requestText} onChange={(e) => setRequestText(e.target.value)} />
                      <button onClick={handleSubmitRequest} disabled={!requestText.trim()} className="w-full py-4 bg-white text-black hover:bg-zinc-200 disabled:opacity-30 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl"><Send className="w-4 h-4" /> Submit</button>
                   </div>
                </div>
@@ -205,3 +205,4 @@ const ClientExperience: React.FC<ClientExperienceProps> = ({ client, loggedInPer
 };
 
 export default ClientExperience;
+

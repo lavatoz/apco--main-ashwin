@@ -439,7 +439,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ACTIVE': return 'bg-emerald-500/10 text-emerald-500';
+      case 'ACTIVE': return 'bg-primary/10 text-primary';
       case 'PENDING': return 'bg-amber-500/10 text-amber-500';
       case 'REVOKED': return 'bg-red-500/10 text-red-500';
       default: return 'bg-zinc-500/10 text-zinc-500';
@@ -553,7 +553,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {group.items.map((user) => (
                       <div key={user.id} className={`glass-panel p-8 squircle-lg relative overflow-hidden flex flex-col group border border-white/5 ${fadingId === user.id ? 'animate-fade-out' : ''}`}>
-                        <div className={`absolute top-0 right-0 w-1.5 h-full ${user?.isActive ? "bg-emerald-500" : "bg-red-500"} opacity-40`} />
+                        <div className={`absolute top-0 right-0 w-1.5 h-full ${user?.isActive ? "bg-primary" : "bg-red-500"} opacity-40`} />
                         
                         {isAdmin && user.email !== currentUser?.email && user.id !== 'admin_root' && (
                           <button 
@@ -592,7 +592,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                               onClick={() => updateUserPermissions(user.id, p)}
                               className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${
                                 user?.permissions?.includes(p)
-                                  ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-500"
+                                  ? "bg-primary/10 border border-primary/20 text-primary"
                                   : "bg-white/5 border border-white/5 text-zinc-700"
                               }`}
                             >
@@ -605,7 +605,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                           {user.divisionIds?.map((divId) => {
                             const div = divisions.find((d) => d.id === divId);
                             return (
-                              <span key={divId} className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded text-xs font-bold uppercase tracking-widest">
+                              <span key={divId} className="px-2 py-1 bg-primary/10 border border-primary/20 text-primary rounded text-xs font-bold uppercase tracking-widest">
                                 {div?.name || "Unmapped Div"}
                               </span>
                             );
@@ -643,13 +643,13 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
             {clientActiveItems.length > 0 && (
               <div className="space-y-6">
                 <div className="flex items-center gap-2 px-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                   <h4 className="text-xs font-bold uppercase text-zinc-500 tracking-widest">Active ({clientActiveItems.length})</h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {clientActiveItems.map(user => (
                     <div key={user.id} onClick={() => { setSelectedClientUser(user); setIsClientPanelOpen(true); }} className={`glass-panel p-6 border border-white/5 rounded-3xl cursor-pointer hover:bg-white/5 transition-all group relative ${fadingId === user.id ? 'animate-fade-out' : ''}`}>
-                      <div className="absolute top-0 right-0 w-1.5 h-full bg-emerald-500 opacity-40" />
+                      <div className="absolute top-0 right-0 w-1.5 h-full bg-primary opacity-40" />
                       
                       {isAdmin && user.email !== currentUser?.email && user.id !== 'admin_root' && (
                           <button 
@@ -663,7 +663,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                       <h4 className="text-sm font-bold text-white truncate max-w-[85%]">{user.name || 'Client User'}</h4>
                       <p className="text-xs font-medium text-zinc-400 truncate mb-4">{user.email}</p>
                       <div className="flex items-center gap-2">
-                         <span className="px-2 py-1 rounded text-xs font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-500">
+                         <span className="px-2 py-1 rounded text-xs font-bold uppercase tracking-widest bg-primary/10 text-primary">
                            Active
                          </span>
                       </div>
@@ -789,7 +789,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                         key={p}
                         type="button"
                         onClick={() => togglePermissionInClientForm(p)}
-                        className={`py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border ${clientForm.permissions.includes(p) ? "bg-blue-600/10 border-blue-600/20 text-blue-500" : "bg-white/5 border-white/5 text-zinc-700 hover:bg-white/10"}`}
+                        className={`py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border ${clientForm.permissions.includes(p) ? "bg-blue-600/10 border-blue-600/20 text-primary" : "bg-white/5 border-white/5 text-zinc-700 hover:bg-white/10"}`}
                       >
                         {p}
                       </button>
@@ -873,7 +873,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
             </div>
             
             {successMsg && (
-               <div className="absolute top-6 right-1/2 translate-x-1/2 whitespace-nowrap bg-emerald-500 text-white px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest animate-fade-in-down z-[400] shadow-2xl border border-white/20">
+               <div className="absolute top-6 right-1/2 translate-x-1/2 whitespace-nowrap bg-primary text-white px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest animate-fade-in-down z-[400] shadow-2xl border border-white/20">
                  {successMsg}
                </div>
             )}
@@ -1001,7 +1001,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                       key={p}
                       type="button"
                       onClick={() => togglePermissionInStaffForm(p)}
-                      className={`py-2 px-1 rounded-lg text-xs font-bold uppercase tracking-widest transition-all border ${staffForm.permissions.includes(p) ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : "bg-white/5 border-white/5 text-zinc-700 hover:bg-white/10"}`}
+                      className={`py-2 px-1 rounded-lg text-xs font-bold uppercase tracking-widest transition-all border ${staffForm.permissions.includes(p) ? "bg-primary/10 border-primary/20 text-primary" : "bg-white/5 border-white/5 text-zinc-700 hover:bg-white/10"}`}
                     >
                       {p}
                     </button>
@@ -1017,7 +1017,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                       key={d.id}
                       type="button"
                       onClick={() => toggleDivisionInStaffForm(d.id)}
-                      className={`py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border ${staffForm.divisionIds?.includes(d.id) ? "bg-blue-600/10 border-blue-600/20 text-blue-500" : "bg-white/5 border-white/5 text-zinc-700 hover:bg-white/10"}`}
+                      className={`py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border ${staffForm.divisionIds?.includes(d.id) ? "bg-blue-600/10 border-blue-600/20 text-primary" : "bg-white/5 border-white/5 text-zinc-700 hover:bg-white/10"}`}
                     >
                       {d.name}
                     </button>
@@ -1166,7 +1166,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                       key={div.id}
                       className={`flex justify-between items-center px-6 py-4 rounded-2xl cursor-pointer transition-all border ${
                         selectedUser.divisionIds?.includes(div.id)
-                          ? "bg-blue-600/10 border-blue-600/20 text-blue-500"
+                          ? "bg-blue-600/10 border-blue-600/20 text-primary"
                           : "bg-white/5 border-white/5 text-zinc-600 hover:bg-white/10"
                       }`}
                     >
@@ -1180,7 +1180,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                         />
                         <div
                           className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${
-                            selectedUser.divisionIds?.includes(div.id) ? "bg-blue-500 border-blue-500" : "bg-transparent border-white/10"
+                            selectedUser.divisionIds?.includes(div.id) ? "bg-primary border-primary" : "bg-transparent border-white/10"
                           }`}
                         >
                           {selectedUser.divisionIds?.includes(div.id) && <Check className="w-3 h-3 text-white stroke-[4px]" />}
@@ -1301,3 +1301,4 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
 };
 
 export default UserAccessManager;
+

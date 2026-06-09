@@ -49,7 +49,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
    ];
 
    return (
-      <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500 selection:text-white overflow-x-hidden relative">
+      <div className="min-h-screen bg-transparent text-white font-sans selection:bg-primary selection:text-white overflow-x-hidden relative">
 
          {/* Matte Noise Overlay */}
          <div className="fixed inset-0 pointer-events-none bg-noise z-0 opacity-50" />
@@ -285,7 +285,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                   {/* Division 2: Tiny Toes */}
                   <div className="flex flex-col md:flex-row-reverse gap-16 items-center group">
                      <div className="flex-1 space-y-8">
-                        <div className="w-24 h-24 bg-blue-500/10 glass-panel rounded-[2rem] flex items-center justify-center border border-blue-500/20 text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-all duration-500 shadow-[0_0_40px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_40px_rgba(59,130,246,0.4)]">
+                        <div className="w-24 h-24 bg-primary/10 glass-panel rounded-[2rem] flex items-center justify-center border border-primary/20 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-[0_0_40px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_40px_rgba(59,130,246,0.4)]">
                            <Camera className="w-10 h-10" />
                         </div>
                         <h3 className="text-4xl md:text-6xl font-black uppercase tracking-tight">Tiny Toes</h3>
@@ -296,7 +296,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                            href="https://www.instagram.com/tinytoes.from.apco/"
                            target="_blank"
                            rel="noreferrer"
-                           className="inline-flex items-center gap-3 px-8 py-4 border border-blue-500/50 text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all duration-300"
+                           className="inline-flex items-center gap-3 px-8 py-4 border border-primary/50 text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all duration-300"
                         >
                            <span>Visit Instagram</span>
                            <ArrowUpRight className="w-3 h-3" />
@@ -386,3 +386,4 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
 };
 
 export default LandingPage;
+

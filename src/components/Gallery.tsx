@@ -149,9 +149,9 @@ const Gallery: React.FC<GalleryProps> = ({ clientId, userRole, onUpdate }) => {
         {isClient && (
           <div className="flex items-center gap-4">
              {matchedPaths ? (
-                 <div className="flex items-center gap-3 bg-blue-500/10 px-6 py-4 rounded-3xl border border-blue-500/20">
+                 <div className="flex items-center gap-3 bg-primary/10 px-6 py-4 rounded-3xl border border-primary/20">
                     <div className="text-right">
-                        <p className="text-[9px] font-black uppercase text-blue-500/60 tracking-[0.2em] leading-none mb-1.5">AI Filter Active</p>
+                        <p className="text-[9px] font-black uppercase text-primary/60 tracking-[0.2em] leading-none mb-1.5">AI Filter Active</p>
                         <p className="text-xs font-black text-white leading-none whitespace-nowrap">{filteredImages.length} Matches Found</p>
                     </div>
                     <button 
@@ -163,9 +163,9 @@ const Gallery: React.FC<GalleryProps> = ({ clientId, userRole, onUpdate }) => {
                     </button>
                  </div>
              ) : (
-                <div className="flex items-center gap-4 bg-emerald-500/10 px-6 py-4 rounded-3xl border border-emerald-500/20">
+                <div className="flex items-center gap-4 bg-primary/10 px-6 py-4 rounded-3xl border border-primary/20">
                     <div className="text-right">
-                        <p className="text-[9px] font-black uppercase text-emerald-500/60 tracking-[0.2em] leading-none mb-1.5">Selection Progress</p>
+                        <p className="text-[9px] font-black uppercase text-primary/60 tracking-[0.2em] leading-none mb-1.5">Selection Progress</p>
                         <p className="text-xs font-black text-white leading-none whitespace-nowrap">{selectedCount} Photos Chosen</p>
                     </div>
                     <CheckCircle2 className={`w-6 h-6 ${selectedCount > 0 ? 'text-emerald-400' : 'text-zinc-800'}`} />
@@ -218,7 +218,7 @@ const Gallery: React.FC<GalleryProps> = ({ clientId, userRole, onUpdate }) => {
       {isAdmin && isUploading && (
         <div className="glass-panel p-12 squircle-lg border-2 border-dashed border-zinc-800 bg-white/[0.01]">
           <div className="flex items-center justify-center gap-4 text-white">
-            <Sparkles className="w-8 h-8 animate-spin text-blue-500" />
+            <Sparkles className="w-8 h-8 animate-spin text-primary" />
             <h4 className="text-base font-black uppercase tracking-[0.2em]">Processing Ingestion Stream...</h4>
           </div>
         </div>
@@ -232,7 +232,7 @@ const Gallery: React.FC<GalleryProps> = ({ clientId, userRole, onUpdate }) => {
           return (
             <div 
               key={img._id} 
-              className={`group relative aspect-[3/4] rounded-[3rem] overflow-hidden bg-zinc-950 border-2 transition-all duration-700 ${isSelected ? 'border-emerald-500/60 shadow-[0_0_60px_rgba(52,211,153,0.15)] ring-4 ring-emerald-500/5' : 'border-white/[0.03] hover:border-white/10'}`}
+              className={`group relative aspect-[3/4] rounded-[3rem] overflow-hidden bg-zinc-950 border-2 transition-all duration-700 ${isSelected ? 'border-primary/60 shadow-[0_0_60px_rgba(52,211,153,0.15)] ring-4 ring-primary/5' : 'border-white/[0.03] hover:border-white/10'}`}
             >
               {/* Background Image */}
               <img 
@@ -246,7 +246,7 @@ const Gallery: React.FC<GalleryProps> = ({ clientId, userRole, onUpdate }) => {
 
               {/* Selection Status Badge */}
               {isSelected && (
-                <div className="absolute top-8 left-8 flex items-center gap-3 bg-emerald-500 text-[10px] font-black uppercase text-white px-5 py-2.5 rounded-2xl shadow-2xl tracking-[0.2em] animate-ios-slide-up z-20">
+                <div className="absolute top-8 left-8 flex items-center gap-3 bg-primary text-[10px] font-black uppercase text-white px-5 py-2.5 rounded-2xl shadow-2xl tracking-[0.2em] animate-ios-slide-up z-20">
                    <CheckCircle2 className="w-4 h-4" /> Selected
                 </div>
               )}
@@ -265,7 +265,7 @@ const Gallery: React.FC<GalleryProps> = ({ clientId, userRole, onUpdate }) => {
                  {isClient && (
                     <button 
                       onClick={() => handleToggleSelect(img.path)}
-                      className={`w-full mt-3 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-2xl ${isSelected ? 'bg-emerald-500 text-white' : 'bg-white text-black hover:bg-zinc-200'}`}
+                      className={`w-full mt-3 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-2xl ${isSelected ? 'bg-primary text-white' : 'bg-white text-black hover:bg-zinc-200'}`}
                     >
                       {isSelected ? 'Remove from Selection' : 'Select for Final Album'}
                     </button>
@@ -275,12 +275,12 @@ const Gallery: React.FC<GalleryProps> = ({ clientId, userRole, onUpdate }) => {
           );
         }) : (
           <div 
-            className={`col-span-full py-48 flex flex-col items-center justify-center glass-panel rounded-[4rem] border-dashed border-2 bg-white/[0.005] transition-all ${dragActive ? 'border-blue-500 bg-blue-500/5' : 'border-zinc-900'}`}
+            className={`col-span-full py-48 flex flex-col items-center justify-center glass-panel rounded-[4rem] border-dashed border-2 bg-white/[0.005] transition-all ${dragActive ? 'border-primary bg-primary/5' : 'border-zinc-900'}`}
             onDragOver={handleDrag}
             onDragLeave={handleDrag}
             onDrop={handleDrop}
           >
-            <div className={`w-24 h-24 rounded-[2rem] flex items-center justify-center mb-8 border transition-all ${dragActive ? 'bg-blue-500/10 border-blue-500 shadow-[0_0_40px_rgba(59,130,246,0.2)]' : 'bg-white/5 border-white/5 shadow-2xl'}`}>
+            <div className={`w-24 h-24 rounded-[2rem] flex items-center justify-center mb-8 border transition-all ${dragActive ? 'bg-primary/10 border-primary shadow-[0_0_40px_rgba(59,130,246,0.2)]' : 'bg-white/5 border-white/5 shadow-2xl'}`}>
               {isSearching ? <Sparkles className="w-10 h-10 text-blue-400 animate-pulse" /> : <ImageIcon className={`w-10 h-10 ${dragActive ? 'text-blue-400' : 'text-zinc-800'}`} />}
             </div>
             <h4 className="text-base font-black uppercase tracking-[0.4em] text-zinc-700">
@@ -317,7 +317,7 @@ const Gallery: React.FC<GalleryProps> = ({ clientId, userRole, onUpdate }) => {
                     if (imgPath) handleToggleSelect(imgPath); 
                     setSelectedImage(null); 
                   }}
-                  className={`px-16 py-6 rounded-full font-black uppercase text-[11px] tracking-[0.3em] shadow-[0_30px_60px_rgba(255,255,255,0.05)] transition-all active:scale-95 ${gallery.selectedImages.includes(images.find(i => i._id === selectedImage._id || i.path === selectedImage._id)?.path || '') ? 'bg-emerald-500 text-white' : 'bg-white text-black hover:bg-zinc-200'}`}
+                  className={`px-16 py-6 rounded-full font-black uppercase text-[11px] tracking-[0.3em] shadow-[0_30px_60px_rgba(255,255,255,0.05)] transition-all active:scale-95 ${gallery.selectedImages.includes(images.find(i => i._id === selectedImage._id || i.path === selectedImage._id)?.path || '') ? 'bg-primary text-white' : 'bg-white text-black hover:bg-zinc-200'}`}
                  >
                    {gallery.selectedImages.includes(images.find(i => i._id === selectedImage._id || i.path === selectedImage._id)?.path || '') ? 'Selected (Click to Remove)' : 'Add to Collection'}
                  </button>
@@ -334,3 +334,4 @@ const Gallery: React.FC<GalleryProps> = ({ clientId, userRole, onUpdate }) => {
 };
 
 export default Gallery;
+

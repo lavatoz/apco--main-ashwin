@@ -29,7 +29,7 @@ export const AnimatedDashboard: React.FC<AnimatedDashboardProps> = ({ children, 
       ref={containerRef}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`relative min-h-screen bg-black text-white p-1 ${className}`}
+      className={`relative min-h-screen bg-transparent text-white p-1 ${className}`}
     >
       {/* Cinematic Background Grid */}
       <div 

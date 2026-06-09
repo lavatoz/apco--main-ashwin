@@ -17,10 +17,10 @@ const ClientSupport: React.FC<ClientSupportProps> = ({ client }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="glass-panel p-8 squircle-lg group hover:border-emerald-500/30 transition-all border border-white/5 relative overflow-hidden">
+        <div className="glass-panel p-8 squircle-lg group hover:border-primary/30 transition-all border border-white/5 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity"><PhoneCall className="w-24 h-24" /></div>
           <div className="relative z-10">
-            <div className="p-4 bg-emerald-500/10 text-emerald-500 rounded-2xl inline-block mb-6">
+            <div className="p-4 bg-primary/10 text-primary rounded-2xl inline-block mb-6">
               <PhoneCall className="w-6 h-6" />
             </div>
             <h3 className="text-2xl font-black uppercase tracking-tight mb-2">Call Us</h3>
@@ -31,10 +31,10 @@ const ClientSupport: React.FC<ClientSupportProps> = ({ client }) => {
           </div>
         </div>
 
-        <div className="glass-panel p-8 squircle-lg group hover:border-blue-500/30 transition-all border border-white/5 relative overflow-hidden">
+        <div className="glass-panel p-8 squircle-lg group hover:border-primary/30 transition-all border border-white/5 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity"><Mail className="w-24 h-24" /></div>
           <div className="relative z-10">
-            <div className="p-4 bg-blue-500/10 text-blue-500 rounded-2xl inline-block mb-6">
+            <div className="p-4 bg-primary/10 text-primary rounded-2xl inline-block mb-6">
               <Mail className="w-6 h-6" />
             </div>
             <h3 className="text-2xl font-black uppercase tracking-tight mb-2">Email Support</h3>
@@ -64,3 +64,4 @@ const ClientSupport: React.FC<ClientSupportProps> = ({ client }) => {
 };
 
 export default ClientSupport;
+

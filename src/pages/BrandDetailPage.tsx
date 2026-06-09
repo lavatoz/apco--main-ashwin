@@ -146,11 +146,11 @@ const BrandDetailPage: React.FC = () => {
                     </div>
 
                     <div className="glass-panel p-8 border border-white/5 squircle-xl bg-white/[0.02] relative overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-blue-500/10" />
-                        <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]" />
+                        <div className="absolute top-0 left-0 w-full h-1 bg-primary/10" />
+                        <div className="absolute top-0 left-0 w-1 h-full bg-primary shadow-[0_0_15px_rgba(59,130,246,0.3)]" />
                         
                         <div className="flex justify-between items-start mb-6">
-                            <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/10 text-blue-500">
+                            <div className="p-3 bg-primary/10 rounded-xl border border-primary/10 text-primary">
                                 <PlayCircle className="w-5 h-5" />
                             </div>
                         </div>
@@ -161,11 +161,11 @@ const BrandDetailPage: React.FC = () => {
                     </div>
 
                     <div className="glass-panel p-8 border border-white/5 squircle-xl bg-white/[0.02] relative overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500/10" />
-                        <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]" />
+                        <div className="absolute top-0 left-0 w-full h-1 bg-primary/10" />
+                        <div className="absolute top-0 left-0 w-1 h-full bg-primary shadow-[0_0_15px_rgba(16,185,129,0.3)]" />
                         
                         <div className="flex justify-between items-start mb-6">
-                            <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/10 text-emerald-500">
+                            <div className="p-3 bg-primary/10 rounded-xl border border-primary/10 text-primary">
                                 <CheckCircle className="w-5 h-5" />
                             </div>
                         </div>
@@ -202,3 +202,4 @@ const BrandDetailPage: React.FC = () => {
 };
 
 export default BrandDetailPage;
+

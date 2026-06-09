@@ -7,7 +7,8 @@ const DEFAULT_GLOBAL: GlobalSettings = {
   pdfQrEnabled: true,
   pdfHashEnabled: true,
   pdfSecureRenderEnabled: false,
-  pdfSecretSalt: `SALT_${Math.random().toString(36).substring(2, 15).toUpperCase()}`
+  pdfSecretSalt: `SALT_${Math.random().toString(36).substring(2, 15).toUpperCase()}`,
+  customThemes: []
 };
 
 const DEFAULT_COMPANIES: CompanyProfile[] = [
@@ -29,6 +30,10 @@ const DEFAULT_COMPANIES: CompanyProfile[] = [
     paymentTerms: '50% Advance, 50% on Delivery',
     invoiceNotes: 'Thank you for choosing Aaha Kalyanam Productions.',
     primaryColor: '#d946ef',
+    themePreset: 'artisans-noir',
+    graphicsPreset: 'luxury-grain',
+    typographyPreset: 'luxury',
+    portalConfig: { clientPortal: true, staffPortal: true, publicBooking: true, productionWorkflow: true, revenueModule: true, marketingHub: true },
     isDefault: true,
     createdAt: new Date().toISOString()
   },
@@ -50,6 +55,10 @@ const DEFAULT_COMPANIES: CompanyProfile[] = [
     paymentTerms: 'Due on Receipt',
     invoiceNotes: 'Thank you for choosing Tiny Toes Studios.',
     primaryColor: '#3b82f6',
+    themePreset: 'tiny-toes-pastel',
+    graphicsPreset: 'editorial',
+    typographyPreset: 'elegant-serif',
+    portalConfig: { clientPortal: true, staffPortal: true, publicBooking: true, productionWorkflow: true, revenueModule: true, marketingHub: true },
     isDefault: false,
     createdAt: new Date().toISOString()
   }

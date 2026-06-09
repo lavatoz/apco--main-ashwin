@@ -25,7 +25,7 @@ const ClientMessages: React.FC<ClientMessagesProps> = ({ client }) => {
         <div className="flex-1 glass-panel squircle-lg flex flex-col overflow-hidden">
           <div className="p-6 border-b border-white/5 bg-white/5 shrink-0">
              <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-blue-500" /> Collaboration Thread
+                <MessageSquare className="w-4 h-4 text-primary" /> Collaboration Thread
              </h2>
           </div>
           
@@ -59,7 +59,7 @@ const ClientMessages: React.FC<ClientMessagesProps> = ({ client }) => {
                   placeholder="Type your message..." 
                   className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/20 transition-all font-medium text-white"
                 />
-                <button className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold uppercase text-xs tracking-widest transition-colors flex items-center justify-center active:scale-95 shadow-xl">
+                <button className="px-6 py-3 bg-blue-600 hover:bg-primary text-white rounded-xl font-bold uppercase text-xs tracking-widest transition-colors flex items-center justify-center active:scale-95 shadow-xl">
                    <Send className="w-4 h-4" />
                 </button>
              </div>
@@ -95,3 +95,4 @@ const ClientMessages: React.FC<ClientMessagesProps> = ({ client }) => {
 };
 
 export default ClientMessages;
+

@@ -15,8 +15,10 @@ export const getAuthUser = () => {
     const path = window.location.pathname;
     if (path.startsWith('/portal') || path.startsWith('/client')) {
       activeRole = 'Client';
+    } else if (path.startsWith('/workspace') || path.startsWith('/staff')) {
+      activeRole = 'Staff';
     } else if (path !== '/' && path !== '/login' && !path.startsWith('/invite')) {
-      // Default to Admin/Staff for app routes if not explicitly client
+      // Default to Admin for app routes if not explicitly client or staff
       activeRole = 'Admin';
     }
   }
@@ -24,7 +26,10 @@ export const getAuthUser = () => {
   // If no active role could be determined and we are at login/root, just return null
   if (!activeRole) return null;
 
-  const key = activeRole === 'Client' ? 'auth_user_client' : 'auth_user_admin';
+  let key = 'auth_user_admin';
+  if (activeRole === 'Client') key = 'auth_user_client';
+  if (activeRole === 'Staff') key = 'auth_user_staff';
+
   const data = localStorage.getItem(key);
   try {
     return data ? JSON.parse(data) : null;
@@ -34,22 +39,34 @@ export const getAuthUser = () => {
 };
 
 export const setAuthUser = (user: any) => {
-  const isClient = user.role === 'Client';
-  const key = isClient ? 'auth_user_client' : 'auth_user_admin';
+  let activeRole = 'Admin';
+  let key = 'auth_user_admin';
+  
+  if (user.role === 'Client') {
+    activeRole = 'Client';
+    key = 'auth_user_client';
+  } else if (user.role === 'Staff') {
+    activeRole = 'Staff';
+    key = 'auth_user_staff';
+  }
+
   localStorage.setItem(key, JSON.stringify(user));
-  sessionStorage.setItem('active_role', isClient ? 'Client' : 'Admin');
+  sessionStorage.setItem('active_role', activeRole);
 };
 
 export const removeAuthUser = () => {
   const activeRole = sessionStorage.getItem('active_role');
   if (activeRole === 'Client') {
     localStorage.removeItem('auth_user_client');
-  } else if (activeRole === 'Admin' || activeRole === 'Staff') {
+  } else if (activeRole === 'Staff') {
+    localStorage.removeItem('auth_user_staff');
+  } else if (activeRole === 'Admin') {
     localStorage.removeItem('auth_user_admin');
   } else {
     // Fallback if somehow active_role is missing during logout
     localStorage.removeItem('auth_user_admin');
     localStorage.removeItem('auth_user_client');
+    localStorage.removeItem('auth_user_staff');
   }
   sessionStorage.removeItem('active_role');
 };

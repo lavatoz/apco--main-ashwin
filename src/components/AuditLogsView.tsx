@@ -33,8 +33,8 @@ const AuditLogsView: React.FC = () => {
 
    const getLogTypeColor = (type: ActivityLog['type']) => {
       switch (type) {
-         case 'FinanceUpdate': return 'text-emerald-500 bg-emerald-500/10';
-         case 'Login': return 'text-blue-500 bg-blue-500/10';
+         case 'FinanceUpdate': return 'text-primary bg-primary/10';
+         case 'Login': return 'text-primary bg-primary/10';
          case 'ClientUpdate': return 'text-amber-500 bg-amber-500/10';
          case 'TaskUpdate': return 'text-purple-500 bg-purple-500/10';
          case 'SystemUpdate': return 'text-red-500 bg-red-500/10';
@@ -106,3 +106,4 @@ const AuditLogsView: React.FC = () => {
 };
 
 export default AuditLogsView;
+

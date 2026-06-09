@@ -19,7 +19,7 @@ export const TinyToesQuote: React.FC<TemplateProps> = ({ company, client, docume
             {company?.logo ? (
                <img src={company.logo} alt="Logo" className="w-16 h-16 rounded-2xl object-cover shadow-sm" />
             ) : (
-               <div className="w-16 h-16 bg-blue-100 text-blue-500 flex items-center justify-center rounded-2xl shadow-sm text-2xl font-black">
+               <div className="w-16 h-16 bg-blue-100 text-primary flex items-center justify-center rounded-2xl shadow-sm text-2xl font-black">
                   {company?.companyName?.charAt(0) || 'T'}
                </div>
             )}
@@ -29,7 +29,7 @@ export const TinyToesQuote: React.FC<TemplateProps> = ({ company, client, docume
             </div>
          </div>
          <div className="text-right">
-            <h2 className="text-3xl font-black text-blue-500 tracking-tight">Quotation</h2>
+            <h2 className="text-3xl font-black text-primary tracking-tight">Quotation</h2>
             <div className="mt-2 inline-block bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100">
                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Quote No.</p>
                <p className="text-sm font-black text-slate-700">{document?.id}</p>
@@ -92,7 +92,7 @@ export const TinyToesQuote: React.FC<TemplateProps> = ({ company, client, docume
                   <span>-₹{document.discountValue.toLocaleString()}</span>
                </div>
             )}
-            <div className="flex justify-between items-center text-2xl font-black text-blue-500 pt-4 border-t border-slate-100">
+            <div className="flex justify-between items-center text-2xl font-black text-primary pt-4 border-t border-slate-100">
                <span>Total</span>
                <span>₹{total.toLocaleString()}</span>
             </div>
@@ -106,3 +106,4 @@ export const TinyToesQuote: React.FC<TemplateProps> = ({ company, client, docume
     </div>
   );
 };
+

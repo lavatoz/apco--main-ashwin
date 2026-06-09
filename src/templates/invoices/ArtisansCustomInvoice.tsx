@@ -161,7 +161,7 @@ export const ArtisansCustomInvoice: React.FC<TemplateProps> = ({ company, client
                 )}
                 
                 {document?.discountValue > 0 && (
-                  <div className="flex justify-between text-xs text-emerald-500 tracking-wide font-medium">
+                  <div className="flex justify-between text-xs text-primary tracking-wide font-medium">
                     <span>DISCOUNT</span>
                     <span className="font-mono">-₹{document.discountValue.toLocaleString('en-IN')}</span>
                   </div>
@@ -236,3 +236,4 @@ export const ArtisansCustomInvoice: React.FC<TemplateProps> = ({ company, client
     </div>
   );
 };
+

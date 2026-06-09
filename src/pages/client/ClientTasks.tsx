@@ -57,7 +57,7 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ client, tasks }) => {
             <div className="space-y-4 opacity-50">
               {completedTasks.map((task, i) => (
                 <div key={task.id || i} className="p-6 bg-white/5 rounded-2xl flex items-center gap-5">
-                   <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                   <CheckCircle2 className="w-5 h-5 text-primary" />
                    <div>
                      <h3 className="text-sm font-bold line-through">{task.title}</h3>
                      <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">Completed</p>
@@ -73,3 +73,4 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ client, tasks }) => {
 };
 
 export default ClientTasks;
+

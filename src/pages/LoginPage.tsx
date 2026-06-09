@@ -26,12 +26,18 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       const storedUsers = localStorage.getItem('users');
       const users: any[] = storedUsers ? JSON.parse(storedUsers) : [];
       
+      console.log("Login Email", email);
+      console.log("Selected Role", role);
+      
       const foundUser = users.find(u => 
         (u.email.toLowerCase() === email.toLowerCase() || u.id.toLowerCase() === email.toLowerCase()) && 
         u.password === password && 
         u.role === role &&
         u.isActive !== false
       );
+
+      console.log("Found User", foundUser);
+      console.log("Stored Role", foundUser?.role);
 
       if (foundUser) {
         const sessionUser = {
@@ -53,7 +59,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center px-4 selection:bg-white selection:text-black relative overflow-hidden">
+    <div className="min-h-screen bg-transparent flex items-center justify-center px-4 selection:bg-white selection:text-black relative overflow-hidden">
       {/* Background Ambience */}
       <div className="absolute inset-0 bg-noise opacity-40 pointer-events-none" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-white/[0.02] rounded-full blur-[120px] pointer-events-none" />
@@ -159,7 +165,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                       localStorage.setItem('users', JSON.stringify(updated));
                       window.location.reload();
                     }}
-                    className="px-3 py-1.5 bg-emerald-500/10 text-emerald-500 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-emerald-500/20"
+                    className="px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-primary/20"
                   >
                     + Add Staff
                   </button>
@@ -172,7 +178,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                       localStorage.setItem('users', JSON.stringify(updated));
                       window.location.reload();
                     }}
-                    className="px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-blue-500/20"
+                    className="px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-primary/20"
                   >
                     + Add Client
                   </button>
@@ -190,7 +196,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                       }}
                       className="flex items-center gap-3 flex-1 text-left"
                     >
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${u.role === 'Admin' ? 'bg-white text-black' : u.role === 'Staff' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${u.role === 'Admin' ? 'bg-white text-black' : u.role === 'Staff' ? 'bg-primary/20 text-primary' : 'bg-primary/20 text-primary'}`}>
                         {u.name?.charAt(0) || u.email.charAt(0)}
                       </div>
                       <div>
@@ -237,3 +243,4 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 };
 
 export default LoginPage;
+

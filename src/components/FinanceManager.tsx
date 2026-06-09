@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, Trash2, FileText, TrendingDown, X, Calculator, FileQuestion, Loader2, Eye
 } from 'lucide-react';
 import { api } from '../services/api';
-import { type Invoice, type Expense, type Client, type CompanyProfile, InvoiceStatus } from '../types';
+import { type Invoice, type Expense, type Client, type CompanyProfile, InvoiceStatus, type ApprovalRecord } from '../types';
 import { advanceProjectWorkflow } from '../utils/workflowEngine';
 import { DocumentPreviewModal } from './DocumentPreviewModal';
 
@@ -37,16 +37,30 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const isRevenue = location.pathname === '/revenue';
-  const [activeTab, setActiveTab] = useState<'all' | 'unpaid' | 'paid' | 'quotations' | 'expenses' | 'verifications'>(
+  const [activeTab, setActiveTab] = useState<'all' | 'unpaid' | 'paid' | 'quotations' | 'expenses' | 'approvals'>(
     (searchParams.get('filter') as any) || 'all'
   );
 
   React.useEffect(() => {
     const filter = searchParams.get('filter');
-    if (filter && ['all', 'unpaid', 'paid', 'quotations', 'expenses', 'verifications'].includes(filter)) {
+    if (filter && ['all', 'unpaid', 'paid', 'quotations', 'expenses', 'approvals'].includes(filter)) {
       setActiveTab(filter as any);
     }
   }, [searchParams]);
+
+  const [approvals, setApprovals] = useState<ApprovalRecord[]>([]);
+
+  const fetchApprovals = async () => {
+    const apps = await api.getApprovals();
+    setApprovals(apps);
+  };
+
+  React.useEffect(() => {
+    fetchApprovals();
+    const handleSync = () => fetchApprovals();
+    window.addEventListener('finance-updated', handleSync);
+    return () => window.removeEventListener('finance-updated', handleSync);
+  }, []);
 
   const [activeVerificationScreenshot, setActiveVerificationScreenshot] = useState<string | null>(null);
 
@@ -138,12 +152,16 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
       if (activeTab === 'paid') return r.type === 'income' && r.status.toLowerCase() === 'paid';
       if (activeTab === 'quotations') return r.type === 'quotation';
       if (activeTab === 'expenses') return r.type === 'expense';
-      if (activeTab === 'verifications') return r.type === 'income' && r.status === 'Payment Submitted';
+      if (activeTab === 'approvals') return false; // approvals handled separately
       return true;
     });
   }, [unifiedRecords, activeTab]);
 
-  const pendingVerificationsCount = invoices.filter(i => i.status === 'Payment Submitted').length;
+  const pendingApprovalsCount = approvals.filter(a => a.status === 'Pending Approval').length;
+  
+  const approvedToday = approvals.filter(a => a.status === 'Approved' && new Date(a.auditTrail?.approvedDate || '').toDateString() === new Date().toDateString()).length;
+  const rejectedToday = approvals.filter(a => a.status === 'Rejected' && new Date(a.auditTrail?.rejectedDate || '').toDateString() === new Date().toDateString()).length;
+  const totalApprovalValue = approvals.filter(a => a.status === 'Pending Approval').reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
 
   const totalRevenue = unifiedRecords.filter(r => r.type === 'income' && r.status.toLowerCase() === 'paid').reduce((s, r) => s + r.amount, 0);
   const totalExpenses = unifiedRecords.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
@@ -300,7 +318,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
         </div>
       </div>
 
-      {userRole !== 'Staff' && (
+      {userRole !== 'Staff' && activeTab !== 'approvals' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="glass-panel p-8 squircle-lg bg-white/5 border-white/10 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl rounded-full group-hover:bg-white/10 transition-all" />
@@ -318,13 +336,42 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
             </div>
             <h3 className="text-5xl font-black text-white tracking-tighter font-mono"><span className="text-2xl text-zinc-500">₹</span>{(totalExpenses).toLocaleString('en-IN')}</h3>
           </div>
-          <div className="glass-panel p-8 squircle-lg bg-emerald-600/5 border-emerald-500/10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-3xl rounded-full" />
+          <div className="glass-panel p-8 squircle-lg bg-emerald-600/5 border-primary/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full" />
             <div className="flex justify-between items-start mb-8 relative z-10">
-              <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500 shadow-lg shadow-emerald-500/10"><Calculator className="w-5 h-5" /></div>
-              <span className="text-[9px] font-black uppercase text-emerald-400 tracking-widest px-3 py-1 bg-emerald-500/10 rounded-lg">Net</span>
+              <div className="p-3 bg-primary/10 rounded-xl text-primary shadow-lg shadow-emerald-500/10"><Calculator className="w-5 h-5" /></div>
+              <span className="text-[9px] font-black uppercase text-emerald-400 tracking-widest px-3 py-1 bg-primary/10 rounded-lg">Net</span>
             </div>
             <h3 className="text-5xl font-black text-white tracking-tighter font-mono"><span className="text-2xl text-zinc-500">₹</span>{(netProfit).toLocaleString('en-IN')}</h3>
+          </div>
+        </div>
+      )}
+
+      {userRole !== 'Staff' && activeTab === 'approvals' && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="glass-panel p-6 rounded-2xl bg-amber-500/5 border-amber-500/10 relative overflow-hidden">
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <span className="text-[9px] font-black uppercase text-amber-500 tracking-widest">Pending</span>
+            </div>
+            <h3 className="text-3xl font-black text-white tracking-tighter font-mono">{pendingApprovalsCount}</h3>
+          </div>
+          <div className="glass-panel p-6 rounded-2xl bg-primary/5 border-primary/10 relative overflow-hidden">
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <span className="text-[9px] font-black uppercase text-primary tracking-widest">Approved Today</span>
+            </div>
+            <h3 className="text-3xl font-black text-white tracking-tighter font-mono">{approvedToday}</h3>
+          </div>
+          <div className="glass-panel p-6 rounded-2xl bg-red-500/5 border-red-500/10 relative overflow-hidden">
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <span className="text-[9px] font-black uppercase text-red-500 tracking-widest">Rejected Today</span>
+            </div>
+            <h3 className="text-3xl font-black text-white tracking-tighter font-mono">{rejectedToday}</h3>
+          </div>
+          <div className="glass-panel p-6 rounded-2xl bg-white/5 border-white/10 relative overflow-hidden">
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <span className="text-[9px] font-black uppercase text-zinc-400 tracking-widest">Pending Value</span>
+            </div>
+            <h3 className="text-3xl font-black text-white tracking-tighter font-mono"><span className="text-lg text-zinc-500">₹</span>{(totalApprovalValue / 100000).toFixed(2)}<span className="text-lg text-zinc-500">L</span></h3>
           </div>
         </div>
       )}
@@ -332,14 +379,14 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-white/5 pb-6">
           <div className="flex bg-zinc-900/50 p-1.5 rounded-[1.2rem] border border-white/5 overflow-x-auto max-w-full relative">
-            {['all', 'unpaid', 'paid', 'quotations', 'expenses', 'verifications'].map(t => (
+            {['all', 'unpaid', 'paid', 'quotations', 'expenses', 'approvals'].map(t => (
               <button
                 key={t} onClick={() => setActiveTab(t as any)}
                 className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap relative ${activeTab === t ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'} touch-target`}
               >
-                {t === 'verifications' ? 'Verifications' : t}
-                {t === 'verifications' && pendingVerificationsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full">{pendingVerificationsCount}</span>
+                {t === 'approvals' ? 'Approvals' : t}
+                {t === 'approvals' && pendingApprovalsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full">{pendingApprovalsCount}</span>
                 )}
               </button>
             ))}
@@ -354,18 +401,85 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
         </div>
 
         <div className="grid grid-cols-1 gap-4">
-          {filteredRecords.map(record => {
-            const isExpense = record.type === 'expense';
-            const isQuote = record.type === 'quotation';
-            const isPaid = record.status.toLowerCase() === 'paid';
-            const isVerification = record.status === 'Payment Submitted';
+          {activeTab === 'approvals' ? 
+            approvals.map(app => (
+              <div key={app.id} className="glass-panel p-8 squircle-lg flex flex-col md:flex-row justify-between items-start md:items-center group hover:bg-white/5 transition-all border border-white/5 relative overflow-hidden">
+                <div className={`absolute top-0 right-0 w-1.5 h-full opacity-30 ${app.status === 'Approved' ? 'bg-primary' : app.status === 'Rejected' ? 'bg-red-500' : 'bg-amber-500'}`} />
+                <div className="flex items-center gap-6">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-lg ${app.status === 'Approved' ? 'bg-primary/10 border-primary/20 text-primary' : app.status === 'Rejected' ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-amber-500/10 border-amber-500/20 text-amber-500'}`}>
+                    <FileQuestion className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-lg uppercase tracking-tight text-white">{app.clientName}</h4>
+                    <p className="text-[9px] font-black uppercase text-zinc-600 tracking-widest mt-1.5">{app.type} • {app.brandName}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-8">
+                  <div className="text-right">
+                    <p className="text-xl font-black text-white font-mono">₹{app.amount.toLocaleString('en-IN')}</p>
+                    <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest mt-1">{app.status} • {new Date(app.submissionDate).toLocaleDateString()}</p>
+                  </div>
+                  {app.status === 'Pending Approval' ? (
+                    <div className="flex flex-col gap-2 w-full md:w-auto mt-4 md:mt-0">
+                      <div className="text-left text-xs bg-black/40 p-3 rounded-xl border border-white/5 mb-2">
+                        {app.metadata?.paymentVerification?.utrNumber && <p className="font-mono text-zinc-300">UTR: <span className="text-white font-bold">{app.metadata.paymentVerification.utrNumber}</span></p>}
+                        {app.metadata?.paymentVerification?.screenshot && (
+                          <button onClick={() => setActiveVerificationScreenshot(app.metadata.paymentVerification.screenshot)} className="text-[9px] uppercase tracking-widest text-blue-400 font-bold mt-1 hover:underline">View Screenshot</button>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={async () => {
+                          const user = JSON.parse(localStorage.getItem('authUser') || '{}');
+                          const userName = user.name || user.email?.split('@')[0] || 'System Admin';
+                          const updated = { ...app, status: 'Approved' as const, auditTrail: { ...app.auditTrail, approvedDate: new Date().toISOString(), approvedBy: userName } };
+                          await api.saveApproval(updated);
+                          if (app.type === 'Client Payment Proof Approval') await handleApprovePayment(app.metadata);
+                          window.dispatchEvent(new CustomEvent('finance-updated'));
+                        }} className="touch-target flex-1 px-4 py-2 bg-primary/20 text-primary hover:bg-primary hover:text-black rounded-lg font-black text-[9px] uppercase tracking-widest transition-colors border border-primary/30">Approve</button>
+                        <button onClick={async () => {
+                          const user = JSON.parse(localStorage.getItem('authUser') || '{}');
+                          const userName = user.name || user.email?.split('@')[0] || 'System Admin';
+                          const notes = prompt("Enter rejection reason (optional):");
+                          const updated = { ...app, status: 'Rejected' as const, notes: notes || '', auditTrail: { ...app.auditTrail, rejectedDate: new Date().toISOString(), rejectedBy: userName, notes: notes || '' } };
+                          await api.saveApproval(updated);
+                          if (app.type === 'Client Payment Proof Approval') await handleRejectPayment(app.metadata);
+                          window.dispatchEvent(new CustomEvent('finance-updated'));
+                        }} className="touch-target flex-1 px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-black text-[9px] uppercase tracking-widest transition-colors border border-red-500/20">Reject</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col text-right">
+                      <p className="text-[9px] uppercase tracking-widest text-zinc-500">
+                         {app.status === 'Approved' ? 'Approved By' : 'Rejected By'}
+                      </p>
+                      <p className="text-[10px] font-bold text-white mt-1 mb-1">
+                         {app.status === 'Approved' ? app.auditTrail?.approvedBy : app.auditTrail?.rejectedBy || 'Admin'}
+                      </p>
+                      <p className="text-[8px] uppercase tracking-widest text-zinc-600">
+                         {new Date(app.auditTrail?.approvedDate || app.auditTrail?.rejectedDate || '').toLocaleString()}
+                      </p>
+                      {app.notes && (
+                         <p className="text-[9px] font-medium text-amber-500 mt-2 max-w-[150px] truncate" title={app.notes}>
+                            Note: {app.notes}
+                         </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+           : 
+            filteredRecords.map(record => {
+              const isExpense = record.type === 'expense';
+              const isQuote = record.type === 'quotation';
+              const isPaid = record.status.toLowerCase() === 'paid';
 
             return (
               <div
                 key={`${record.source}-${record.id}`}
                 className={`glass-panel p-8 squircle-lg flex flex-col md:flex-row justify-between items-start md:items-center group hover:bg-white/5 transition-all border border-white/5 relative overflow-hidden ${fadingId === record.id ? 'animate-fade-out' : ''}`}
               >
-                <div className={`absolute top-0 right-0 w-1.5 h-full opacity-30 ${isExpense ? 'bg-red-500' : isQuote ? 'bg-zinc-500' : isPaid ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                <div className={`absolute top-0 right-0 w-1.5 h-full opacity-30 ${isExpense ? 'bg-red-500' : isQuote ? 'bg-zinc-500' : isPaid ? 'bg-primary' : 'bg-amber-500'}`} />
 
                 <div className="flex items-center gap-6">
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-lg ${isExpense ? 'bg-red-500/10 border-red-500/20 text-red-500' :
@@ -386,21 +500,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
                     <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest mt-1">{record.status} • {new Date(record.date).toLocaleDateString()}</p>
                   </div>
 
-                  {isVerification && activeTab === 'verifications' ? (
-                    <div className="flex flex-col gap-2 w-full md:w-auto mt-4 md:mt-0">
-                      <div className="text-left text-xs bg-black/40 p-3 rounded-xl border border-white/5 mb-2">
-                        <p className="font-mono text-zinc-300">UTR: <span className="text-white font-bold">{record.metadata.paymentVerification?.utrNumber}</span></p>
-                        {record.metadata.paymentVerification?.screenshot && (
-                          <button onClick={() => setActiveVerificationScreenshot(record.metadata.paymentVerification.screenshot)} className="text-[9px] uppercase tracking-widest text-blue-400 font-bold mt-1 hover:underline">View Screenshot</button>
-                        )}
-                        <p className="text-[8px] text-zinc-500 mt-1">Submitted: {new Date(record.metadata.paymentVerification?.submittedAt).toLocaleString()}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleApprovePayment(record.metadata)} className="touch-target flex-1 px-4 py-2 bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500 text-black rounded-lg font-black text-[9px] uppercase tracking-widest transition-colors border border-emerald-500/30">Approve</button>
-                        <button onClick={() => handleRejectPayment(record.metadata)} className="touch-target flex-1 px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-black text-[9px] uppercase tracking-widest transition-colors border border-red-500/20">Reject</button>
-                      </div>
-                    </div>
-                  ) : userRole !== 'Client' && (
+                  {userRole !== 'Client' && (
                       <div className="flex gap-2">
                         {!isExpense && (
                           <button onClick={() => setPreviewDoc(record.metadata)} className="touch-target p-3 bg-white/5 text-blue-400 hover:text-white rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
@@ -410,14 +510,14 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
                             const updated = { ...record.metadata, status: 'Paid' };
                             await api.saveInvoice(updated);
                             window.dispatchEvent(new CustomEvent('finance-updated'));
-                          }} className="touch-target px-4 py-3 bg-emerald-500 text-black rounded-lg font-black text-[9px] uppercase tracking-widest">Mark Paid</button>
+                          }} className="touch-target px-4 py-3 bg-primary text-black rounded-lg font-black text-[9px] uppercase tracking-widest">Mark Paid</button>
                         )}
                         {isQuote && (
                           <button onClick={async () => {
                             const updated = { ...record.metadata, type: 'invoice', isQuotation: false, status: 'Unpaid' };
                             await api.saveInvoice(updated);
                             window.dispatchEvent(new CustomEvent('finance-updated'));
-                          }} className="touch-target px-4 py-3 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest">To Invoice</button>
+                          }} className="touch-target px-4 py-3 bg-primary text-white rounded-lg font-black text-[9px] uppercase tracking-widest">To Invoice</button>
                         )}
                         <button onClick={() => setDeleteModal({ isOpen: true, id: record.id, type: isExpense ? 'expense' : 'entry' })} className="touch-target p-3 bg-white/5 text-zinc-500 hover:text-red-500 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                       </div>
@@ -426,6 +526,14 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
               </div>
             );
           })}
+          
+          {activeTab === 'approvals' && approvals.length === 0 && (
+            <div className="glass-panel p-12 squircle-lg text-center flex flex-col items-center justify-center border-white/5">
+              <FileText className="w-12 h-12 text-zinc-700 mb-4" />
+              <h3 className="text-xl font-black text-white uppercase tracking-tighter">No Pending Approvals</h3>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2 max-w-sm">All financial operations are up to date. No approvals require action.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -435,7 +543,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
           onClick={() => setIsCreating(false)}
         >
           <div
-            className="bg-zinc-950 md:bg-zinc-900 border border-white/10 rounded-none md:rounded-2xl w-full h-full md:h-auto md:max-w-xl p-6 md:p-10 shadow-2xl animate-ios-slide-up relative overflow-y-auto pb-safe md:pb-10 no-scrollbar"
+            className="glass-panel rounded-none md:rounded-2xl w-full h-full md:h-auto md:max-w-xl p-6 md:p-10 shadow-2xl animate-ios-slide-up relative overflow-y-auto pb-safe md:pb-10 no-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-10">
@@ -484,7 +592,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
           onClick={() => setIsExpenseModalOpen(false)}
         >
           <div
-            className="bg-zinc-950 md:bg-zinc-900 border border-white/10 rounded-none md:rounded-2xl w-full h-full md:h-auto md:max-w-lg p-6 md:p-10 shadow-2xl animate-ios-slide-up relative overflow-y-auto pb-safe md:pb-10 no-scrollbar"
+            className="glass-panel rounded-none md:rounded-2xl w-full h-full md:h-auto md:max-w-lg p-6 md:p-10 shadow-2xl animate-ios-slide-up relative overflow-y-auto pb-safe md:pb-10 no-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-10">
@@ -560,7 +668,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
       )}
 
       {toast.visible && (
-        <div className="fixed bottom-4 right-4 bg-emerald-500 text-white px-6 py-4 rounded-xl shadow-2xl font-black uppercase text-[10px] tracking-widest z-[200]">
+        <div className="fixed bottom-4 right-4 bg-primary text-white px-6 py-4 rounded-xl shadow-2xl font-black uppercase text-[10px] tracking-widest z-[200]">
           {toast.message}
         </div>
       )}
@@ -590,3 +698,5 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 };
 
 export default FinanceManager;
+
+

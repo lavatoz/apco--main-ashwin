@@ -77,9 +77,9 @@ const InvitePage: React.FC<InvitePageProps> = () => {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-transparent flex items-center justify-center p-6 text-center">
         <div className="animate-ios-slide-up space-y-6">
-          <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_50px_rgba(16,185,129,0.3)]">
+          <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto shadow-[0_0_50px_rgba(16,185,129,0.3)]">
             <CheckCircle className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-3xl font-black uppercase tracking-tight text-white">Identity Created</h1>
@@ -90,7 +90,7 @@ const InvitePage: React.FC<InvitePageProps> = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center px-4 selection:bg-white selection:text-black relative overflow-hidden">
+    <div className="min-h-screen bg-transparent flex items-center justify-center px-4 selection:bg-white selection:text-black relative overflow-hidden">
       <div className="absolute inset-0 bg-noise opacity-40 pointer-events-none" />
       
       <div className="w-full max-w-md animate-ios-slide-up relative z-10">
@@ -171,3 +171,4 @@ const XCircle = ({ className }: { className?: string }) => (
 );
 
 export default InvitePage;
+

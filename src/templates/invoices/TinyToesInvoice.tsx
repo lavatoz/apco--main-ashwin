@@ -21,7 +21,7 @@ export const TinyToesInvoice: React.FC<TemplateProps> = ({ company, client, docu
             {company?.logo ? (
                <img src={company.logo} alt="Logo" className="w-16 h-16 rounded-2xl object-cover shadow-sm" />
             ) : (
-               <div className="w-16 h-16 bg-blue-100 text-blue-500 flex items-center justify-center rounded-2xl shadow-sm text-2xl font-black">
+               <div className="w-16 h-16 bg-blue-100 text-primary flex items-center justify-center rounded-2xl shadow-sm text-2xl font-black">
                   {company?.companyName?.charAt(0) || 'T'}
                </div>
             )}
@@ -31,7 +31,7 @@ export const TinyToesInvoice: React.FC<TemplateProps> = ({ company, client, docu
             </div>
          </div>
          <div className="text-right">
-            <h2 className="text-3xl font-black text-blue-500 tracking-tight">Invoice</h2>
+            <h2 className="text-3xl font-black text-primary tracking-tight">Invoice</h2>
             <div className="mt-2 inline-block bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100">
                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Inv No.</p>
                <p className="text-sm font-black text-slate-700">{document?.id}</p>
@@ -112,7 +112,7 @@ export const TinyToesInvoice: React.FC<TemplateProps> = ({ company, client, docu
                <span>₹{total.toLocaleString()}</span>
             </div>
             {paidAmount > 0 && (
-               <div className="flex justify-between items-center text-sm font-black text-emerald-500 pt-2">
+               <div className="flex justify-between items-center text-sm font-black text-primary pt-2">
                   <span className="uppercase tracking-widest text-[10px]">Paid</span>
                   <span>-₹{paidAmount.toLocaleString()}</span>
                </div>
@@ -131,3 +131,4 @@ export const TinyToesInvoice: React.FC<TemplateProps> = ({ company, client, docu
     </div>
   );
 };
+

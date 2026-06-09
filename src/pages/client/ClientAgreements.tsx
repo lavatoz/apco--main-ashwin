@@ -4,7 +4,7 @@ import { FileSignature, ShieldCheck, Clock, X, Download, CheckCircle2 } from 'lu
 import type { Client, Project } from '../../types';
 import { api } from '../../services/api';
 import { generateAgreementPDF } from '../../utils/pdfGenerator';
-import { normalizeWorkflowStage, generateTimelineEvent } from '../../utils/workflowUtils';
+import { generateTimelineEvent } from '../../utils/workflowUtils';
 import { advanceProjectWorkflow } from '../../utils/workflowEngine';
 import { useCompanyForClient } from '../../hooks/useCompanySettings';
 
@@ -90,7 +90,7 @@ const ClientAgreements: React.FC<ClientAgreementsProps> = ({ client: initialClie
         {agreement ? (
           <div className="flex flex-col md:flex-row gap-8 items-start md:items-center justify-between">
             <div className="flex items-start gap-6 relative z-10">
-              <div className={`p-4 rounded-2xl ${agreement.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>
+              <div className={`p-4 rounded-2xl ${agreement.status === 'accepted' ? 'bg-primary/10 text-primary' : 'bg-primary/10 text-primary'}`}>
                 {agreement.status === 'accepted' ? <ShieldCheck className="w-8 h-8" /> : <Clock className="w-8 h-8 animate-pulse" />}
               </div>
               <div>
@@ -101,7 +101,7 @@ const ClientAgreements: React.FC<ClientAgreementsProps> = ({ client: initialClie
                     : 'Requires your digital signature to proceed.'}
                 </p>
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-md">
-                   <span className={`w-2 h-2 rounded-full ${agreement.status === 'accepted' ? 'bg-emerald-500' : 'bg-blue-500'}`}></span>
+                   <span className={`w-2 h-2 rounded-full ${agreement.status === 'accepted' ? 'bg-primary' : 'bg-primary'}`}></span>
                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-300">Version {agreement.version}</span>
                 </div>
               </div>
@@ -187,13 +187,13 @@ const ClientAgreements: React.FC<ClientAgreementsProps> = ({ client: initialClie
             <div className="p-8 border-t border-white/5 bg-black/40 shrink-0">
               <div className="max-w-3xl mx-auto">
                 {agreement.status === 'accepted' ? (
-                  <div className="flex items-center justify-between p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+                  <div className="flex items-center justify-between p-6 bg-primary/10 border border-primary/20 rounded-2xl">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                        <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                      <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                        <CheckCircle2 className="w-6 h-6 text-primary" />
                       </div>
                       <div>
-                        <p className="text-xs font-black uppercase tracking-widest text-emerald-500 mb-1">Electronically Signed</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-primary mb-1">Electronically Signed</p>
                         <p className="text-lg font-black text-white">{client.name || client.projectName}</p>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mt-1">
                           {new Date(agreement.acceptedAt!).toLocaleString('en-GB')}
@@ -228,7 +228,7 @@ const ClientAgreements: React.FC<ClientAgreementsProps> = ({ client: initialClie
                       <button 
                         type="submit"
                         disabled={!signatureName.trim() || isSigning}
-                        className="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-black rounded-xl text-xs font-black uppercase tracking-widest shadow-xl flex items-center gap-2 transition-all"
+                        className="px-8 py-3 bg-primary hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-black rounded-xl text-xs font-black uppercase tracking-widest shadow-xl flex items-center gap-2 transition-all"
                       >
                         {isSigning ? (
                           <>Processing...</>
@@ -253,3 +253,4 @@ const ClientAgreements: React.FC<ClientAgreementsProps> = ({ client: initialClie
 };
 
 export default ClientAgreements;
+
