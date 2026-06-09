@@ -1,4 +1,4 @@
-import { type ActivityLog, type Booking, type Client, type CloudConfig, type Division, type Company, type Expense, type Invoice, type Staff, type Task, type Project } from "../types";
+import { type ActivityLog, type Booking, type Client, type CloudConfig, type Division, type Company, type Expense, type Invoice, type Staff, type Task, type Project, type ApprovalRecord } from "../types";
 import { safeParse } from "../utils/storage";
 
 
@@ -64,6 +64,7 @@ const INVOICE_KEY = 'artisans_invoices';
 const LEDGER_KEY = 'ledger';
 const ENTRIES_KEY = 'entries';
 const LEGACY_INVOICES_KEY = 'invoices';
+const APPROVALS_KEY = 'apco_approvals';
 
 const getInitialStaff = (): Staff[] => [
   {
@@ -156,12 +157,73 @@ if (typeof window !== 'undefined') {
     migrateInvoices();
 }
 
+/**
+ * APPROVALS MIGRATION
+ * Convert any invoices with status "Payment Submitted" into explicit ApprovalRecords
+ */
+const migrateApprovals = () => {
+    const approvals: ApprovalRecord[] = JSON.parse(localStorage.getItem(APPROVALS_KEY) || '[]');
+    const invoices: Invoice[] = JSON.parse(localStorage.getItem(INVOICE_KEY) || '[]');
+    let approvalsChanged = false;
+
+    invoices.forEach(inv => {
+        if (inv.status === 'Payment Submitted' || inv.paymentVerification?.status === 'pending') {
+            const approvalExists = approvals.some(a => a.targetId === inv.id && a.type === 'Client Payment Proof Approval');
+            if (!approvalExists) {
+                approvals.push({
+                    id: `app_${Date.now()}_${Math.random()}`,
+                    type: 'Client Payment Proof Approval',
+                    targetId: String(inv.id),
+                    targetType: 'invoice',
+                    clientName: inv.client?.name || 'Unknown Client',
+                    brandName: inv.brand,
+                    amount: inv.totalAmount || inv.amount || 0,
+                    submissionDate: inv.paymentVerification?.submittedAt || new Date().toISOString(),
+                    status: 'Pending Approval',
+                    metadata: { paymentVerification: inv.paymentVerification },
+                    auditTrail: {}
+                });
+                approvalsChanged = true;
+            }
+        }
+    });
+
+    if (approvalsChanged) {
+        localStorage.setItem(APPROVALS_KEY, JSON.stringify(approvals));
+        console.log("[MIGRATION] Migrated pending verifications to Approvals module.");
+    }
+};
+
+if (typeof window !== 'undefined') {
+    migrateApprovals();
+}
+
 export const api = {
   // Auth
   signup: async (userData: Record<string, unknown>) => fetchApi('/auth/signup', { method: 'POST', body: JSON.stringify(userData) }),
 
   // Dashboard
   getDashboard: async () => fetchApi('/dashboard'),
+
+  // Approvals
+  getApprovals: async (): Promise<ApprovalRecord[]> => {
+    await delay(50);
+    const data = localStorage.getItem(APPROVALS_KEY);
+    return data ? JSON.parse(data) : [];
+  },
+  saveApproval: async (approval: ApprovalRecord) => {
+    checkClientBlock("Manage Approvals");
+    await delay(50);
+    const approvals: ApprovalRecord[] = JSON.parse(localStorage.getItem(APPROVALS_KEY) || "[]");
+    const idx = approvals.findIndex(a => a.id === approval.id);
+    if (idx >= 0) {
+        approvals[idx] = approval;
+    } else {
+        approvals.push(approval);
+    }
+    localStorage.setItem(APPROVALS_KEY, JSON.stringify(approvals));
+    return approval;
+  },
 
   // Clients
   getClients: async () => {
@@ -172,12 +234,34 @@ export const api = {
     checkClientBlock("Manage Clients");
     await delay(100);
     const clients = safeParse<Client[]>("clients", []);
-    const newClient = { ...client, _id: client._id || `client-${Date.now()}` };
+    const newClient = { 
+      ...client, 
+      _id: client._id || `client-${Date.now()}`,
+      portal: client.portal || { timeline: [], deliverables: [], internalSpends: [] }
+    };
     const idx = clients.findIndex((c: Client) => c._id === newClient._id);
     if (idx >= 0) {
       clients[idx] = newClient;
     } else {
       clients.push(newClient);
+      
+      // FIX: Ensure a login account exists for newly created clients
+      const storedUsers = localStorage.getItem('users');
+      const users: any[] = storedUsers ? JSON.parse(storedUsers) : [];
+      const userExists = users.some(u => u.email === newClient.email || u.id === newClient.email);
+      if (!userExists && newClient.email) {
+          const newUser = {
+              id: newClient._id,
+              name: newClient.name,
+              email: newClient.email,
+              password: 'clientpassword', // default password
+              role: 'Client',
+              permissions: [],
+              isActive: true
+          };
+          users.push(newUser);
+          localStorage.setItem('users', JSON.stringify(users));
+      }
     }
     localStorage.setItem("clients", JSON.stringify(clients));
     return newClient;
@@ -216,10 +300,24 @@ export const api = {
   getProjectById: async (id: string) => fetchApi(`/projects/${id}`),
   saveProject: async (project: Project) => {
       checkClientBlock("Manage Projects");
+      
+      // Update local storage first to prevent UI revert on sync events
+      const projects = safeParse<Project[]>("projects", []);
+      const idx = projects.findIndex((p: Project) => p.id === project.id || p._id === project._id);
+      if (idx >= 0) projects[idx] = project;
+      else projects.push(project);
+      localStorage.setItem("projects", JSON.stringify(projects));
+
       if (project._id) {
-          return fetchApi(`/projects/${project._id}`, { method: 'PUT', body: JSON.stringify(project) });
+          return fetchApi(`/projects/${project._id}`, { method: 'PUT', body: JSON.stringify(project) }).catch(e => {
+             console.warn("Backend save failed, saved locally", e);
+             return project;
+          });
       }
-      return fetchApi('/projects', { method: 'POST', body: JSON.stringify(project) });
+      return fetchApi('/projects', { method: 'POST', body: JSON.stringify(project) }).catch(e => {
+          console.warn("Backend save failed, saved locally", e);
+          return project;
+      });
   },
   updateProjectStatus: async (id: string, status: string) => {
     checkClientBlock("Update Project Status");

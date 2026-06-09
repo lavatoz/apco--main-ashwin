@@ -78,8 +78,8 @@ const ClientActivityPage: React.FC<ClientActivityPageProps> = ({ client, invoice
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'invoice': return <IndianRupee className="w-5 h-5 text-emerald-500" />;
-      case 'quote': return <CheckCircle2 className="w-5 h-5 text-blue-500" />;
+      case 'invoice': return <IndianRupee className="w-5 h-5 text-primary" />;
+      case 'quote': return <CheckCircle2 className="w-5 h-5 text-primary" />;
       case 'deliverable': return <Video className="w-5 h-5 text-purple-500" />;
       case 'team': return <Users className="w-5 h-5 text-indigo-500" />;
       case 'workflow': return <Clock className="w-5 h-5 text-amber-500" />;
@@ -89,8 +89,8 @@ const ClientActivityPage: React.FC<ClientActivityPageProps> = ({ client, invoice
 
   const getBgColor = (type: string) => {
     switch (type) {
-      case 'invoice': return 'bg-emerald-500/10 border-emerald-500/20';
-      case 'quote': return 'bg-blue-500/10 border-blue-500/20';
+      case 'invoice': return 'bg-primary/10 border-primary/20';
+      case 'quote': return 'bg-primary/10 border-primary/20';
       case 'deliverable': return 'bg-purple-500/10 border-purple-500/20';
       case 'team': return 'bg-indigo-500/10 border-indigo-500/20';
       case 'workflow': return 'bg-amber-500/10 border-amber-500/20';
@@ -154,3 +154,4 @@ const ClientActivityPage: React.FC<ClientActivityPageProps> = ({ client, invoice
 };
 
 export default ClientActivityPage;
+

@@ -231,7 +231,7 @@ const SmartRoleDropdown: React.FC<{
                                        >
                                           {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                                        </select>
-                                       <button onClick={(e) => handleEditSave(e, s.id)} className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all"><Check size={12} /></button>
+                                       <button onClick={(e) => handleEditSave(e, s.id)} className="p-2 bg-primary text-white rounded-lg hover:bg-emerald-600 transition-all"><Check size={12} /></button>
                                        <button onClick={() => setInlineEditingId(null)} className="p-2 bg-white/5 text-zinc-500 rounded-lg hover:bg-white/10 transition-all"><X size={12} /></button>
                                     </div>
                                  </div>
@@ -311,7 +311,7 @@ const SmartRoleDropdown: React.FC<{
                                     {isBusyFn && isBusyFn(s.id) ? (
                                        <span className="text-[7px] text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full uppercase font-black tracking-tighter">Busy</span>
                                     ) : (
-                                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                                       <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
                                     )}
                                  </div>
                               </div>
@@ -538,6 +538,7 @@ const ClientDetailsPage: React.FC = () => {
          projectType: editProjectForm.projectType,
          eventDate: editProjectForm.eventDate,
          status: editProjectForm.status,
+         address: editProjectForm.address,
       };
 
       try {
@@ -885,7 +886,7 @@ const ClientDetailsPage: React.FC = () => {
       if (matchedCompany && !selectedCompanyIdForDoc) {
          setSelectedCompanyIdForDoc(matchedCompany.id);
       }
-   }, [matchedCompany]);
+   }, [matchedCompany, selectedCompanyIdForDoc]);
 
    const generateAutoId = (type: 'quotation' | 'invoice', companyId: string) => {
       const company = companies.find(c => c.id === companyId) || matchedCompany || currentContextCompany;
@@ -1630,9 +1631,9 @@ const ClientDetailsPage: React.FC = () => {
 
    if (loading) {
       return (
-         <div className="min-h-screen bg-black flex items-center justify-center">
+         <div className="min-h-screen bg-transparent flex items-center justify-center">
             <div className="flex flex-col items-center gap-4">
-               <div className="w-8 h-8 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+               <div className="w-8 h-8 border-2 border-primary/20 border-t-emerald-500 rounded-full animate-spin" />
                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Connecting Workspace...</p>
             </div>
          </div>
@@ -1641,7 +1642,7 @@ const ClientDetailsPage: React.FC = () => {
 
    if (!client) {
       return (
-         <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
+         <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
             <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-8 border border-red-500/10">
                <span className="text-red-500 text-4xl font-black">!</span>
             </div>
@@ -1668,7 +1669,7 @@ const ClientDetailsPage: React.FC = () => {
                <div className="space-y-1">
                   <div className="flex items-center gap-3">
                      <h1 className="text-3xl lg:text-4xl font-black text-white uppercase tracking-tighter shrink-0">{client.name || 'Anonymous client'}</h1>
-                     <span className="px-2 py-1 bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase tracking-widest rounded flex items-center gap-1 border border-emerald-500/20">
+                     <span className="px-2 py-1 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest rounded flex items-center gap-1 border border-primary/20">
                         <Activity className="w-3 h-3" /> Active
                      </span>
                   </div>
@@ -1727,7 +1728,8 @@ const ClientDetailsPage: React.FC = () => {
                                  phone: client.phone || '',
                                  projectType: client.projectType || '',
                                  eventDate: client.eventDate || client.weddingDate || '',
-                                 status: client.status || 'Active'
+                                 status: client.status || 'Active',
+                                 address: client.address || ''
                               });
                               setIsEditProjectModalOpen(true);
                            }}
@@ -1769,6 +1771,10 @@ const ClientDetailsPage: React.FC = () => {
                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Status</p>
                            <span className="px-2 py-1 bg-white/10 rounded text-[10px] font-bold text-white uppercase tracking-widest">{client.status}</span>
                         </div>
+                        <div className="col-span-1 sm:col-span-2 md:col-span-4 border-t border-white/5 pt-4 mt-2">
+                           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Address</p>
+                           <p className="text-sm font-bold text-white whitespace-pre-wrap">{client.address || 'N/A'}</p>
+                        </div>
                      </div>
                   </div>
 
@@ -1794,11 +1800,11 @@ const ClientDetailsPage: React.FC = () => {
                                     {/* Dynamic Progress Bar */}
                                     {ev.startTime && ev.endTime && (
                                        <div className="absolute top-0 left-0 h-1 bg-white/5 w-full overflow-hidden">
-                                          <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${calcProgress}%` }} />
+                                          <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${calcProgress}%` }} />
                                        </div>
                                     )}
-                                    <div className={`absolute top-0 right-0 w-1.5 h-full ${calcStatus === 'Completed' ? 'bg-emerald-500' :
-                                       calcStatus === 'In Progress' ? 'bg-blue-500' :
+                                    <div className={`absolute top-0 right-0 w-1.5 h-full ${calcStatus === 'Completed' ? 'bg-primary' :
+                                       calcStatus === 'In Progress' ? 'bg-primary' :
                                           calcStatus === 'Cancelled' ? 'bg-red-500' :
                                              'bg-amber-500'
                                        }`} />
@@ -1815,19 +1821,19 @@ const ClientDetailsPage: React.FC = () => {
                                           <div className="pt-3 mt-3 border-t border-white/5 space-y-2">
                                              {ev.venueLocation && (
                                                 <div className="flex items-start gap-2 text-xs text-zinc-400">
-                                                   <MapPin className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" />
+                                                   <MapPin className="w-3 h-3 text-primary shrink-0 mt-0.5" />
                                                    <span className="truncate">{ev.venueLocation}</span>
                                                 </div>
                                              )}
                                              {ev.brideLocation && (
                                                 <div className="flex items-start gap-2 text-xs text-zinc-400">
-                                                   <MapPin className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
+                                                   <MapPin className="w-3 h-3 text-primary shrink-0 mt-0.5" />
                                                    <span className="truncate">Bride: {ev.brideLocation}</span>
                                                 </div>
                                              )}
                                              {ev.groomLocation && (
                                                 <div className="flex items-start gap-2 text-xs text-zinc-400">
-                                                   <MapPin className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
+                                                   <MapPin className="w-3 h-3 text-primary shrink-0 mt-0.5" />
                                                    <span className="truncate">Groom: {ev.groomLocation}</span>
                                                 </div>
                                              )}
@@ -1846,7 +1852,7 @@ const ClientDetailsPage: React.FC = () => {
                                                 await api.saveClient(updatedClient);
                                                 setClient(updatedClient);
                                                 addToast("Marked Completed");
-                                             }} className="flex-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 text-[10px] font-black uppercase tracking-widest py-2 rounded-lg flex items-center justify-center gap-2 transition-all">
+                                             }} className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-black uppercase tracking-widest py-2 rounded-lg flex items-center justify-center gap-2 transition-all">
                                                 <Check className="w-3 h-3" /> Complete
                                              </button>
                                           )}
@@ -1950,8 +1956,8 @@ const ClientDetailsPage: React.FC = () => {
                         const isPaid = invoice.status === 'Paid';
                         let markerClass = 'bg-amber-500/50';
                         let badgeClass = 'bg-amber-500/10 text-amber-500';
-                        if (isPaid) { markerClass = 'bg-emerald-500/50'; badgeClass = 'bg-emerald-500/10 text-emerald-500'; }
-                        else if (invoice.status === 'Partial') { markerClass = 'bg-blue-500/50'; badgeClass = 'bg-blue-500/10 text-blue-500'; }
+                        if (isPaid) { markerClass = 'bg-primary/50'; badgeClass = 'bg-primary/10 text-primary'; }
+                        else if (invoice.status === 'Partial') { markerClass = 'bg-primary/50'; badgeClass = 'bg-primary/10 text-primary'; }
 
                         return (
                            <div key={invoice.id} onClick={(e) => { const target = e.target as HTMLElement; if (target.closest("[data-action-button]")) return; setPreviewDoc(invoice); }} className="p-5 glass-panel border border-white/5 squircle-sm hover:bg-white/5 cursor-pointer flex items-center justify-between group transition-all overflow-hidden relative">
@@ -1983,7 +1989,7 @@ const ClientDetailsPage: React.FC = () => {
                                              <button data-action-button onClick={(e) => {
                                                 if (clientAgreement?.status !== 'accepted') { e.stopPropagation(); alert("Cannot log payment. Agreement pending or expired."); return; }
                                                 markAsPaid(e, invoice);
-                                             }} className={`text-[9px] font-black uppercase tracking-widest py-2 px-3 rounded mr-2 transition-all ${clientAgreement?.status !== 'accepted' ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 active:scale-95'}`}>Mark Paid</button>
+                                             }} className={`text-[9px] font-black uppercase tracking-widest py-2 px-3 rounded mr-2 transition-all ${clientAgreement?.status !== 'accepted' ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed' : 'bg-primary/10 text-primary hover:bg-primary/20 active:scale-95'}`}>Mark Paid</button>
                                           )}
                                           <button data-action-button onClick={(e) => { e.stopPropagation(); openModal('invoice', invoice); }} className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 active:scale-90"><Edit2 className="w-4 h-4" /></button>
                                           <button data-action-button onClick={(e) => {
@@ -2018,8 +2024,8 @@ const ClientDetailsPage: React.FC = () => {
                      allPayments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(pay => (
                         <div key={pay.id} className="p-5 glass-panel border border-white/5 squircle-sm flex items-center justify-between hover:bg-white/5 transition-all">
                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                 <CheckCircle2 className="w-4 h-4 text-primary" />
                               </div>
                               <div>
                                  <p className="text-xs font-black text-white uppercase tracking-[0.2em] space-x-2"><span>Funds Secured</span> <span className="opacity-30">•</span> <span className="text-zinc-500 font-mono tracking-wider">{pay.id}</span></p>
@@ -2040,7 +2046,7 @@ const ClientDetailsPage: React.FC = () => {
                   {/* CLIENT AGREEMENT BLOCK */}
                   <div className="glass-panel p-8 squircle-md border border-white/5 relative overflow-hidden bg-white/[0.01]">
                      {clientAgreement?.status === 'expired' && <div className="absolute top-0 left-0 w-full h-1 bg-red-500" />}
-                     {clientAgreement?.status === 'accepted' && <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500" />}
+                     {clientAgreement?.status === 'accepted' && <div className="absolute top-0 left-0 w-full h-1 bg-primary" />}
                      {(!clientAgreement || clientAgreement.status === 'pending') && <div className="absolute top-0 left-0 w-full h-1 bg-amber-500" />}
 
                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
@@ -2048,7 +2054,7 @@ const ClientDetailsPage: React.FC = () => {
                            <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Active Agreement Parameters</h3>
                            <p className="text-[12px] font-black text-zinc-500 uppercase tracking-widest mb-6">Currently Issued Bound To Client Entity</p>
                            <div className="flex flex-wrap items-center gap-4">
-                              <span className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${clientAgreement?.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                              <span className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${clientAgreement?.status === 'accepted' ? 'bg-primary/10 text-primary border-primary/20' :
                                  clientAgreement?.status === 'expired' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
                                     'bg-amber-500/10 text-amber-500 border-amber-500/20'
                                  }`}>
@@ -2127,11 +2133,11 @@ const ClientDetailsPage: React.FC = () => {
                               const isAssigned = clientAgreement?.title === temp.title || (client?.activeAgreement?.templateId === temp.id && client?.activeAgreement?.status !== 'revoked');
 
                               return (
-                                 <div key={temp.id} className={`p-4 bg-black/30 border shrink-0 rounded-2xl flex flex-col md:flex-row md:items-center justify-between group hover:bg-white/5 transition-all ${isAssigned ? 'border-emerald-500/40 border-l-4 border-l-emerald-500' : 'border-white/5'}`}>
+                                 <div key={temp.id} className={`p-4 bg-black/30 border shrink-0 rounded-2xl flex flex-col md:flex-row md:items-center justify-between group hover:bg-white/5 transition-all ${isAssigned ? 'border-primary/40 border-l-4 border-l-emerald-500' : 'border-white/5'}`}>
                                     <div className="mb-4 md:mb-0">
                                        <div className="flex items-center gap-3">
                                           <p className="text-sm font-black text-white uppercase tracking-widest mb-1">{temp.title}</p>
-                                          {isAssigned && <span className="bg-emerald-500 text-black text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">Assigned</span>}
+                                          {isAssigned && <span className="bg-primary text-black text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">Assigned</span>}
                                        </div>
                                        <p className="text-[12px] font-bold text-zinc-500 uppercase tracking-widest font-mono">v{temp.version} • Text Block Length: {temp.body?.length || 0} chars</p>
                                     </div>
@@ -2139,8 +2145,8 @@ const ClientDetailsPage: React.FC = () => {
                                        <button
                                           onMouseDown={(e) => { e.preventDefault(); handleAssignToClient(temp); }}
                                           className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow border ${isAssigned
-                                             ? 'bg-emerald-500 text-black border-emerald-500'
-                                             : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20'
+                                             ? 'bg-primary text-black border-primary'
+                                             : 'bg-primary/10 text-primary hover:bg-primary/20 border-primary/20'
                                              }`}
                                        >
                                           {isAssigned ? 'Assigned ✓' : 'Assign to Client'}
@@ -2163,13 +2169,13 @@ const ClientDetailsPage: React.FC = () => {
                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div className="flex-1">
                            {idDocument ? (
-                              <div className="flex items-center gap-4 p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl">
-                                 <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                              <div className="flex items-center gap-4 p-4 bg-primary/5 border border-primary/10 rounded-2xl">
+                                 <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                                    <CheckCircle2 className="w-4 h-4 text-primary" />
                                  </div>
                                  <div>
                                     <p className="text-xs font-black text-white tracking-wider">{idDocument.fileName}</p>
-                                    <p className="text-[9px] font-bold text-emerald-500/80 uppercase tracking-widest mt-1">Verified Document</p>
+                                    <p className="text-[9px] font-bold text-primary/80 uppercase tracking-widest mt-1">Verified Document</p>
                                  </div>
                               </div>
                            ) : (
@@ -2202,7 +2208,7 @@ const ClientDetailsPage: React.FC = () => {
                      <div className="flex justify-between items-center bg-black/20 p-4 border border-white/5 rounded-2xl mb-4">
                         <div>
                            <h3 className="text-base font-bold text-white uppercase tracking-tight flex items-center gap-2">
-                              <Users className="w-4 h-4 text-emerald-500" /> Team Assignment
+                              <Users className="w-4 h-4 text-primary" /> Team Assignment
                            </h3>
                            <p className="text-sm font-medium text-zinc-400 uppercase tracking-wide mt-1">Assign and manage operational staff for this client</p>
                         </div>
@@ -2345,8 +2351,8 @@ const ClientDetailsPage: React.FC = () => {
                         })()}
                         <div className="flex flex-col items-end">
                            <span className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Operational Status</span>
-                           <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mt-1 ${project.stage === 'delivery' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                              project.stage === 'booked' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                           <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mt-1 ${project.stage === 'delivery' ? 'bg-primary/10 text-primary border border-primary/20' :
+                              project.stage === 'booked' ? 'bg-primary/10 text-primary border border-primary/20' :
                                  'bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
                               }`}>
                               {project.stage === 'delivery' ? 'Completed' : project.stage === 'booked' ? 'Pending' : 'In Progress'}
@@ -2441,7 +2447,7 @@ const ClientDetailsPage: React.FC = () => {
                                              const updatedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
                                              setProject(updatedProjects.find((p: any) => p.id === project.id) || project);
                                           }}
-                                          className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-[9px] font-black uppercase tracking-widest text-emerald-400 rounded-lg transition-colors border border-emerald-500/30"
+                                          className="px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-[9px] font-black uppercase tracking-widest text-emerald-400 rounded-lg transition-colors border border-primary/30"
                                        >
                                           Mark Delivered
                                        </button>
@@ -2506,11 +2512,11 @@ const ClientDetailsPage: React.FC = () => {
                                     key={stage}
                                     className={`flex flex-col items-center gap-2 flex-1 min-w-[60px] ${isActive ? 'opacity-100 scale-110 transition-transform' : isCompleted ? 'opacity-70' : 'opacity-30'}`}
                                  >
-                                    <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center border-2 ${isActive ? 'border-emerald-500 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : isCompleted ? 'border-emerald-500 bg-emerald-500' : 'border-white/10 bg-black'}`}>
+                                    <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center border-2 ${isActive ? 'border-primary bg-primary/10 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : isCompleted ? 'border-primary bg-primary' : 'border-white/10 bg-black'}`}>
                                        {isCompleted && <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4 text-black" strokeWidth={3} />}
-                                       {isActive && <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-emerald-500" />}
+                                       {isActive && <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-primary" />}
                                     </div>
-                                    <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-tight text-center ${isActive ? 'text-emerald-500' : 'text-white'}`}>
+                                    <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-tight text-center ${isActive ? 'text-primary' : 'text-white'}`}>
                                        {stage.split(' ').join('\n')}
                                     </span>
                                  </div>
@@ -2526,7 +2532,7 @@ const ClientDetailsPage: React.FC = () => {
                                  <p className="text-sm font-black text-white font-mono">₹{clientInvoices.reduce((a, c) => a + (c.paidAmount || 0), 0).toLocaleString()} <span className="text-zinc-600 text-[10px] font-sans">/</span> ₹{clientInvoices.reduce((a, c) => a + (c.totalAmount || 0), 0).toLocaleString()}</p>
                                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-2">
                                     <div
-                                       className="h-full bg-emerald-500"
+                                       className="h-full bg-primary"
                                        style={{ width: `${Math.min(100, (clientInvoices.reduce((a, c) => a + (c.paidAmount || 0), 0) / (clientInvoices.reduce((a, c) => a + (c.totalAmount || 0), 0) || 1)) * 100)}%` }}
                                     />
                                  </div>
@@ -2536,8 +2542,8 @@ const ClientDetailsPage: React.FC = () => {
                            <div className="p-5 bg-black/20 border border-white/5 rounded-2xl space-y-2">
                               <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Schedule Vector</p>
                               <div className="flex items-center gap-3">
-                                 <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/10">
-                                    <Calendar className="w-4 h-4 text-blue-500" />
+                                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/10">
+                                    <Calendar className="w-4 h-4 text-primary" />
                                  </div>
                                  <div>
                                     <p className="text-[10px] font-black text-white uppercase tracking-wider">{project.date ? new Date(project.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Pending assignment'}</p>
@@ -2590,7 +2596,7 @@ const ClientDetailsPage: React.FC = () => {
                onClick={() => setIsModalOpen(false)}
             >
                <div
-                  className="w-full h-full md:h-auto md:max-w-4xl max-h-none md:max-h-[90vh] overflow-y-auto bg-zinc-950 md:bg-zinc-900 border border-white/10 rounded-none md:rounded-2xl p-6 md:p-10 shadow-2xl relative animate-ios-slide-up no-scrollbar pb-safe md:pb-10"
+                  className="w-full h-full md:h-auto md:max-w-4xl max-h-none md:max-h-[90vh] overflow-y-auto glass-panel rounded-none md:rounded-2xl p-6 md:p-10 shadow-2xl relative animate-ios-slide-up no-scrollbar pb-safe md:pb-10"
                   onClick={(e) => e.stopPropagation()}
                >
                   <button onClick={() => setIsModalOpen(false)} className="touch-target absolute top-4 md:top-6 right-4 md:right-6 p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
@@ -2602,8 +2608,8 @@ const ClientDetailsPage: React.FC = () => {
 
                   {successMsg ? (
                      <div className="flex flex-col items-center justify-center py-20 space-y-4 animate-ios-fade-in">
-                        <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                           <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+                        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                           <CheckCircle2 className="w-10 h-10 text-primary" />
                         </div>
                         <p className="text-lg font-black text-white uppercase tracking-widest text-center mt-4">{successMsg}</p>
                      </div>
@@ -2613,7 +2619,7 @@ const ClientDetailsPage: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 glass-panel border border-white/5 squircle-sm">
                            <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Structure Type</label>
-                              <div className="flex bg-black border border-white/10 squircle-sm p-1">
+                              <div className="flex glass-panel squircle-sm p-1">
                                  <button type="button" onClick={() => { setModalType('quotation'); setAutoGeneratedId(generateAutoId('quotation', selectedCompanyIdForDoc)); }} className={`touch-target flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${modalType === 'quotation' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Quotation</button>
                                  <button type="button" onClick={() => { setModalType('invoice'); setAutoGeneratedId(generateAutoId('invoice', selectedCompanyIdForDoc)); }} className={`touch-target flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${modalType === 'invoice' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Invoice</button>
                               </div>
@@ -2621,7 +2627,7 @@ const ClientDetailsPage: React.FC = () => {
                            <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Issuing Brand (Company)</label>
                               <select
-                                 className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none appearance-none cursor-pointer"
+                                 className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none appearance-none cursor-pointer"
                                  value={selectedCompanyIdForDoc}
                                  onChange={(e) => {
                                     const cid = e.target.value;
@@ -2646,15 +2652,15 @@ const ClientDetailsPage: React.FC = () => {
                            </div>
                            <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Effective Timestamp</label>
-                              <input required type="date" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none" value={formDueDate} onChange={e => setFormDueDate(e.target.value)} disabled={isSubmitting} />
+                              <input required type="date" className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none" value={formDueDate} onChange={e => setFormDueDate(e.target.value)} disabled={isSubmitting} />
                            </div>
                            <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Payment Terms</label>
-                              <input type="text" placeholder="e.g. Due on Receipt, Net 30" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none" value={formPaymentTerms} onChange={e => setFormPaymentTerms(e.target.value)} disabled={isSubmitting} />
+                              <input type="text" placeholder="e.g. Due on Receipt, Net 30" className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none" value={formPaymentTerms} onChange={e => setFormPaymentTerms(e.target.value)} disabled={isSubmitting} />
                            </div>
                            <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Custom Brand Logo URL (Override)</label>
-                              <input type="url" placeholder="https://..." className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none" value={formCompanyLogoUrl} onChange={e => setFormCompanyLogoUrl(e.target.value)} disabled={isSubmitting} />
+                              <input type="url" placeholder="https://..." className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none" value={formCompanyLogoUrl} onChange={e => setFormCompanyLogoUrl(e.target.value)} disabled={isSubmitting} />
                            </div>
                         </div>
 
@@ -2689,8 +2695,8 @@ const ClientDetailsPage: React.FC = () => {
                                     </select>
                                     <div className="w-px h-4 bg-white/10 mx-1" />
                                     <div className="flex items-center gap-2 opacity-50">
-                                       {builderCategory === 'physical' && <Package size={14} className="text-emerald-500" />}
-                                       {builderCategory === 'digital' && <Video size={14} className="text-blue-500" />}
+                                       {builderCategory === 'physical' && <Package size={14} className="text-primary" />}
+                                       {builderCategory === 'digital' && <Video size={14} className="text-primary" />}
                                        {builderCategory === 'team' && <Users size={14} className="text-indigo-500" />}
                                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
                                           {builderCategory === 'physical' && 'Physical Assets'}
@@ -2851,7 +2857,7 @@ const ClientDetailsPage: React.FC = () => {
                                                                            {isSelected ? <Check size={18} className="text-indigo-400" /> : <div className="w-4 h-4 rounded-full border border-white/20 group-hover/item:border-white/50" />}
                                                                            <span className={`text-[15px] font-bold transition-colors ${isSelected ? 'text-indigo-400' : 'text-zinc-300 group-hover/item:text-white'}`}>{it.name}</span>
                                                                         </div>
-                                                                        <span className={`text-[11px] font-black font-mono px-3 py-1.5 rounded-md ${isSelected ? 'bg-indigo-500/20 text-indigo-400' : 'bg-white/5 text-emerald-500'}`}>
+                                                                        <span className={`text-[11px] font-black font-mono px-3 py-1.5 rounded-md ${isSelected ? 'bg-indigo-500/20 text-indigo-400' : 'bg-white/5 text-primary'}`}>
                                                                            {isSelected ? 'ASSIGNED' : ((it as any).price ? `₹${(it as any).price.toLocaleString()}` : (it as any).role.toUpperCase())}
                                                                         </span>
                                                                      </button>
@@ -3007,8 +3013,8 @@ const ClientDetailsPage: React.FC = () => {
                                                    onChange={e => updateCategorizedItem('physical', item.id, 'name', e.target.value)}
                                                 />
                                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                   <div className="p-1.5 bg-emerald-500/10 rounded-lg">
-                                                      <Edit2 size={10} className="text-emerald-500" />
+                                                   <div className="p-1.5 bg-primary/10 rounded-lg">
+                                                      <Edit2 size={10} className="text-primary" />
                                                    </div>
                                                 </div>
                                              </div>
@@ -3026,7 +3032,7 @@ const ClientDetailsPage: React.FC = () => {
                                                    <span className="text-[8px] font-black text-zinc-600 uppercase">Rate</span>
                                                    <input
                                                       type="number"
-                                                      className="w-24 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-emerald-500 text-right font-mono"
+                                                      className="w-24 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-primary text-right font-mono"
                                                       value={item.price}
                                                       onChange={e => updateCategorizedItem('physical', item.id, 'price', parseFloat(e.target.value) || 0)}
                                                    />
@@ -3051,7 +3057,7 @@ const ClientDetailsPage: React.FC = () => {
                                                 onClick={() => addItemToCategory('physical')}
                                                 className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/10 transition-all active:scale-95 flex items-center gap-2"
                                              >
-                                                <Plus size={14} className="text-emerald-500" /> Add First Item
+                                                <Plus size={14} className="text-primary" /> Add First Item
                                              </button>
                                           </div>
                                        )}
@@ -3070,8 +3076,8 @@ const ClientDetailsPage: React.FC = () => {
                                                    onChange={e => updateCategorizedItem('digital', item.id, 'name', e.target.value)}
                                                 />
                                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                   <div className="p-1.5 bg-blue-500/10 rounded-lg">
-                                                      <Edit2 size={10} className="text-blue-500" />
+                                                   <div className="p-1.5 bg-primary/10 rounded-lg">
+                                                      <Edit2 size={10} className="text-primary" />
                                                    </div>
                                                 </div>
                                              </div>
@@ -3089,7 +3095,7 @@ const ClientDetailsPage: React.FC = () => {
                                                    <span className="text-[8px] font-black text-zinc-600 uppercase">Rate</span>
                                                    <input
                                                       type="number"
-                                                      className="w-24 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-blue-500 text-right font-mono"
+                                                      className="w-24 bg-white/5 border border-white/5 rounded-lg p-1 text-[10px] font-bold text-primary text-right font-mono"
                                                       value={item.price}
                                                       onChange={e => updateCategorizedItem('digital', item.id, 'price', parseFloat(e.target.value) || 0)}
                                                    />
@@ -3114,7 +3120,7 @@ const ClientDetailsPage: React.FC = () => {
                                                 onClick={() => addItemToCategory('digital')}
                                                 className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/10 transition-all active:scale-95 flex items-center gap-2"
                                              >
-                                                <Plus size={14} className="text-blue-500" /> Add First Media
+                                                <Plus size={14} className="text-primary" /> Add First Media
                                              </button>
                                           </div>
                                        )}
@@ -3204,7 +3210,7 @@ const ClientDetailsPage: React.FC = () => {
                               </div>
                               <div className="flex items-center justify-between py-2 border-b border-white/5 gap-4">
                                  <span className="text-[11px] font-black uppercase text-zinc-400 tracking-widest whitespace-nowrap">Tax (%)</span>
-                                 <input type="number" min="0" step="0.1" className="w-24 bg-black border border-white/10 rounded-lg p-2 text-sm font-bold text-white text-right outline-none" value={formTaxPercent} onChange={e => setFormTaxPercent(parseFloat(e.target.value) || 0)} disabled={isSubmitting} />
+                                 <input type="number" min="0" step="0.1" className="w-24 glass-panel rounded-lg p-2 text-sm font-bold text-white text-right outline-none" value={formTaxPercent} onChange={e => setFormTaxPercent(parseFloat(e.target.value) || 0)} disabled={isSubmitting} />
                               </div>
                               <div className="flex items-center justify-between py-2 border-b border-white/5 gap-4">
                                  <div className="flex items-center gap-2">
@@ -3213,14 +3219,14 @@ const ClientDetailsPage: React.FC = () => {
                                        {formDiscountType === 'flat' ? '₹ FLAT' : '% PCT'}
                                     </button>
                                  </div>
-                                 <input type="number" min="0" step="0.1" className="w-24 bg-black border border-white/10 rounded-lg p-2 text-sm font-bold text-white text-right outline-none" value={formDiscountValue} onChange={e => setFormDiscountValue(parseFloat(e.target.value) || 0)} disabled={isSubmitting} />
+                                 <input type="number" min="0" step="0.1" className="w-24 glass-panel rounded-lg p-2 text-sm font-bold text-white text-right outline-none" value={formDiscountValue} onChange={e => setFormDiscountValue(parseFloat(e.target.value) || 0)} disabled={isSubmitting} />
                               </div>
                               <div className="flex items-center justify-between py-2 border-b border-white/5 gap-4">
                                  <span className="text-[11px] font-black uppercase text-zinc-400 tracking-widest whitespace-nowrap">Shipping (₹)</span>
-                                 <input type="number" min="0" className="w-24 bg-black border border-white/10 rounded-lg p-2 text-sm font-bold text-white text-right outline-none" value={formShippingCost} onChange={e => setFormShippingCost(parseFloat(e.target.value) || 0)} disabled={isSubmitting} />
+                                 <input type="number" min="0" className="w-24 glass-panel rounded-lg p-2 text-sm font-bold text-white text-right outline-none" value={formShippingCost} onChange={e => setFormShippingCost(parseFloat(e.target.value) || 0)} disabled={isSubmitting} />
                               </div>
                               <div className="flex flex-col gap-1 items-end pt-4">
-                                 <span className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">Calculated Balance Output</span>
+                                 <span className="text-[10px] font-black uppercase text-primary tracking-widest">Calculated Balance Output</span>
                                  <span className="text-4xl font-black text-white tracking-tighter shrink-0 mb-2">₹{calculateFinalTotal().toLocaleString()}</span>
                               </div>
                            </div>
@@ -3263,7 +3269,7 @@ const ClientDetailsPage: React.FC = () => {
                onClick={() => setIsAddStaffModalOpen(false)}
             >
                <div
-                  className="w-full max-w-sm bg-zinc-950 border border-white/10 rounded-3xl p-8 shadow-2xl animate-ios-slide-up relative"
+                  className="w-full max-w-sm glass-panel rounded-3xl p-8 shadow-2xl animate-ios-slide-up relative"
                   onClick={(e) => e.stopPropagation()}
                >
                   <button onClick={() => setIsAddStaffModalOpen(false)} className="absolute top-6 right-6 p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
@@ -3342,7 +3348,7 @@ const ClientDetailsPage: React.FC = () => {
          )}
          {isAddEventModalOpen && createPortal(
             <div className="fixed inset-0 bg-black/90 md:bg-black/80 z-[200] flex items-center justify-center p-0 md:p-6 backdrop-blur-md md:backdrop-blur-2xl">
-               <div className="bg-zinc-950 md:bg-zinc-900 border border-white/10 rounded-none md:rounded-[2.5rem] w-full h-full md:h-auto md:max-w-xl p-6 md:p-12 shadow-2xl animate-ios-slide-up overflow-y-auto custom-scrollbar pb-safe md:pb-12 pt-safe md:pt-12">
+               <div className="glass-panel rounded-none md:rounded-[2.5rem] w-full h-full md:h-auto md:max-w-xl p-6 md:p-12 shadow-2xl animate-ios-slide-up overflow-y-auto custom-scrollbar pb-safe md:pb-12 pt-safe md:pt-12">
                   <div className="flex justify-between items-center mb-8">
                      <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight">Add Event</h2>
                      <button onClick={() => setIsAddEventModalOpen(false)} className="touch-target p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
@@ -3392,7 +3398,7 @@ const ClientDetailsPage: React.FC = () => {
 
          {isEditProjectModalOpen && createPortal(
             <div className="fixed inset-0 bg-black/90 md:bg-black/80 z-[200] flex items-center justify-center p-0 md:p-6 backdrop-blur-md md:backdrop-blur-2xl">
-               <div className="bg-zinc-950 md:bg-zinc-900 border border-white/10 rounded-none md:rounded-[2.5rem] w-full h-full md:h-auto md:max-w-2xl p-6 md:p-12 shadow-2xl animate-ios-slide-up overflow-y-auto custom-scrollbar pb-safe md:pb-12 pt-safe md:pt-12">
+               <div className="glass-panel rounded-none md:rounded-[2.5rem] w-full h-full md:h-auto md:max-w-2xl p-6 md:p-12 shadow-2xl animate-ios-slide-up overflow-y-auto custom-scrollbar pb-safe md:pb-12 pt-safe md:pt-12">
                   <div className="flex justify-between items-center mb-8">
                      <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight">Edit Project Info</h2>
                      <button onClick={() => setIsEditProjectModalOpen(false)} className="touch-target p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
@@ -3432,6 +3438,10 @@ const ClientDetailsPage: React.FC = () => {
                               <option value="Archived" className="bg-zinc-900">Archived</option>
                            </select>
                         </div>
+                        <div className="space-y-2 md:col-span-2">
+                           <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Address</label>
+                           <textarea className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all min-h-[80px]" value={editProjectForm.address || ''} onChange={e => setEditProjectForm({ ...editProjectForm, address: e.target.value })} />
+                        </div>
                      </div>
                      <button type="submit" className="w-full py-5 bg-white text-black font-black rounded-2xl text-[11px] uppercase tracking-widest shadow-2xl hover:bg-zinc-200 transition-all mt-4">
                         Save Project Info
@@ -3443,7 +3453,7 @@ const ClientDetailsPage: React.FC = () => {
 
          {isEditEventModalOpen && editingEvent && createPortal(
             <div className="fixed inset-0 bg-black/90 md:bg-black/80 z-[200] flex items-center justify-center p-0 md:p-6 backdrop-blur-md md:backdrop-blur-2xl">
-               <div className="bg-zinc-950 md:bg-zinc-900 border border-white/10 rounded-none md:rounded-[2.5rem] w-full h-full md:h-auto md:max-w-xl p-6 md:p-12 shadow-2xl animate-ios-slide-up overflow-y-auto custom-scrollbar pb-safe md:pb-12 pt-safe md:pt-12">
+               <div className="glass-panel rounded-none md:rounded-[2.5rem] w-full h-full md:h-auto md:max-w-xl p-6 md:p-12 shadow-2xl animate-ios-slide-up overflow-y-auto custom-scrollbar pb-safe md:pb-12 pt-safe md:pt-12">
                   <div className="flex justify-between items-center mb-8">
                      <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight">Edit Event</h2>
                      <button onClick={() => { setIsEditEventModalOpen(false); setEditingEvent(null); }} className="touch-target p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
@@ -3495,3 +3505,5 @@ const ClientDetailsPage: React.FC = () => {
 };
 
 export default ClientDetailsPage;
+
+

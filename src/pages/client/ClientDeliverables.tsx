@@ -20,9 +20,9 @@ const ClientDeliverables: React.FC<ClientDeliverablesProps> = ({ client }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {deliverables.map((d, i) => (
-          <div key={d.id || i} className="glass-panel p-8 squircle-lg group hover:scale-[1.02] active:scale-[0.98] transition-all relative overflow-hidden flex flex-col h-full border border-white/5 hover:border-blue-500/30 hover:shadow-[0_0_30px_rgba(59,130,246,0.1)]">
+          <div key={d.id || i} className="glass-panel p-8 squircle-lg group hover:scale-[1.02] active:scale-[0.98] transition-all relative overflow-hidden flex flex-col h-full border border-white/5 hover:border-primary/30 hover:shadow-[0_0_30px_rgba(59,130,246,0.1)]">
             <div className="mb-10 flex justify-between items-start">
-              <div className={`p-4 rounded-2xl bg-white/5 text-zinc-400 group-hover:bg-blue-500 group-hover:text-white transition-colors`}>
+              <div className={`p-4 rounded-2xl bg-white/5 text-zinc-400 group-hover:bg-primary group-hover:text-white transition-colors`}>
                 {d.type === 'Video' ? <Video className="w-6 h-6" /> : d.type === 'Photos' ? <ImageIcon className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
               </div>
               <a href={d.url} target="_blank" rel="noreferrer" className="p-3 bg-white/5 rounded-full hover:bg-white text-zinc-400 hover:text-black transition-all">
@@ -50,3 +50,4 @@ const ClientDeliverables: React.FC<ClientDeliverablesProps> = ({ client }) => {
 };
 
 export default ClientDeliverables;
+

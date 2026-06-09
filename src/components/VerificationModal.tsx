@@ -64,7 +64,7 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
 
           {/* Verification Badge Block */}
           <div className="flex flex-col items-center justify-center text-center p-8 bg-zinc-900/40 border border-white/5 rounded-3xl mb-6">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4 shadow-[0_0_24px_rgba(16,185,129,0.1)]">
+            <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-emerald-400 mb-4 shadow-[0_0_24px_rgba(16,185,129,0.1)]">
               <CheckCircle className="w-10 h-10 animate-[pulse_2s_infinite]" />
             </div>
             <h4 className="text-xl font-black uppercase tracking-tight text-white">Authentic Document</h4>
@@ -137,3 +137,4 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
 };
 
 export default VerificationModal;
+

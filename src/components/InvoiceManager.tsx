@@ -100,7 +100,7 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
   const textPrimary = isBaby ? 'text-slate-900' : 'text-zinc-100';
   const textSecondary = isBaby ? 'text-slate-500' : 'text-zinc-500';
   const cardBg = isBaby ? 'bg-white border-slate-200' : 'bg-zinc-900 border-zinc-800';
-  const accentColor = isBaby ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-yellow-600 hover:bg-yellow-700 text-black';
+  const accentColor = isBaby ? 'bg-primary hover:bg-blue-600 text-white' : 'bg-yellow-600 hover:bg-yellow-700 text-black';
   const tableHeader = isBaby ? 'bg-slate-50 text-slate-600' : 'bg-black text-zinc-500';
   const tableRowHover = isBaby ? 'hover:bg-slate-50' : 'hover:bg-zinc-800/50';
   const borderColor = isBaby ? 'border-slate-100' : 'border-zinc-800';
@@ -425,7 +425,7 @@ const StatusBadge = ({ status, isBaby }: { status: InvoiceStatus, isBaby: boolea
     [InvoiceStatus.Draft]: 'bg-gray-100 text-gray-600',
     [InvoiceStatus.Quotation]: isBaby ? 'bg-yellow-100 text-yellow-700' : 'bg-yellow-900/30 text-yellow-400 border border-yellow-900',
     [InvoiceStatus.Partial]: isBaby ? 'bg-blue-100 text-blue-700' : 'bg-blue-900/30 text-blue-400 border border-blue-900',
-    [InvoiceStatus.Approved]: isBaby ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20',
+    [InvoiceStatus.Approved]: isBaby ? 'bg-emerald-100 text-emerald-700' : 'bg-primary/10 text-primary border border-primary/20',
     [InvoiceStatus['Payment Submitted']]: isBaby ? 'bg-purple-100 text-purple-700' : 'bg-purple-900/30 text-purple-400 border border-purple-900',
   };
 
@@ -437,3 +437,4 @@ const StatusBadge = ({ status, isBaby }: { status: InvoiceStatus, isBaby: boolea
 };
 
 export default InvoiceManager;
+

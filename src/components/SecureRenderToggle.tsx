@@ -66,7 +66,7 @@ export const SecureRenderToggle: React.FC<SecureRenderToggleProps> = ({ globalSe
         {/* Title Block */}
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-3">
-            <div className={`p-3 rounded-2xl ${isEnabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-500 border border-white/5'}`}>
+            <div className={`p-3 rounded-2xl ${isEnabled ? 'bg-primary/10 text-emerald-400 border border-primary/20' : 'bg-zinc-800 text-zinc-500 border border-white/5'}`}>
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
@@ -91,7 +91,7 @@ export const SecureRenderToggle: React.FC<SecureRenderToggleProps> = ({ globalSe
       <div className="relative z-10 space-y-3 bg-black/40 border border-white/5 rounded-2xl p-4">
         <div className="flex justify-between items-center">
           <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Security Actions</span>
-          <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${isEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/10' : 'bg-zinc-850 text-zinc-600 border border-white/5'}`}>
+          <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${isEnabled ? 'bg-emerald-950 text-emerald-400 border border-primary/10' : 'bg-zinc-850 text-zinc-600 border border-white/5'}`}>
             {isEnabled ? 'Enforced' : 'Disabled'}
           </span>
         </div>
@@ -112,3 +112,4 @@ export const SecureRenderToggle: React.FC<SecureRenderToggleProps> = ({ globalSe
 };
 
 export default SecureRenderToggle;
+

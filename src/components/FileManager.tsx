@@ -134,7 +134,7 @@ const FileManager: React.FC = () => {
                             {filteredFiles.map(file => (
                                 <div key={file._id} className="glass-panel p-6 squircle-lg border border-white/5 hover:bg-white/5 transition-all group relative overflow-hidden">
                                     <div className="flex items-start gap-4 mb-6">
-                                        <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-white/5 flex items-center justify-center text-blue-500 shadow-lg">
+                                        <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-white/5 flex items-center justify-center text-primary shadow-lg">
                                             <FileText className="w-6 h-6" />
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -170,3 +170,4 @@ const FileManager: React.FC = () => {
 };
 
 export default FileManager;
+

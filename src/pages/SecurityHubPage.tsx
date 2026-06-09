@@ -192,7 +192,7 @@ export const SecurityHubPage: React.FC = () => {
         </div>
 
         {/* Registry Logs / Invoices Section */}
-        <div className="bg-zinc-950/40 border border-white/5 rounded-[2.5rem] p-8 md:p-10 backdrop-blur-xl">
+        <div className="glass-panel rounded-[2.5rem] p-8 md:p-10 backdrop-blur-xl">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div>
               <h2 className="text-2xl font-black uppercase tracking-tight text-white">Document Registry</h2>
@@ -233,7 +233,7 @@ export const SecurityHubPage: React.FC = () => {
                       <td className="py-5 text-white">{client.projectName || client.name}</td>
                       <td className="py-5">
                         <span className={`text-[8.5px] font-black uppercase px-2.5 py-0.5 rounded-full ${
-                          inv.type === 'quotation' ? 'bg-amber-950 text-amber-400 border border-amber-500/10' : 'bg-blue-950 text-blue-400 border border-blue-500/10'
+                          inv.type === 'quotation' ? 'bg-amber-950 text-amber-400 border border-amber-500/10' : 'bg-blue-950 text-blue-400 border border-primary/10'
                         }`}>
                           {inv.type || 'invoice'}
                         </span>
@@ -283,3 +283,5 @@ export const SecurityHubPage: React.FC = () => {
 };
 
 export default SecurityHubPage;
+
+

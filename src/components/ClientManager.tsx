@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Search, Calendar, UserPlus, X, Mail, Phone, User, Trash2, Edit2, ChevronDown, Briefcase, LayoutGrid, Loader2 } from 'lucide-react';
 
 import { type Client, type Division } from '../types';
+import { useCompanySettings } from '../hooks/useCompanySettings';
 
 interface ClientManagerProps {
   clients: Client[];
@@ -17,6 +18,7 @@ interface ClientManagerProps {
 }
 
 const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divisions, addClient, deleteClient, selectedDivisionId: preselectedId, userDivisionIds, onOpenPortal, userRole, userId }) => {
+  const { companies } = useCompanySettings();
   const [selectedDivId, setSelectedDivId] = useState<string>('All');
   
   const [loading, setLoading] = useState(true);
@@ -37,12 +39,14 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
     phone: '',
     eventDate: '',
     projectType: 'Wedding',
-    projectId: '',
+    companyId: '',
     projectName: '',
     locationType: '' as 'Bride' | 'Groom' | '',
     brideAddress: '',
     groomAddress: '',
-    venueAddress: ''
+    venueAddress: '',
+    notes: '',
+    address: ''
   });
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -76,15 +80,15 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
   }, [isAdding, isDeleteModalOpen]);
 
   useEffect(() => {
-    const targetDiv = divisions.find(d => d.id === preselectedId);
+    const targetComp = companies.find(d => d.id === preselectedId);
     setFormData(prev => ({
       ...prev,
-      projectId: preselectedId !== 'All' ? preselectedId : '',
-      projectName: targetDiv?.name || ''
+      companyId: preselectedId !== 'All' ? preselectedId : (companies.length === 1 ? companies[0].id : ''),
+      projectName: targetComp?.companyName || (companies.length === 1 ? companies[0].companyName : '')
     }));
     if (preselectedId) setSelectedDivId(preselectedId);
     setLoading(false);
-  }, [divisions, preselectedId]);
+  }, [companies, preselectedId]);
 
 
 
@@ -97,12 +101,14 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
       phone: client.phone || '',
       eventDate: client.eventDate || '',
       projectType: client.projectType || 'Wedding',
-      projectId: client.divisionId || '',
+      companyId: client.companyId || client.divisionId || '',
       projectName: client.brand || '',
       locationType: client.eventLogistics?.locationType || '',
       brideAddress: client.eventLogistics?.brideAddress || '',
       groomAddress: client.eventLogistics?.groomAddress || '',
-      venueAddress: client.eventLogistics?.venueAddress || ''
+      venueAddress: client.eventLogistics?.venueAddress || '',
+      notes: client.notes || '',
+      address: client.address || ''
     });
     setIsEditing(true);
     setIsAdding(true);
@@ -111,9 +117,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log("[DEBUG] formData.projectId before submit:", formData.projectId);
+    console.log("[DEBUG] formData.companyId before submit:", formData.companyId);
 
-    if (!formData.projectId || formData.projectId === 'All') {
+    if (!formData.companyId || formData.companyId === 'All') {
       setFormError("Please select a specific Project Registry");
       return;
     }
@@ -135,7 +141,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
     setIsSubmitting(true);
     setFormError(null);
 
-    const targetDiv = divisions.find(d => d.id === formData.projectId);
+    const targetComp = companies.find(d => d.id === formData.companyId);
 
     const clientData: Client = {
       id: isEditing && editingClient ? editingClient.id : String(Date.now()),
@@ -146,9 +152,11 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
       phone: formData.phone,
       eventDate: formData.eventDate,
       projectType: formData.projectType,
-      brand: targetDiv?.name || formData.projectName || 'Unknown',
-      divisionId: formData.projectId,
-      notes: editingClient?.notes || '',
+      brand: targetComp?.companyName || formData.projectName || 'Unknown',
+      divisionId: formData.companyId,
+      companyId: formData.companyId,
+      notes: formData.notes || editingClient?.notes || '',
+      address: formData.address || editingClient?.address || '',
       people: editingClient?.people || [],
       status: editingClient?.status || 'pending',
       createdAt: isEditing && editingClient ? editingClient.createdAt : new Date().toISOString(),
@@ -170,12 +178,14 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
         phone: '',
         eventDate: '',
         projectType: 'Wedding',
-        projectId: preselectedId !== 'All' ? preselectedId : '',
-        projectName: divisions.find(d => d.id === preselectedId)?.name || '',
+        companyId: preselectedId !== 'All' ? preselectedId : (companies.length === 1 ? companies[0].id : ''),
+        projectName: companies.find(d => d.id === preselectedId)?.companyName || (companies.length === 1 ? companies[0].companyName : ''),
         locationType: '',
         brideAddress: '',
         groomAddress: '',
-        venueAddress: ''
+        venueAddress: '',
+        notes: '',
+        address: ''
       });
       setIsAdding(false);
       setIsEditing(false);
@@ -259,7 +269,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
               </button>
 
               {isDivDropdownOpen && (
-                <div className="absolute top-full mt-2 right-0 md:left-0 w-64 bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl z-[9999] overflow-hidden animate-ios-fade-in backdrop-blur-xl">
+                <div className="absolute top-full mt-2 right-0 md:left-0 w-64 glass-panel rounded-2xl shadow-2xl z-[9999] overflow-hidden animate-ios-fade-in backdrop-blur-xl">
                    <div className="p-3 border-b border-white/5 bg-white/2">
                       <div className="relative">
                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
@@ -295,7 +305,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
                             onMouseDown={(e) => { e.preventDefault(); setSelectedDivId(d.id); setIsDivDropdownOpen(false); setDivSearch(''); }}
                             className={`w-full text-left px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${selectedDivId === d.id ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-stone-400 hover:bg-white/5 hover:text-white'}`}
                           >
-                            <div className={`w-2 h-2 rounded-full ${selectedDivId === d.id ? 'bg-black' : 'bg-emerald-500'} opacity-50 shrink-0`} />
+                            <div className={`w-2 h-2 rounded-full ${selectedDivId === d.id ? 'bg-black' : 'bg-primary'} opacity-50 shrink-0`} />
                             {d.name}
                           </button>
                         ))}
@@ -324,12 +334,14 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
                    phone: '',
                    eventDate: '',
                    projectType: 'Wedding',
-                   projectId: preselectedId !== 'All' ? preselectedId : '',
-                   projectName: divisions.find(d => d.id === preselectedId)?.name || '',
+                   companyId: preselectedId !== 'All' ? preselectedId : (companies.length === 1 ? companies[0].id : ''),
+                   projectName: companies.find(d => d.id === preselectedId)?.companyName || (companies.length === 1 ? companies[0].companyName : ''),
                    locationType: '',
                    brideAddress: '',
                    groomAddress: '',
-                   venueAddress: ''
+                   venueAddress: '',
+                   notes: '',
+                   address: ''
                  });
                  setIsAdding(true);
               }}
@@ -470,44 +482,49 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
               </div>
             )}
 
+            {(() => {
+               const selectedCompany = companies.find(d => d.id === formData.companyId);
+               const isTinyToes = selectedCompany?.companyName?.toLowerCase().includes('tiny toes') || false;
+
+               return (
             <form onSubmit={handleCreateClient} className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Assign to Project Registry *</label>
                 {preselectedId !== 'All' ? (
-                   <div className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-zinc-400 cursor-not-allowed">
-                      {divisions.find(d => d.id === preselectedId)?.name || preselectedId}
+                   <div className="w-full glass-panel rounded-xl p-4 text-sm font-bold text-zinc-400 cursor-not-allowed">
+                      {companies.find(d => d.id === preselectedId)?.companyName || preselectedId}
                       <span className="ml-2 text-[8px] opacity-40">(Locked by Global Filter)</span>
                    </div>
                 ) : (
                   <select 
-                    className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" 
-                    value={formData.projectId} 
+                    className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" 
+                    value={formData.companyId || ''} 
                     onChange={e => {
                       const id = e.target.value;
-                      const div = divisions.find(d => d.id === id);
-                      setFormData(prev => ({ ...prev, projectId: id, projectName: div?.name || '' }));
+                      const comp = companies.find(d => d.id === id);
+                      setFormData(prev => ({ ...prev, companyId: id, projectName: comp?.companyName || '' }));
                     }} 
                     disabled={isSubmitting}
                   >
-                    <option value="" disabled>Select Unit...</option>
-                    {divisions.map(d => <option key={d.id} className="bg-zinc-900" value={d.id}>{d.name}</option>)}
+                    {companies.length > 1 && <option value="" disabled>Select Registry</option>}
+                    {companies.map(d => <option key={d.id} className="bg-zinc-900" value={d.id}>{d.companyName}</option>)}
                   </select>
                 )}
               </div>
 
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Client Name *</label>
-                <input className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. Rahul & Priya" value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
+                <input className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. Rahul & Priya" value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
               </div>
 
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Email <span className="opacity-50">(Optional)</span></label>
-                <input type="email" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. hello@example.com" value={formData.email} onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))} disabled={isSubmitting} />
+                <input type="email" className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. hello@example.com" value={formData.email} onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))} disabled={isSubmitting} />
               </div>
 
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Project Type *</label>
-                <select className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={formData.projectType} onChange={e => setFormData(prev => ({ ...prev, projectType: e.target.value }))} disabled={isSubmitting}>
+                <select className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={formData.projectType} onChange={e => setFormData(prev => ({ ...prev, projectType: e.target.value }))} disabled={isSubmitting}>
                   <option value="Wedding" className="bg-zinc-900">Luxury Wedding</option>
                   <option value="Kids" className="bg-zinc-900">Kids & Maternity</option>
                   <option value="Corporate" className="bg-zinc-900">Corporate Production</option>
@@ -515,50 +532,64 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Location Type <span className="opacity-50">(Optional)</span></label>
-                <select className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={formData.locationType} onChange={e => setFormData(prev => ({ ...prev, locationType: e.target.value as any }))} disabled={isSubmitting}>
-                  <option value="" className="bg-zinc-900">None</option>
-                  <option value="Bride" className="bg-zinc-900">Bride</option>
-                  <option value="Groom" className="bg-zinc-900">Groom</option>
-                </select>
-              </div>
-
-              {formData.locationType === 'Bride' && (
+              {!isTinyToes && (
                 <>
                   <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Bride Home Address</label>
-                    <textarea className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter full address" value={formData.brideAddress} onChange={e => setFormData(prev => ({ ...prev, brideAddress: e.target.value }))} disabled={isSubmitting} />
+                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Location Type <span className="opacity-50">(Optional)</span></label>
+                    <select className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={formData.locationType} onChange={e => setFormData(prev => ({ ...prev, locationType: e.target.value as any }))} disabled={isSubmitting}>
+                      <option value="" className="bg-zinc-900">None</option>
+                      <option value="Bride" className="bg-zinc-900">Bride</option>
+                      <option value="Groom" className="bg-zinc-900">Groom</option>
+                    </select>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Venue Address</label>
-                    <textarea className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter venue address" value={formData.venueAddress} onChange={e => setFormData(prev => ({ ...prev, venueAddress: e.target.value }))} disabled={isSubmitting} />
-                  </div>
-                </>
-              )}
 
-              {formData.locationType === 'Groom' && (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Groom Home Address</label>
-                    <textarea className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter full address" value={formData.groomAddress} onChange={e => setFormData(prev => ({ ...prev, groomAddress: e.target.value }))} disabled={isSubmitting} />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Venue Address</label>
-                    <textarea className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter venue address" value={formData.venueAddress} onChange={e => setFormData(prev => ({ ...prev, venueAddress: e.target.value }))} disabled={isSubmitting} />
-                  </div>
+                  {formData.locationType === 'Bride' && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Bride Home Address</label>
+                        <textarea className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter full address" value={formData.brideAddress} onChange={e => setFormData(prev => ({ ...prev, brideAddress: e.target.value }))} disabled={isSubmitting} />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Venue Address</label>
+                        <textarea className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter venue address" value={formData.venueAddress} onChange={e => setFormData(prev => ({ ...prev, venueAddress: e.target.value }))} disabled={isSubmitting} />
+                      </div>
+                    </>
+                  )}
+
+                  {formData.locationType === 'Groom' && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Groom Home Address</label>
+                        <textarea className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter full address" value={formData.groomAddress} onChange={e => setFormData(prev => ({ ...prev, groomAddress: e.target.value }))} disabled={isSubmitting} />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Venue Address</label>
+                        <textarea className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter venue address" value={formData.venueAddress} onChange={e => setFormData(prev => ({ ...prev, venueAddress: e.target.value }))} disabled={isSubmitting} />
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Phone <span className="opacity-50">(Optional)</span></label>
-                  <input className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="+91 98765 43210" value={formData.phone} onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))} disabled={isSubmitting} />
+                  <input className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="+91 98765 43210" value={formData.phone} onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))} disabled={isSubmitting} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Event Date <span className="opacity-50">(Optional)</span></label>
-                  <input type="date" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={formData.eventDate} onChange={e => setFormData(prev => ({ ...prev, eventDate: e.target.value }))} disabled={isSubmitting} />
+                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">{isTinyToes ? 'Event/Shoot Date' : 'Event Date'} <span className="opacity-50">(Optional)</span></label>
+                  <input type="date" className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={formData.eventDate} onChange={e => setFormData(prev => ({ ...prev, eventDate: e.target.value }))} disabled={isSubmitting} />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Address <span className="opacity-50">(Optional)</span></label>
+                <textarea className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[100px]" placeholder="House No. 24,&#10;Green Valley Road,&#10;Kochi, Kerala" value={formData.address} onChange={e => setFormData(prev => ({ ...prev, address: e.target.value }))} disabled={isSubmitting} rows={3} />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Notes <span className="opacity-50">(Optional)</span></label>
+                <textarea className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Any special requirements..." value={formData.notes} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} disabled={isSubmitting} />
               </div>
 
               <div className="flex gap-4 pt-8 border-t border-white/5">
@@ -572,6 +603,8 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
                 </button>
               </div>
             </form>
+            );
+            })()}
           </div>
         </div>,
         document.body
@@ -626,3 +659,5 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
 };
 
 export default ClientManager;
+
+

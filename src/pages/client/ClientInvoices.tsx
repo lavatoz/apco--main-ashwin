@@ -129,9 +129,9 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
           
           return (
             <div key={invoice.id || i} className="glass-panel p-8 squircle-lg flex flex-col md:flex-row gap-8 items-center justify-between border border-white/5 hover:bg-white/5 transition-colors relative overflow-hidden">
-              {isSubmitted && <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-500 opacity-50" />}
+              {isSubmitted && <div className="absolute top-0 right-0 w-1.5 h-full bg-primary opacity-50" />}
               <div className="flex items-center gap-6 w-full md:w-auto">
-                <div className={`p-5 rounded-2xl ${isPaid ? 'bg-emerald-500/10 text-emerald-500' : isSubmitted ? 'bg-blue-500/10 text-blue-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                <div className={`p-5 rounded-2xl ${isPaid ? 'bg-primary/10 text-primary' : isSubmitted ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
                   {isPaid ? <CheckCircle className="w-8 h-8" /> : isSubmitted ? <Clock className="w-8 h-8" /> : balance > 0 && invoice.status === 'Overdue' ? <AlertCircle className="w-8 h-8 text-red-500" /> : <Clock className="w-8 h-8" />}
                 </div>
                 <div>
@@ -147,11 +147,11 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
                 </div>
                 <div className="text-center md:text-right w-full md:w-auto">
                   <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Balance Due</p>
-                  <p className={`text-xl font-black ${isPaid ? 'text-emerald-500' : 'text-amber-500'}`}>₹{balance.toLocaleString('en-IN')}</p>
+                  <p className={`text-xl font-black ${isPaid ? 'text-primary' : 'text-amber-500'}`}>₹{balance.toLocaleString('en-IN')}</p>
                 </div>
                 <button 
                    onClick={() => !isPaid && !isSubmitted ? setActivePaymentInvoice(invoice) : null}
-                   className={`w-full md:w-auto px-8 py-4 ${isPaid ? 'bg-white text-black' : isSubmitted ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-black'} text-xs font-bold uppercase tracking-widest rounded-xl hover:opacity-90 transition-colors active:scale-95 shadow-xl disabled:opacity-50`}
+                   className={`w-full md:w-auto px-8 py-4 ${isPaid ? 'bg-white text-black' : isSubmitted ? 'bg-primary text-white' : 'bg-primary text-black'} text-xs font-bold uppercase tracking-widest rounded-xl hover:opacity-90 transition-colors active:scale-95 shadow-xl disabled:opacity-50`}
                    disabled={isPaid || isSubmitted}
                 >
                   {isPaid ? 'View Receipt' : isSubmitted ? 'Verification Pending' : 'Pay Now'}
@@ -202,7 +202,7 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
                    <p className="text-xs font-medium text-zinc-400">{BUSINESS_NAME}</p>
                    <div className="mt-4 inline-flex items-center gap-2 bg-black/40 px-4 py-2 rounded-xl border border-white/5">
                       <span className="text-xs font-mono text-zinc-300">{UPI_ID}</span>
-                      <button onClick={() => copyToClipboard(UPI_ID, 'UPI ID')} className="text-emerald-500 hover:text-emerald-400 p-1"><Copy size={14} /></button>
+                      <button onClick={() => copyToClipboard(UPI_ID, 'UPI ID')} className="text-primary hover:text-emerald-400 p-1"><Copy size={14} /></button>
                    </div>
                 </div>
 
@@ -210,7 +210,7 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
                 <div className="md:hidden">
                    <a 
                      href={`upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(BUSINESS_NAME)}&am=${(activePaymentInvoice.totalAmount || 0) - (activePaymentInvoice.paidAmount || 0)}&cu=INR&tn=${activePaymentInvoice.id}`}
-                     className="w-full flex items-center justify-center gap-2 py-4 bg-emerald-500 text-black font-black uppercase text-sm rounded-xl active:scale-95 transition-transform"
+                     className="w-full flex items-center justify-center gap-2 py-4 bg-primary text-black font-black uppercase text-sm rounded-xl active:scale-95 transition-transform"
                    >
                      <ExternalLink size={18} /> Open UPI App
                    </a>
@@ -220,7 +220,7 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
                 <div className="hidden md:flex justify-center">
                    <button 
                      onClick={() => copyToClipboard(`upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(BUSINESS_NAME)}&am=${(activePaymentInvoice.totalAmount || 0) - (activePaymentInvoice.paidAmount || 0)}&cu=INR&tn=${activePaymentInvoice.id}`, 'Payment Link')}
-                     className="text-xs font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 flex items-center gap-2 px-4 py-2 bg-blue-500/10 rounded-lg border border-blue-500/20 transition-colors"
+                     className="text-xs font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-lg border border-primary/20 transition-colors"
                    >
                       <Copy size={14} /> Copy Payment Link
                    </button>
@@ -229,7 +229,7 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
                 {/* Submission Form */}
                 <div className="border-t border-white/5 pt-8">
                    <h4 className="text-lg font-black text-white uppercase tracking-tight mb-6 flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-emerald-500" />
+                      <CheckCircle className="w-5 h-5 text-primary" />
                       Submit Payment Verification
                    </h4>
                    <form onSubmit={handlePaymentSubmit} className="space-y-5">
@@ -239,7 +239,7 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
                             type="text" 
                             required 
                             placeholder="e.g. 234810394012"
-                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-4 text-sm text-white font-mono placeholder:text-zinc-700 outline-none focus:border-emerald-500/50 transition-colors"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-4 text-sm text-white font-mono placeholder:text-zinc-700 outline-none focus:border-primary/50 transition-colors"
                             value={utrNumber}
                             onChange={(e) => setUtrNumber(e.target.value)}
                          />
@@ -248,7 +248,7 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
                       <div>
                          <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest block mb-2">Payment Screenshot (Optional)</label>
                          <label className="w-full bg-black/50 border border-dashed border-white/20 rounded-xl p-4 flex items-center justify-center gap-3 cursor-pointer hover:bg-white/5 transition-colors group">
-                            <Upload className="w-5 h-5 text-zinc-500 group-hover:text-emerald-500 transition-colors" />
+                            <Upload className="w-5 h-5 text-zinc-500 group-hover:text-primary transition-colors" />
                             <span className="text-xs font-bold text-zinc-400 group-hover:text-white transition-colors">
                                {screenshotFile ? screenshotFile.name : 'Upload Screenshot Image'}
                             </span>
@@ -286,3 +286,4 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
 };
 
 export default ClientInvoices;
+

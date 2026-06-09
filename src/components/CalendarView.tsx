@@ -49,13 +49,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ bookings = [], clients, sel
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Confirmed': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50';
+      case 'Confirmed': return 'bg-primary/20 text-emerald-400 border-primary/50';
       case 'Pending': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50';
-      case 'Completed': return 'bg-blue-500/20 text-blue-400 border-blue-500/50';
+      case 'Completed': return 'bg-primary/20 text-blue-400 border-primary/50';
       case 'Cancelled': return 'bg-red-500/20 text-red-400 border-red-500/50';
       case 'Scheduled': return 'bg-purple-500/20 text-purple-400 border-purple-500/50';
       case 'In Preparation': return 'bg-amber-500/20 text-amber-400 border-amber-500/50';
-      case 'In Progress': return 'bg-blue-500/20 text-blue-400 border-blue-500/50';
+      case 'In Progress': return 'bg-primary/20 text-blue-400 border-primary/50';
       default: return 'bg-zinc-500/20 text-zinc-400 border-zinc-500/50';
     }
   };
@@ -73,7 +73,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ bookings = [], clients, sel
             <span className="text-[10px] font-black uppercase text-zinc-400">Wedding</span>
           </div>
           <div className="flex items-center gap-2 pl-4">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+            <div className="w-3 h-3 rounded-full bg-primary"></div>
             <span className="text-[10px] font-black uppercase text-zinc-400">Kids Event</span>
           </div>
         </div>
@@ -92,7 +92,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ bookings = [], clients, sel
 
           return (
             <div key={booking.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-600 transition-all group overflow-hidden relative">
-              <div className={`absolute top-0 right-0 w-32 h-32 -mr-12 -mt-12 rounded-full opacity-5 blur-3xl ${booking.brand === 'AAHA Kalyanam' ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
+              <div className={`absolute top-0 right-0 w-32 h-32 -mr-12 -mt-12 rounded-full opacity-5 blur-3xl ${booking.brand === 'AAHA Kalyanam' ? 'bg-yellow-500' : 'bg-primary'}`}></div>
 
               <div className="flex justify-between items-start mb-6">
                 <div className="bg-black/50 p-4 rounded-2xl border border-zinc-800 flex flex-col items-center min-w-[64px]">
@@ -130,3 +130,4 @@ const CalendarView: React.FC<CalendarViewProps> = ({ bookings = [], clients, sel
 };
 
 export default CalendarView;
+

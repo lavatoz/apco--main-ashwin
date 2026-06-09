@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, TrendingUp, RefreshCcw, Copy, Check, Zap, Heart, Gift, Megaphone, Send, Bot, User as UserIcon, Activity, FileText, CheckCircle2, Clock, Calendar, Mail, Hash, Briefcase, BarChart3, AlertTriangle } from 'lucide-react';
+import { Sparkles, RefreshCcw, Copy, Check, Heart, Gift, Megaphone, Send, Bot, Activity, FileText, Clock, Calendar, Mail, Hash, Briefcase, BarChart3, AlertTriangle } from 'lucide-react';
 import type { Client } from '../types';
 import { getBusinessIQMetrics, processCopilotCommand, type BusinessIQMetrics } from '../services/copilotEngine';
 import { 
@@ -118,7 +118,7 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
   const getHealthColorClass = (color: string) => {
     if (color === 'red') return 'text-red-500 bg-red-500/10 border-red-500/20';
     if (color === 'yellow') return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
-    return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+    return 'text-primary bg-primary/10 border-primary/20';
   };
 
   return (
@@ -158,7 +158,7 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
           <div className="lg:col-span-2 glass-panel border border-white/5 rounded-[2rem] flex flex-col overflow-hidden bg-black/40">
             {/* Chat Header */}
             <div className="p-6 border-b border-white/5 flex items-center gap-4 bg-white/[0.02]">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-500/20">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 text-blue-400 flex items-center justify-center border border-primary/20">
                 <Bot className="w-5 h-5" />
               </div>
               <div>
@@ -217,7 +217,7 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
               </div>
               <form 
                 onSubmit={(e) => { e.preventDefault(); handleSendChat(); }}
-                className="flex items-center gap-3 bg-black border border-white/10 rounded-[1.5rem] p-2 focus-within:border-white/30 transition-colors"
+                className="flex items-center gap-3 glass-panel rounded-[1.5rem] p-2 focus-within:border-white/30 transition-colors"
               >
                 <input
                   type="text"
@@ -240,7 +240,7 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
           {/* Business IQ Dashboard Panel */}
           <div className="glass-panel border border-white/5 rounded-[2rem] p-8 flex flex-col gap-6 overflow-y-auto bg-black/40">
             <div className="flex items-center gap-3 pb-4 border-b border-white/5">
-              <Activity className="w-5 h-5 text-emerald-500" />
+              <Activity className="w-5 h-5 text-primary" />
               <h2 className="text-[11px] font-black uppercase text-white tracking-widest">Business IQ metrics</h2>
             </div>
             
@@ -262,8 +262,8 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
                   <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Active Proj</p>
                   <p className="text-xl font-black text-white">{metrics.activeProjects}</p>
                 </div>
-                <div className="bg-blue-500/10 border border-blue-500/10 p-5 rounded-2xl flex flex-col gap-2">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-blue-500">Upcoming Events</p>
+                <div className="bg-primary/10 border border-primary/10 p-5 rounded-2xl flex flex-col gap-2">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-primary">Upcoming Events</p>
                   <p className="text-xl font-black text-blue-400">{metrics.upcomingEvents}</p>
                 </div>
                 <div className="bg-white/5 border border-white/5 p-5 rounded-2xl flex flex-col gap-2">
@@ -318,7 +318,7 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
             {toolType === 'deals' && dealsData && (
               <div className="lg:col-span-2 glass-panel p-10 squircle-lg space-y-8 border border-white/5 bg-black/40">
                 <div className="flex items-center gap-4">
-                  <div className="p-4 bg-blue-500/10 rounded-2xl text-blue-500 border border-blue-500/20"><Briefcase className="w-6 h-6" /></div>
+                  <div className="p-4 bg-primary/10 rounded-2xl text-primary border border-primary/20"><Briefcase className="w-6 h-6" /></div>
                   <h2 className="text-2xl font-black uppercase tracking-tight">Deals Dashboard</h2>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -326,12 +326,12 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
                     <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2">Total Leads</p>
                     <p className="text-3xl font-black text-white">{dealsData.totalLeads}</p>
                   </div>
-                  <div className="bg-emerald-500/10 border border-emerald-500/10 p-6 rounded-2xl">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-2">Converted</p>
+                  <div className="bg-primary/10 border border-primary/10 p-6 rounded-2xl">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Converted</p>
                     <p className="text-3xl font-black text-emerald-400">{dealsData.converted}</p>
                   </div>
-                  <div className="bg-blue-500/10 border border-blue-500/10 p-6 rounded-2xl">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2">Active</p>
+                  <div className="bg-primary/10 border border-primary/10 p-6 rounded-2xl">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Active</p>
                     <p className="text-3xl font-black text-blue-400">{dealsData.activeProductions}</p>
                   </div>
                   <div className="bg-red-500/10 border border-red-500/10 p-6 rounded-2xl">
@@ -352,7 +352,7 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
                 <div className="glass-panel p-10 squircle-lg space-y-8 border border-white/5 bg-black/40">
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-4">
-                      <div className="p-4 bg-emerald-500/10 rounded-2xl text-emerald-500 border border-emerald-500/20"><BarChart3 className="w-6 h-6" /></div>
+                      <div className="p-4 bg-primary/10 rounded-2xl text-primary border border-primary/20"><BarChart3 className="w-6 h-6" /></div>
                       <h2 className="text-2xl font-black uppercase tracking-tight">Trend Audit</h2>
                     </div>
                     <div className={`px-6 py-4 rounded-2xl border flex flex-col items-center ${getHealthColorClass(trendAudit.healthColor)}`}>
@@ -374,7 +374,7 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
                   </div>
                   <div className="space-y-4">
                     {insights.map((insight, idx) => (
-                      <div key={idx} className={`p-6 rounded-2xl border flex items-start gap-4 ${insight.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : insight.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-blue-500/10 border-blue-500/20 text-blue-500'}`}>
+                      <div key={idx} className={`p-6 rounded-2xl border flex items-start gap-4 ${insight.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : insight.type === 'success' ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-primary/10 border-primary/20 text-primary'}`}>
                         <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
                         <div>
                           <p className="text-xs font-black uppercase tracking-widest mb-1">{insight.title}</p>
@@ -431,7 +431,7 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
                     <div className="space-y-3">
                       <label className="text-[11px] font-black uppercase text-zinc-600 px-1 tracking-widest">Select Client</label>
                       <select
-                        className="w-full bg-black border border-white/5 p-5 rounded-2xl text-sm font-black text-white outline-none focus:border-blue-500/50 shadow-inner"
+                        className="w-full bg-black border border-white/5 p-5 rounded-2xl text-sm font-black text-white outline-none focus:border-primary/50 shadow-inner"
                         value={selectedClientId}
                         onChange={e => setSelectedClientId(e.target.value)}
                       >
@@ -461,7 +461,7 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
                       <div className="space-y-3">
                         <label className="text-[11px] font-black uppercase text-zinc-600 px-1 tracking-widest">Theme / Context</label>
                         <input
-                          className="w-full bg-black border border-white/5 p-5 rounded-2xl text-sm font-bold text-white outline-none focus:border-blue-500/50"
+                          className="w-full bg-black border border-white/5 p-5 rounded-2xl text-sm font-bold text-white outline-none focus:border-primary/50"
                           placeholder="e.g. Traditional Vibes, Fun & Candid..."
                           value={socialTheme}
                           onChange={e => setSocialTheme(e.target.value)}
@@ -485,7 +485,7 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
                     <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-zinc-600">Local Synthesis Output</h3>
                     {generatedContent && (
                       <button onClick={copyToClipboard} className="p-3 bg-white/5 hover:bg-white text-zinc-400 hover:text-black rounded-2xl transition-all border border-white/10 shadow-xl">
-                        {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                        {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
                       </button>
                     )}
                   </div>
@@ -511,3 +511,5 @@ const AIToolsView: React.FC<AIToolsViewProps> = ({ clients, selectedBrand }) => 
 };
 
 export default AIToolsView;
+
+

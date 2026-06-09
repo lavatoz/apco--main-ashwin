@@ -70,7 +70,7 @@ export const PdfProtectionCard: React.FC<PdfProtectionCardProps> = ({ globalSett
         {/* Title Block */}
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-3">
-            <div className={`p-3 rounded-2xl ${isProtected ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
+            <div className={`p-3 rounded-2xl ${isProtected ? 'bg-primary/10 text-emerald-400 border border-primary/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
               <Shield className="w-6 h-6" />
             </div>
             <div>
@@ -80,7 +80,7 @@ export const PdfProtectionCard: React.FC<PdfProtectionCardProps> = ({ globalSett
           </div>
           
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isProtected ? 'bg-emerald-500 shadow-[0_0_12px_#10b981]' : 'bg-amber-500 shadow-[0_0_12px_#f59e0b]'}`} />
+            <span className={`w-2 h-2 rounded-full ${isProtected ? 'bg-primary shadow-[0_0_12px_#10b981]' : 'bg-amber-500 shadow-[0_0_12px_#f59e0b]'}`} />
             <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400">
               {isProtected ? 'Protected' : 'Vulnerable'}
             </span>
@@ -137,7 +137,7 @@ export const PdfProtectionCard: React.FC<PdfProtectionCardProps> = ({ globalSett
 
         <div className="flex items-center gap-2 mt-2">
           {isProtected ? (
-            <Shield className="w-3 h-3 text-emerald-500" />
+            <Shield className="w-3 h-3 text-primary" />
           ) : (
             <ShieldAlert className="w-3 h-3 text-amber-500" />
           )}
@@ -151,3 +151,4 @@ export const PdfProtectionCard: React.FC<PdfProtectionCardProps> = ({ globalSett
 };
 
 export default PdfProtectionCard;
+

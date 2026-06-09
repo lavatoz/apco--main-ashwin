@@ -21,12 +21,12 @@ const ClientEvents: React.FC<ClientEventsProps> = ({ client }) => {
       <div className="space-y-6">
         {hasEvents ? (
            client.events!.map((ev) => (
-             <div key={ev.id} className="glass-panel p-8 squircle-lg relative overflow-hidden group hover:border-emerald-500/30 transition-all mb-8">
+             <div key={ev.id} className="glass-panel p-8 squircle-lg relative overflow-hidden group hover:border-primary/30 transition-all mb-8">
                 <div className="absolute top-0 right-0 p-8 opacity-5"><Calendar className="w-48 h-48" /></div>
                 
                 <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-xs font-bold uppercase tracking-widest mb-6">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 text-primary rounded-lg text-xs font-bold uppercase tracking-widest mb-6">
                       {ev.status || 'Scheduled'}
                     </div>
                     <h2 className="text-3xl font-black tracking-tight mb-4">{ev.name}</h2>
@@ -66,12 +66,12 @@ const ClientEvents: React.FC<ClientEventsProps> = ({ client }) => {
            ))
         ) : (
            <>
-              <div className="glass-panel p-8 squircle-lg relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+              <div className="glass-panel p-8 squircle-lg relative overflow-hidden group hover:border-primary/30 transition-all">
                 <div className="absolute top-0 right-0 p-8 opacity-5"><Calendar className="w-48 h-48" /></div>
                 
                 <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-xs font-bold uppercase tracking-widest mb-6">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 text-primary rounded-lg text-xs font-bold uppercase tracking-widest mb-6">
                       Primary Event
                     </div>
                     <h2 className="text-3xl font-black tracking-tight mb-4">{client.projectName}</h2>
@@ -110,10 +110,10 @@ const ClientEvents: React.FC<ClientEventsProps> = ({ client }) => {
               </div>
               
               {(client.brideHomeAddress || client.groomHomeAddress || client.venueAddress || client.eventLogistics) && (
-                <div className="glass-panel p-8 squircle-lg relative overflow-hidden group hover:border-blue-500/30 transition-all mt-6">
+                <div className="glass-panel p-8 squircle-lg relative overflow-hidden group hover:border-primary/30 transition-all mt-6">
                   <div className="absolute top-0 right-0 p-8 opacity-5"><MapPin className="w-48 h-48" /></div>
                   <div className="relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded-lg text-xs font-bold uppercase tracking-widest mb-6">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 text-primary rounded-lg text-xs font-bold uppercase tracking-widest mb-6">
                       Event Logistics
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -147,3 +147,4 @@ const ClientEvents: React.FC<ClientEventsProps> = ({ client }) => {
 };
 
 export default ClientEvents;
+

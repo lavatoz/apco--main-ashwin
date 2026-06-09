@@ -9,6 +9,64 @@ html {
 
 :root {
   --primary-color: #3B82F6;
+  
+  /* Theme Studio Base (Artisans Noir) */
+  --theme-primary: #3B82F6;
+  --theme-bg: #000000;
+  --theme-card-bg: rgba(255, 255, 255, 0.02);
+  --theme-border: rgba(255, 255, 255, 0.05);
+  --theme-text: #ffffff;
+  --theme-text-muted: #a1a1aa; /* zinc-400 */
+  --theme-radius: 1.5rem;
+  --theme-blur: blur(20px) saturate(120%);
+  --theme-font-family: 'Inter', sans-serif;
+}
+
+body {
+  background-color: var(--theme-bg) !important;
+  color: var(--theme-text) !important;
+  font-family: var(--theme-font-family) !important;
+  transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+/* Glass Panel Enhancements for Theming */
+.glass-panel, .glass-panel-dark {
+  background-color: var(--theme-card-bg) !important;
+  border-color: var(--theme-border) !important;
+  border-radius: var(--theme-radius) !important;
+  backdrop-filter: var(--theme-blur) !important;
+  -webkit-backdrop-filter: var(--theme-blur) !important;
+  transition: all 0.5s ease;
+}
+
+/* Light Theme Overrides for generic tailwind text classes */
+[data-theme-type="light"] .text-white {
+  color: var(--theme-text) !important;
+}
+[data-theme-type="light"] .text-zinc-400,
+[data-theme-type="light"] .text-zinc-500 {
+  color: var(--theme-text-muted) !important;
+}
+[data-theme-type="light"] .border-white\/5,
+[data-theme-type="light"] .border-white\/10 {
+  border-color: var(--theme-border) !important;
+}
+[data-theme-type="light"] .bg-black {
+  background-color: #ffffff !important;
+}
+
+/* Graphics Modes */
+[data-graphics="luxury-grain"]::after {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+}
+
+[data-graphics="cinematic"] body {
+  background: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.05) 0%, var(--theme-bg) 70%) !important;
 }
 
 /* Dynamic Primary Color Utilities */
@@ -28,8 +86,8 @@ html {
 /* Fallback for heavy blurs on mobile */
 @media (max-width: 767px) {
   .glass-panel, .glass-panel-dark {
-    backdrop-filter: blur(20px) saturate(120%);
-    -webkit-backdrop-filter: blur(20px) saturate(120%);
+    backdrop-filter: var(--theme-blur) !important;
+    -webkit-backdrop-filter: var(--theme-blur) !important;
   }
 }
 

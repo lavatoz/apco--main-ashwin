@@ -13,15 +13,16 @@ interface TaskManagerProps {
   onDeleteTask: (id: string) => void;
   companies: CompanyProfile[];
   selectedBrand: string | 'All';
+  isEmbedded?: boolean;
 }
 
 const STAGES = [
   { id: 'TODO', label: 'To Do', color: 'text-zinc-500' },
-  { id: 'IN_PROGRESS', label: 'In Progress', color: 'text-blue-500' },
-  { id: 'DONE', label: 'Completed', color: 'text-emerald-500' }
+  { id: 'IN_PROGRESS', label: 'In Progress', color: 'text-primary' },
+  { id: 'DONE', label: 'Completed', color: 'text-primary' }
 ] as const;
 
-const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTask, selectedBrand, companies }) => {
+const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTask, selectedBrand, companies, isEmbedded = false }) => {
   const { canEdit, canDelete } = usePermissions();
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -126,11 +127,13 @@ const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTa
 
   return (
     <div className="space-y-10 pb-24 animate-ios-slide-up">
-      <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-        <div>
-          <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">Coordination</h1>
-          <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em] mt-2">Kanban Task Management</p>
-        </div>
+      <div className={`flex flex-col md:flex-row justify-between items-center gap-6 ${isEmbedded ? 'mb-4' : ''}`}>
+        {!isEmbedded && (
+          <div>
+            <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">Coordination</h1>
+            <p className="text-zinc-500 font-black uppercase text-[10px] tracking-[0.3em] mt-2">Kanban Task Management</p>
+          </div>
+        )}
         {canEdit && (
           <button
             onClick={() => {
@@ -308,3 +311,4 @@ const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTa
 };
 
 export default TaskManager;
+

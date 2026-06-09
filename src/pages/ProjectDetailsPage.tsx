@@ -44,7 +44,7 @@ const ProjectDetailsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-transparent flex items-center justify-center">
         <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin" />
       </div>
     );
@@ -52,7 +52,7 @@ const ProjectDetailsPage: React.FC = () => {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center">
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10 text-center">
         <h1 className="text-4xl font-black text-white uppercase tracking-tighter mb-4">Project Not Found</h1>
         <p className="text-zinc-500 mb-8">The requested project identifier does not exist in our registry.</p>
         <button 
@@ -68,7 +68,7 @@ const ProjectDetailsPage: React.FC = () => {
   const currentStage = project.stage || 'booked';
 
   return (
-    <div className="min-h-screen bg-black text-white p-8 md:p-12 animate-ios-slide-up">
+    <div className="min-h-screen bg-transparent text-white p-8 md:p-12 animate-ios-slide-up">
       <button 
         onClick={() => navigate(-1)}
         className="flex items-center gap-3 text-zinc-500 hover:text-white transition-all mb-12 group"
@@ -85,7 +85,7 @@ const ProjectDetailsPage: React.FC = () => {
                <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-zinc-400 uppercase tracking-widest">
                  {project.brand}
                </span>
-               <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-widest ${project.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
+               <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-widest ${project.status === 'confirmed' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
                  {project.status}
                </span>
             </div>
@@ -217,7 +217,7 @@ const ProjectDetailsPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-zinc-400">
                   <span>Amount Paid</span>
-                  <span className="text-emerald-500 text-lg font-bold">₹{project.financials?.paid?.toLocaleString('en-IN') || '0'}</span>
+                  <span className="text-primary text-lg font-bold">₹{project.financials?.paid?.toLocaleString('en-IN') || '0'}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-zinc-400">
                   <span>Balance Due</span>
@@ -243,3 +243,4 @@ const ProjectDetailsPage: React.FC = () => {
 };
 
 export default ProjectDetailsPage;
+

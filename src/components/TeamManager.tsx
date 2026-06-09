@@ -74,7 +74,7 @@ const TeamManager: React.FC<TeamManagerProps> = ({ staff, onSaveStaff, onDeleteS
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {staff.map(member => (
           <div key={member.id} className="glass-panel p-10 squircle-lg relative overflow-hidden flex flex-col group border border-white/5">
-            <div className={`absolute top-0 right-0 w-1 h-full ${member.isActive ? 'bg-emerald-500' : 'bg-red-500'} opacity-40`} />
+            <div className={`absolute top-0 right-0 w-1 h-full ${member.isActive ? 'bg-primary' : 'bg-red-500'} opacity-40`} />
 
             <div className="flex items-center gap-6 mb-10">
               <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl font-black text-white group-hover:bg-white group-hover:text-black transition-all">
@@ -97,7 +97,7 @@ const TeamManager: React.FC<TeamManagerProps> = ({ staff, onSaveStaff, onDeleteS
               </div>
               <div className="flex items-center justify-between text-[11px] font-bold text-zinc-500 uppercase tracking-widest">
                 <span>Permissions</span>
-                <span className="text-blue-500">{Object.values(member.permissions).filter(p => p).length} Active</span>
+                <span className="text-primary">{Object.values(member.permissions).filter(p => p).length} Active</span>
               </div>
             </div>
 
@@ -160,7 +160,7 @@ const TeamManager: React.FC<TeamManagerProps> = ({ staff, onSaveStaff, onDeleteS
                     <button
                       key={key} type="button"
                       onClick={() => togglePermission(key)}
-                      className={`p-4 rounded-xl flex items-center justify-between border transition-all ${form.permissions?.[key] ? 'bg-blue-600/10 border-blue-600/20 text-blue-500' : 'bg-white/5 border-white/5 text-zinc-700'}`}
+                      className={`p-4 rounded-xl flex items-center justify-between border transition-all ${form.permissions?.[key] ? 'bg-blue-600/10 border-blue-600/20 text-primary' : 'bg-white/5 border-white/5 text-zinc-700'}`}
                     >
                       <span className="text-[10px] font-black uppercase tracking-widest">{key.replace('canManage', '').replace('canUse', '').replace('canManage', '')}</span>
                       {form.permissions?.[key] ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
@@ -182,3 +182,4 @@ const TeamManager: React.FC<TeamManagerProps> = ({ staff, onSaveStaff, onDeleteS
 };
 
 export default TeamManager;
+

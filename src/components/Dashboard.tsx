@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   CalendarCheck, IndianRupee, Briefcase, MapPin, Users, Package,
   ArrowUpRight, Sparkles, MessageSquare, Layers, CheckSquare, Clock,
-  AlertTriangle, AlertCircle, Calendar, TrendingUp, TrendingDown,
+  AlertCircle, TrendingUp, TrendingDown,
   Plus, X, Shield, Trash2, Loader2, Settings2, UserPlus, CheckCircle2
 } from 'lucide-react';
 import { type Booking, type Client, type Invoice, type Task, type Division, type Project, type ClientEvent } from '../types';
 import { api } from '../services/api';
 import { calculateEventStatusAndProgress } from '../utils/eventUtils';
+import { generateGroupedAlerts } from '../utils/alertEngine';
+import { useCompanySettings } from '../hooks/useCompanySettings';
 
 interface DashboardProps {
   invoices: Invoice[];
@@ -29,6 +31,7 @@ const slugify = (text: string) => text.toLowerCase().trim().replace(/[^\w\s-]/g,
 
 const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, userRole, divisions, addDivision, deleteDivision, addClient }) => {
   const navigate = useNavigate();
+  const { companies } = useCompanySettings();
 
   const [summary, setSummary] = useState<any>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -53,9 +56,19 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
     phone: '',
     eventDate: '',
     projectType: 'Wedding',
-    projectId: selectedBrand !== 'All' ? selectedBrand : '',
-    projectName: divisions.find(d => d.id === selectedBrand)?.name || ''
+    companyId: selectedBrand !== 'All' ? selectedBrand : '',
+    projectName: companies.find(d => d.id === selectedBrand)?.companyName || ''
   });
+
+  useEffect(() => {
+    if (selectedBrand === 'All' && companies.length === 1 && !clientFormData.companyId) {
+      setClientFormData(prev => ({
+        ...prev,
+        companyId: companies[0].id,
+        projectName: companies[0].companyName
+      }));
+    }
+  }, [companies, selectedBrand, clientFormData.companyId]);
 
   const isAdmin = userRole === 'Admin';
 
@@ -102,7 +115,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
 
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientFormData.projectId || clientFormData.projectId === 'All') {
+    if (!clientFormData.companyId || clientFormData.companyId === 'All') {
       setFormError("Please select a specific Project Registry");
       return;
     }
@@ -114,7 +127,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
     setIsSubmittingClient(true);
     setFormError(null);
 
-    const targetDiv = divisions.find(d => d.id === clientFormData.projectId);
+    const targetComp = companies.find(d => d.id === clientFormData.companyId);
 
     const clientData: Client = {
       id: String(Date.now()),
@@ -125,8 +138,9 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
       phone: clientFormData.phone,
       eventDate: clientFormData.eventDate,
       projectType: clientFormData.projectType,
-      brand: targetDiv?.name || clientFormData.projectName || 'Unknown',
-      divisionId: clientFormData.projectId,
+      brand: targetComp?.companyName || clientFormData.projectName || 'Unknown',
+      divisionId: clientFormData.companyId,
+      companyId: clientFormData.companyId,
       notes: '',
       people: [],
       status: 'pending',
@@ -141,8 +155,8 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
         phone: '',
         eventDate: '',
         projectType: 'Wedding',
-        projectId: selectedBrand !== 'All' ? selectedBrand : '',
-        projectName: divisions.find(d => d.id === selectedBrand)?.name || ''
+        companyId: selectedBrand !== 'All' ? selectedBrand : (companies.length === 1 ? companies[0].id : ''),
+        projectName: companies.find(d => d.id === selectedBrand)?.companyName || ''
       });
       setIsAddingClient(false);
     } catch (err) {
@@ -192,18 +206,16 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
     };
   }, [isAddingClient, isAdding, isDeleteModalOpen]);
 
-  const safeClients = Array.isArray(clients) ? clients : [];
-  const safeTasks = Array.isArray(tasks) ? tasks : [];
+  const safeClients = useMemo(() => Array.isArray(clients) ? clients : [], [clients]);
+  const safeTasks = useMemo(() => Array.isArray(tasks) ? tasks : [], [tasks]);
 
   const filteredClients = selectedBrand === 'All' ? safeClients : safeClients.filter(c => c && c.brand === selectedBrand);
   const filteredTasks = selectedBrand === 'All' ? safeTasks : safeTasks.filter(t => t && t.brand === selectedBrand);
 
   // Financials (Unified Source)
   const totalRevenue = summary?.totalRevenue || 0;
-  const totalExpenses = summary?.totalExpenses || 0;
   const cashCollected = summary?.recoveredAmount || 0;
   const pendingAmount = summary?.pendingAmount || 0;
-  const cashFlow = summary?.profit || 0;
 
   const today = useMemo(() => {
     void timeCounter;
@@ -216,6 +228,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
   type ExtendedEvent = ClientEvent & { clientId: string, clientName: string, projectName: string, venue?: string, calcStatus: string, calcProgress: number };
   
   const allEvents = useMemo(() => {
+      void timeCounter; // Fix for exhaustive-deps
       const events: ExtendedEvent[] = [];
       filteredClients.forEach(c => {
          if (c.events && Array.isArray(c.events)) {
@@ -285,95 +298,9 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
   });
 
   // Alerts System
-  const generateAlerts = useCallback(() => {
-    const activeAlerts: { text: string; type: 'warning' | 'critical' | 'event'; priority: number; icon: any; action?: () => void }[] = [];
-
-    // AGREEMENT ALERTS
-    filteredClients.forEach(c => {
-       if (!c.activeAgreement || c.activeAgreement.status !== 'accepted') {
-          const hasUpcoming = c.events?.some(ev => new Date(ev.date) >= today);
-          if (hasUpcoming) {
-             activeAlerts.push({ text: `${c.projectName || c.name} AGREEMENT NOT SIGNED`, type: 'critical', priority: 1, icon: AlertCircle, action: () => navigate(`/project/${c.id}`) });
-          }
-       }
-    });
-
-    // PAYMENT ALERTS
-    summary?.invoices?.forEach((inv: any) => {
-        if (inv.status !== 'Paid' && inv.type !== 'quotation') {
-            const isAdvance = inv.items?.some((i:any) => i.description?.toLowerCase().includes('advance'));
-            let name = 'Client';
-            if (inv.clientId) {
-              const c = safeClients.find(client => String(client.id) === String(inv.clientId));
-              if (c) name = c.projectName || c.name || 'Client';
-            }
-            if (isAdvance) {
-                activeAlerts.push({ text: `${name} ADVANCE PAYMENT PENDING`, type: 'critical', priority: 1, icon: IndianRupee, action: () => navigate('/revenue') });
-            } else {
-                const invDateStr = inv.dueDate || (inv as any).date || inv.issueDate || inv.createdAt;
-                if (invDateStr) {
-                   const invDate = new Date(invDateStr);
-                   invDate.setHours(0,0,0,0);
-                   if (invDate.getTime() < today.getTime()) {
-                      activeAlerts.push({ text: `${name} INVOICE OVERDUE`, type: 'critical', priority: 1, icon: AlertCircle, action: () => navigate('/revenue') });
-                   } else {
-                      activeAlerts.push({ text: `${name} OUTSTANDING BALANCE`, type: 'warning', priority: 3, icon: IndianRupee, action: () => navigate('/revenue') });
-                   }
-                }
-            }
-        }
-    });
-
-    // EVENT ALERTS, LOCATION ALERTS, TEAM ALERTS
-    upcomingEvents.forEach(ev => {
-        const evDate = new Date(ev.date);
-        evDate.setHours(0,0,0,0);
-        const diffTime = evDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 0) {
-            activeAlerts.push({ text: `${ev.projectName} EVENT STARTS TODAY`, type: 'event', priority: 1, icon: Calendar, action: () => navigate('/coordination') });
-        } else if (diffDays === 1) {
-            activeAlerts.push({ text: `${ev.projectName} EVENT STARTS TOMORROW`, type: 'event', priority: 2, icon: Calendar, action: () => navigate('/coordination') });
-        } else if (diffDays <= 3 && diffDays > 1) {
-            activeAlerts.push({ text: `${ev.projectName} EVENT IN ${diffDays} DAYS`, type: 'event', priority: 2, icon: Calendar, action: () => navigate('/coordination') });
-        }
-
-        // Location Alerts
-        if (!ev.venueLocation) activeAlerts.push({ text: `${ev.projectName} VENUE LOCATION MISSING`, type: 'warning', priority: 3, icon: MapPin, action: () => navigate(`/project/${ev.clientId}`) });
-        if (!ev.brideLocation) activeAlerts.push({ text: `${ev.projectName} BRIDE LOCATION MISSING`, type: 'warning', priority: 3, icon: MapPin, action: () => navigate(`/project/${ev.clientId}`) });
-        if (!ev.groomLocation) activeAlerts.push({ text: `${ev.projectName} GROOM LOCATION MISSING`, type: 'warning', priority: 3, icon: MapPin, action: () => navigate(`/project/${ev.clientId}`) });
-
-        // Team Alerts
-        const proj = projects.find(p => String(p.clientId) === String(ev.clientId));
-        const hasTeamAssigned = proj?.team && (proj.team.photographer || proj.team.videographer || proj.team.photographers?.length > 0 || proj.team.videographers?.length > 0);
-        if (!hasTeamAssigned) {
-             if (diffDays <= 3) {
-                activeAlerts.push({ text: `${ev.projectName} TEAM NOT ASSIGNED`, type: 'critical', priority: 1, icon: Users, action: () => navigate(`/project/${ev.clientId}`) });
-             } else {
-                activeAlerts.push({ text: `${ev.projectName} TEAM NOT ASSIGNED`, type: 'warning', priority: 3, icon: Users, action: () => navigate(`/project/${ev.clientId}`) });
-             }
-        }
-    });
-
-    // WORKFLOW ALERTS
-    projects.forEach(p => {
-        const c = safeClients.find(cl => String(cl.id) === String(p.clientId));
-        const projectName = c ? (c.projectName || c.name) : p.name;
-        
-        if (p.stage === 'Shoot Completed' || p.stage === 'Selection Received') {
-           activeAlerts.push({ text: `${projectName} SELECTIONS PENDING`, type: 'warning', priority: 3, icon: CheckSquare, action: () => navigate('/workflow') });
-        }
-        if (p.stage === 'Editing') {
-           activeAlerts.push({ text: `${projectName} EDITING DELAYED`, type: 'warning', priority: 4, icon: Clock, action: () => navigate('/workflow') });
-        }
-        if (p.stage === 'Delivery Ready') {
-           activeAlerts.push({ text: `${projectName} DELIVERY PENDING`, type: 'warning', priority: 3, icon: Package, action: () => navigate('/workflow') });
-        }
-    });
-
-    return activeAlerts.sort((a,b) => a.priority - b.priority);
-  }, [summary, filteredClients, upcomingEvents, today, safeClients, projects, navigate]);
+  const alerts = useMemo(() => {
+    return generateGroupedAlerts(filteredClients, projects, summary?.invoices || [], today);
+  }, [summary, filteredClients, today, projects]);
 
   // Client Profit Data
   const clientProfitData = useMemo(() => {
@@ -410,7 +337,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
     return result.sort((a,b) => b.profit - a.profit);
   }, [summary, safeClients]);
 
-  const alerts = useMemo(() => generateAlerts(), [generateAlerts]);
+  const totalAlertsCount = alerts.reduce((acc, group) => acc + group.alerts.length, 0);
   const eventsCount = upcomingEvents.length;
   const myTasksCount = filteredTasks.filter(t => t && t.status !== 'Done').length; 
   const activeProjectsCount = filteredClients.length;
@@ -420,7 +347,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
     metrics = [
       { id: 1, label: 'My Tasks', value: myTasksCount, hex: '#FFFFFF', icon: CheckSquare, bg: 'bg-zinc-900', targetPath: '/tasks' },
       { id: 2, label: 'Active Jobs', value: activeProjectsCount, hex: '#10b981', icon: Layers, bg: 'bg-emerald-950/10', targetPath: '/directory' },
-      { id: 3, label: 'Alerts', value: alerts.length, hex: '#f59e0b', icon: MessageSquare, bg: 'bg-amber-950/10', targetPath: '/alerts' },
+      { id: 3, label: 'Alerts', value: totalAlertsCount, hex: '#f59e0b', icon: MessageSquare, bg: 'bg-amber-950/10', targetPath: '/coordination' },
       { id: 4, label: 'Events', value: eventsCount, hex: '#3b82f6', icon: CalendarCheck, bg: 'bg-blue-950/10', targetPath: '/coordination' },
     ];
   } else {
@@ -445,8 +372,8 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
                 phone: '',
                 eventDate: '',
                 projectType: 'Wedding',
-                projectId: selectedBrand !== 'All' ? selectedBrand : '',
-                projectName: divisions.find(d => d.id === selectedBrand)?.name || ''
+                companyId: selectedBrand !== 'All' ? selectedBrand : (companies.length === 1 ? companies[0].id : ''),
+                projectName: companies.find(d => d.id === selectedBrand)?.companyName || ''
               });
               setIsAddingClient(true);
             }}
@@ -512,8 +439,8 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
             <p className="text-[8px] md:text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Teams Missing</p>
          </div>
          <div className="bg-white/5 border border-white/10 p-4 md:p-6 squircle-lg flex flex-col justify-between hover:bg-white/10 transition-colors touch-target">
-            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mb-4">
-               <Package className="w-4 h-4 text-blue-500" />
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center mb-4">
+               <Package className="w-4 h-4 text-primary" />
             </div>
             <h4 className="text-2xl md:text-3xl font-black text-white">{pendingDeliveriesCount}</h4>
             <p className="text-[8px] md:text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Deliveries Pending</p>
@@ -522,20 +449,20 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
 
       {/* Today's Events Section */}
       {todayEvents.length > 0 && (
-        <div className="bg-emerald-500/5 p-12 squircle-xl border border-emerald-500/10 space-y-10 flex flex-col">
+        <div className="bg-primary/5 p-12 squircle-xl border border-primary/10 space-y-10 flex flex-col">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-black text-white uppercase tracking-widest flex items-center gap-4">
-              <CalendarCheck className="w-6 h-6 text-emerald-500" /> Today's Events
+              <CalendarCheck className="w-6 h-6 text-primary" /> Today's Events
             </h3>
-            <div className="px-3 py-1 bg-emerald-500/20 text-emerald-500 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+            <div className="px-3 py-1 bg-primary/20 text-primary rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
               Live Ops
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {todayEvents.map((ev, idx) => (
-              <div key={ev.id || idx} onClick={() => navigate(`/project/${ev.clientId}`)} className="p-6 bg-emerald-950/20 border border-emerald-500/20 rounded-3xl relative overflow-hidden group cursor-pointer hover:bg-emerald-950/40 transition-colors">
-                <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+              <div key={ev.id || idx} onClick={() => navigate(`/project/${ev.clientId}`)} className="p-6 bg-emerald-950/20 border border-primary/20 rounded-3xl relative overflow-hidden group cursor-pointer hover:bg-emerald-950/40 transition-colors">
+                <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h4 className="text-xl font-black text-white uppercase tracking-tight">{ev.name} - {ev.projectName}</h4>
@@ -549,7 +476,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
                 </div>
                 <div className="flex items-center gap-4 text-xs font-black uppercase tracking-widest text-zinc-500">
                    <span className="flex items-center gap-2 text-white">
-                      <Clock className="w-4 h-4 text-emerald-500" />
+                      <Clock className="w-4 h-4 text-primary" />
                       {ev.startTime ? (
                          new Date(`${ev.date}T${ev.startTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
                       ) : 'TBD'}
@@ -580,37 +507,52 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {alerts.slice(0, 10).map((alert, idx) => {
-              const AlertIcon = alert.icon;
-              return (
-                <div 
+            {alerts.filter(g => g.highestPriority === 1).slice(0, 3).map((group, idx) => (
+               <div 
                   key={idx} 
-                  onClick={() => alert.action && alert.action()}
-                  className={`p-6 bg-white/5 rounded-3xl border flex items-center gap-4 group hover:bg-white/10 ios-transition cursor-pointer ${alert.type === 'critical' ? 'border-red-500/20 bg-red-500/5' : alert.type === 'event' ? 'border-blue-500/20 bg-blue-500/5' : 'border-amber-500/20 bg-amber-500/5'}`}
+                  onClick={() => navigate(`/project/${group.clientId}`)}
+                  className={`p-6 rounded-3xl border flex flex-col gap-4 group hover:bg-white/10 ios-transition cursor-pointer ${group.highestPriority === 1 ? 'border-red-500/20 bg-red-500/5' : group.highestPriority === 2 ? 'border-amber-500/20 bg-amber-500/5' : 'border-primary/20 bg-primary/5'}`}
                 >
-                  <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center ${alert.type === 'critical' ? 'bg-red-500/20 text-red-500 border border-red-500/20' : alert.type === 'event' ? 'bg-blue-500/20 text-blue-500 border border-blue-500/20' : 'bg-amber-500/20 text-amber-500 border border-amber-500/20'}`}>
-                    <AlertIcon className="w-5 h-5" />
+                  <div className="flex items-center gap-3 border-b border-white/5 pb-3">
+                     <AlertCircle className={`w-5 h-5 ${group.highestPriority === 1 ? 'text-red-500' : group.highestPriority === 2 ? 'text-amber-500' : 'text-primary'}`} />
+                     <h4 className="text-sm font-black uppercase text-white truncate">{group.projectName}</h4>
                   </div>
-                  <div className="overflow-hidden">
-                    <p className={`text-xs font-black uppercase tracking-tight truncate ${alert.type === 'critical' ? 'text-red-400' : alert.type === 'event' ? 'text-blue-400' : 'text-amber-400'}`}>{alert.text}</p>
-                  </div>
-                </div>
-              );
-            })}
+                  <ul className="space-y-2">
+                     {group.alerts.slice(0, 3).map((a, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs font-bold text-zinc-400">
+                           <span className="mt-1 w-1.5 h-1.5 rounded-full bg-white/20 shrink-0" />
+                           <span className="truncate">{a.message}</span>
+                        </li>
+                     ))}
+                     {group.alerts.length > 3 && (
+                        <li className="text-[10px] font-black uppercase text-zinc-500 tracking-widest pt-2">
+                           + {group.alerts.length - 3} more issues
+                        </li>
+                     )}
+                  </ul>
+               </div>
+            ))}
+            {alerts.length > 0 && (
+               <div className="col-span-full mt-4 flex justify-end">
+                  <button onClick={() => navigate('/coordination')} className="text-[10px] font-black uppercase text-amber-500 hover:text-white transition-colors tracking-widest flex items-center gap-2 bg-amber-500/10 px-4 py-2 rounded-lg">
+                     View All Alerts <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+               </div>
+            )}
             {alerts.length === 0 && (
               <div className="col-span-full py-10 flex flex-col items-center justify-center">
-                 <CheckCircle2 className="w-12 h-12 text-emerald-500 mb-4 opacity-50" />
-                 <p className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">Systems Nominal</p>
+                 <CheckCircle2 className="w-12 h-12 text-primary mb-4 opacity-50" />
+                 <p className="text-[10px] font-black uppercase text-primary tracking-widest">Systems Nominal</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Events Section */}
-        <div className="bg-blue-500/5 p-12 squircle-xl border border-blue-500/10 space-y-10 flex flex-col">
+        <div className="bg-primary/5 p-12 squircle-xl border border-primary/10 space-y-10 flex flex-col">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-black text-white uppercase tracking-widest flex items-center gap-4">
-              <CalendarCheck className="w-6 h-6 text-blue-500" /> Upcoming Events
+              <CalendarCheck className="w-6 h-6 text-primary" /> Upcoming Events
             </h3>
           </div>
           <div className="space-y-4">
@@ -621,7 +563,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
                 onClick={() => ev.clientId && navigate(`/project/${ev.clientId}`)}
                 className="p-4 bg-white/5 rounded-2xl flex items-center gap-4 border border-white/5 cursor-pointer hover:bg-white/10 transition-all active:scale-[0.98] group"
               >
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 group-hover:bg-blue-500 group-hover:text-black transition-all">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-black transition-all">
                    <CalendarCheck className="w-4 h-4" />
                 </div>
                 <div className="flex-1 overflow-hidden">
@@ -644,7 +586,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
       {/* Client Performance Section */}
       <div className="space-y-8">
         <h3 className="text-base font-black text-white uppercase tracking-widest flex items-center gap-4">
-          <TrendingUp className="w-6 h-6 text-emerald-500" /> Client Profitability
+          <TrendingUp className="w-6 h-6 text-primary" /> Client Profitability
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {clientProfitData.map((client, idx) => {
@@ -652,7 +594,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
             const isLow = client.profit > 0 && client.profit < 10000;
             return (
               <div key={idx} className="glass-panel p-5 md:p-8 border border-white/5 squircle-xl space-y-5 hover:bg-white/5 transition-all group relative overflow-hidden bg-white/[0.02]">
-                <div className={`absolute top-0 right-0 w-1 h-full ${isLoss ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                <div className={`absolute top-0 right-0 w-1 h-full ${isLoss ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-primary'}`} />
                 <div>
                   <h4 className="text-xl font-black text-white uppercase tracking-tight truncate">{client.name}</h4>
                   <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mt-1.5">Project Performance</p>
@@ -669,11 +611,11 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
                   <div className="pt-4 border-t border-white/5 flex justify-between items-end">
                     <div className="flex-1">
                         <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-1">Net Profit</p>
-                        <p className={`text-2xl font-black font-mono ${isLoss ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-emerald-500'}`}>
+                        <p className={`text-2xl font-black font-mono ${isLoss ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-primary'}`}>
                            ₹{client.profit.toLocaleString('en-IN')}
                         </p>
                     </div>
-                    <div className={`p-3 rounded-xl ${isLoss ? 'bg-red-500/10 text-red-500' : isLow ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                    <div className={`p-3 rounded-xl ${isLoss ? 'bg-red-500/10 text-red-500' : isLow ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary'}`}>
                         {isLoss ? <TrendingDown className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
                     </div>
                   </div>
@@ -712,7 +654,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
               onClick={() => navigate(`/ecosystem/brand/${slugify(div.name)}`)}
               className={`glass-panel p-10 relative group overflow-hidden transition-all duration-500 squircle-lg border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] cursor-pointer hover:scale-[1.02] hover:border-white/20 shadow-2xl ${fadingId === div.id ? 'animate-fade-out' : ''}`}
             >
-              <div className="absolute top-0 right-0 w-1.5 h-full opacity-40 group-hover:opacity-100 bg-blue-500" />
+              <div className="absolute top-0 right-0 w-1.5 h-full opacity-40 group-hover:opacity-100 bg-primary" />
               
               <div className="flex justify-between items-start mb-6">
                  <h3 className="font-black text-2xl text-white tracking-tighter leading-none truncate uppercase pr-4 group-hover:text-blue-400 transition-colors uppercase">{div.name}</h3>
@@ -856,40 +798,40 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Assign to Project Registry *</label>
                 {selectedBrand !== 'All' ? (
-                   <div className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm font-bold text-zinc-400 cursor-not-allowed">
-                      {divisions.find(d => d.id === selectedBrand)?.name || selectedBrand}
+                   <div className="w-full glass-panel rounded-xl p-4 text-sm font-bold text-zinc-400 cursor-not-allowed">
+                      {companies.find(d => d.id === selectedBrand)?.companyName || selectedBrand}
                       <span className="ml-2 text-[8px] opacity-40">(Locked by Global Filter)</span>
                    </div>
                 ) : (
                   <select 
-                    className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" 
-                    value={clientFormData.projectId} 
+                    className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" 
+                    value={clientFormData.companyId || ''} 
                     onChange={e => {
                       const id = e.target.value;
-                      const div = divisions.find(d => d.id === id);
-                      setClientFormData(prev => ({ ...prev, projectId: id, projectName: div?.name || '' }));
+                      const comp = companies.find(d => d.id === id);
+                      setClientFormData(prev => ({ ...prev, companyId: id, projectName: comp?.companyName || '' }));
                     }} 
                     disabled={isSubmittingClient}
                   >
-                    <option value="" disabled>Select Unit...</option>
-                    {divisions.map(d => <option key={d.id} className="bg-zinc-900" value={d.id}>{d.name}</option>)}
+                    {companies.length > 1 && <option value="" disabled>Select Registry</option>}
+                    {companies.map(d => <option key={d.id} className="bg-zinc-900" value={d.id}>{d.companyName}</option>)}
                   </select>
                 )}
               </div>
 
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Client Name *</label>
-                <input className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. Rahul & Priya" value={clientFormData.name} onChange={e => setClientFormData(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmittingClient} />
+                <input className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. Rahul & Priya" value={clientFormData.name} onChange={e => setClientFormData(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmittingClient} />
               </div>
 
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Email <span className="opacity-50">(Optional)</span></label>
-                <input type="email" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. hello@example.com" value={clientFormData.email} onChange={e => setClientFormData(prev => ({ ...prev, email: e.target.value }))} disabled={isSubmittingClient} />
+                <input type="email" className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. hello@example.com" value={clientFormData.email} onChange={e => setClientFormData(prev => ({ ...prev, email: e.target.value }))} disabled={isSubmittingClient} />
               </div>
 
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Project Type *</label>
-                <select className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={clientFormData.projectType} onChange={e => setClientFormData(prev => ({ ...prev, projectType: e.target.value }))} disabled={isSubmittingClient}>
+                <select className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={clientFormData.projectType} onChange={e => setClientFormData(prev => ({ ...prev, projectType: e.target.value }))} disabled={isSubmittingClient}>
                   <option value="Wedding" className="bg-zinc-900">Luxury Wedding</option>
                   <option value="Kids" className="bg-zinc-900">Kids & Maternity</option>
                   <option value="Corporate" className="bg-zinc-900">Corporate Production</option>
@@ -900,11 +842,11 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Phone <span className="opacity-50">(Optional)</span></label>
-                  <input className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="+91 98765 43210" value={clientFormData.phone} onChange={e => setClientFormData(prev => ({ ...prev, phone: e.target.value }))} disabled={isSubmittingClient} />
+                  <input className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="+91 98765 43210" value={clientFormData.phone} onChange={e => setClientFormData(prev => ({ ...prev, phone: e.target.value }))} disabled={isSubmittingClient} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Event Date <span className="opacity-50">(Optional)</span></label>
-                  <input type="date" className="w-full bg-black border border-white/10 squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={clientFormData.eventDate} onChange={e => setClientFormData(prev => ({ ...prev, eventDate: e.target.value }))} disabled={isSubmittingClient} />
+                  <input type="date" className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={clientFormData.eventDate} onChange={e => setClientFormData(prev => ({ ...prev, eventDate: e.target.value }))} disabled={isSubmittingClient} />
                 </div>
               </div>
 
@@ -926,3 +868,5 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
 };
 
 export default Dashboard;
+
+

@@ -94,7 +94,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onOpenTeam, isAdmin }) => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex items-center gap-6">
           <div className="p-5 rounded-2xl bg-zinc-900 border border-white/5 shadow-2xl">
-            <Shield className="w-8 h-8 text-blue-500" />
+            <Shield className="w-8 h-8 text-primary" />
           </div>
           <div>
             <h1 className="text-4xl font-black text-white tracking-tight uppercase">{settings.companyName} Ecosystem</h1>
@@ -108,14 +108,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onOpenTeam, isAdmin }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <button 
               onClick={onOpenTeam}
-              className="bg-blue-600/10 border border-blue-500/20 p-10 squircle-lg flex flex-col items-center gap-6 group hover:bg-blue-600 transition-all active:scale-95"
+              className="bg-blue-600/10 border border-primary/20 p-10 squircle-lg flex flex-col items-center gap-6 group hover:bg-blue-600 transition-all active:scale-95"
             >
               <div className="p-6 bg-blue-600 rounded-2xl group-hover:bg-white group-hover:text-blue-600 transition-all shadow-xl">
                 <Users className="w-10 h-10" />
               </div>
               <div className="text-center">
                 <h3 className="text-2xl font-black uppercase text-white group-hover:text-white">Team Registry</h3>
-                <p className="text-[10px] font-black uppercase text-blue-500 group-hover:text-white/60 tracking-widest mt-2">Manage Staff Access & Permissions</p>
+                <p className="text-[10px] font-black uppercase text-primary group-hover:text-white/60 tracking-widest mt-2">Manage Staff Access & Permissions</p>
               </div>
             </button>
 
@@ -264,3 +264,4 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onOpenTeam, isAdmin }) => {
 };
 
 export default SettingsView;
+

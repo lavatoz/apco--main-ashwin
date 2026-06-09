@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
 import { getAuthUser } from '../../utils/storage';
 import { type Task, type Client, type AttendanceRecord, type Equipment } from '../../types';
@@ -24,11 +24,7 @@ const StaffPortal = () => {
     const [uploadClient, setUploadClient] = useState('');
     const [uploadType, setUploadType] = useState('RAW Photos');
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         try {
             const [t, c, a, e] = await Promise.all([
@@ -52,7 +48,11 @@ const StaffPortal = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user?.id]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     const myTasks = tasks.filter(t => t.assignee === user?.name);
     const pendingTasks = myTasks.filter(t => t.status !== 'Completed');
@@ -106,7 +106,7 @@ const StaffPortal = () => {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
-                <div className="w-8 h-8 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-primary/20 border-t-emerald-500 rounded-full animate-spin" />
             </div>
         );
     }
@@ -120,7 +120,7 @@ const StaffPortal = () => {
                 </div>
                 <div className="flex items-center gap-4">
                     {!isClockedIn ? (
-                        <button onClick={handleClockIn} className="touch-target px-6 py-3 bg-emerald-500/10 text-emerald-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500/20 transition-all flex items-center gap-2">
+                        <button onClick={handleClockIn} className="touch-target px-6 py-3 bg-primary/10 text-primary rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-primary/20 transition-all flex items-center gap-2">
                             <Clock className="w-4 h-4" /> Clock In
                         </button>
                     ) : (
@@ -193,7 +193,7 @@ const StaffPortal = () => {
                                         <div key={ev.id} className="p-4 bg-black/50 rounded-2xl border border-white/5">
                                             <div className="flex justify-between items-start mb-2">
                                                 <h4 className="text-sm font-black text-white uppercase tracking-wider">{ev.name}</h4>
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded">{ev.status}</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-1 rounded">{ev.status}</span>
                                             </div>
                                             <p className="text-xs text-zinc-400 font-bold mb-3">{ev.clientName} - {ev.projectName}</p>
                                             <div className="flex items-center gap-4 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
@@ -345,7 +345,7 @@ const StaffPortal = () => {
                             </div>
                             <div>
                                 {!isClockedIn ? (
-                                    <button onClick={handleClockIn} className="touch-target px-8 py-4 bg-emerald-500 text-black rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-emerald-400 transition-all flex items-center gap-2">
+                                    <button onClick={handleClockIn} className="touch-target px-8 py-4 bg-primary text-black rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-emerald-400 transition-all flex items-center gap-2">
                                         <Play className="w-4 h-4" /> Clock In Now
                                     </button>
                                 ) : (
@@ -397,7 +397,7 @@ const StaffPortal = () => {
                                         <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
                                             <Camera className="w-5 h-5 text-white" />
                                         </div>
-                                        <span className="px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded text-[9px] font-black uppercase tracking-widest">{eq.status}</span>
+                                        <span className="px-2 py-1 bg-primary/10 text-primary rounded text-[9px] font-black uppercase tracking-widest">{eq.status}</span>
                                     </div>
                                     <h4 className="text-lg font-black text-white uppercase tracking-tight mb-1">{eq.name}</h4>
                                     <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">Type: {eq.type} • S/N: {eq.serialNumber}</p>
@@ -437,3 +437,4 @@ const StaffPortal = () => {
 };
 
 export default StaffPortal;
+

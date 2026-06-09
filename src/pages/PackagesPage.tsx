@@ -21,7 +21,7 @@ const PackagesPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500 selection:text-white overflow-x-hidden relative">
+    <div className="min-h-screen bg-transparent text-white font-sans selection:bg-primary selection:text-white overflow-x-hidden relative">
       {/* Matte Noise Overlay */}
       <div className="fixed inset-0 pointer-events-none bg-noise z-0 opacity-50" />
 
@@ -79,3 +79,4 @@ const PackagesPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 };
 
 export default PackagesPage;
+

@@ -156,15 +156,15 @@ const AlertsPage: React.FC = () => {
               onClick={() => alert.actionPath && navigate(alert.actionPath)}
               className={`group relative overflow-hidden bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 flex flex-col md:flex-row items-start md:items-center gap-8 transition-all hover:bg-white/[0.05] ${alert.actionPath ? 'cursor-pointer' : ''}`}
             >
-              <div className={`absolute top-0 left-0 w-1 h-full ${alert.severity === 'critical' ? 'bg-red-500' : alert.severity === 'warning' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+              <div className={`absolute top-0 left-0 w-1 h-full ${alert.severity === 'critical' ? 'bg-red-500' : alert.severity === 'warning' ? 'bg-amber-500' : 'bg-primary'}`} />
               
-              <div className={`w-16 h-16 rounded-3xl shrink-0 flex items-center justify-center transition-all ${alert.severity === 'critical' ? 'bg-red-500/10 text-red-500 group-hover:bg-red-500 group-hover:text-black' : alert.severity === 'warning' ? 'bg-amber-500/10 text-amber-500 group-hover:bg-amber-500 group-hover:text-black' : 'bg-blue-500/10 text-blue-500 group-hover:bg-blue-500 group-hover:text-black'}`}>
+              <div className={`w-16 h-16 rounded-3xl shrink-0 flex items-center justify-center transition-all ${alert.severity === 'critical' ? 'bg-red-500/10 text-red-500 group-hover:bg-red-500 group-hover:text-black' : alert.severity === 'warning' ? 'bg-amber-500/10 text-amber-500 group-hover:bg-amber-500 group-hover:text-black' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-black'}`}>
                 {alert.severity === 'critical' ? <AlertCircle className="w-7 h-7" /> : alert.severity === 'warning' ? <AlertTriangle className="w-7 h-7" /> : <Package className="w-7 h-7" />}
               </div>
 
               <div className="flex-1">
                 <div className="flex items-center gap-4 mb-2">
-                  <span className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-md ${alert.severity === 'critical' ? 'bg-red-500/10 text-red-500' : alert.severity === 'warning' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                  <span className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-md ${alert.severity === 'critical' ? 'bg-red-500/10 text-red-500' : alert.severity === 'warning' ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary'}`}>
                     {alert.severity}
                   </span>
                   <span className="text-xs font-bold uppercase text-zinc-600 tracking-widest">
@@ -190,3 +190,4 @@ const AlertsPage: React.FC = () => {
 };
 
 export default AlertsPage;
+

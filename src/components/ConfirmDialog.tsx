@@ -31,7 +31,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-md bg-zinc-950 border border-white/10 rounded-3xl p-8 shadow-2xl animate-ios-slide-up relative"
+        className="w-full max-w-md glass-panel rounded-3xl p-8 shadow-2xl animate-ios-slide-up relative"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-4">
@@ -66,3 +66,4 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 };
 
 export default ConfirmDialog;
+

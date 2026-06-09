@@ -256,6 +256,7 @@ export interface Client {
   assignedPhotographerId?: string;
   assignedVideographerId?: string;
   assignedEditorId?: string;
+  companyId?: string;
   createdAt?: string;
 }
 
@@ -367,6 +368,16 @@ export interface Project {
     uploadedAt: string;
   }[];
   subTasks?: { [key: string]: SubTask[] };
+  stageTracking?: {
+    [stageId: string]: {
+      status: 'Pending' | 'In Progress' | 'Completed';
+      owner?: string;
+      dateStarted?: string;
+      dateCompleted?: string;
+      notes?: string;
+      attachments?: string[];
+    }
+  };
 }
 
 export interface Booking {
@@ -467,6 +478,32 @@ export interface CloudConfig {
 
 export type ViewState = 'DASHBOARD' | 'CLIENTS' | 'CALENDAR' | 'FINANCE' | 'AI_TOOLS' | 'CLIENT_PORTAL' | 'SETTINGS' | 'TASKS' | 'TEAM' | 'LOGS' | 'PRODUCTION';
 
+export interface CustomThemeConfig {
+  id: string;
+  name: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  borderColor: string;
+  cardBackground: string;
+  glowColor: string;
+  shadowStrength: string;
+  cardRadius: string;
+  blurIntensity: string;
+  baseTheme: string;
+  graphics: string;
+  typography: string;
+}
+
+export interface PortalConfig {
+  clientPortal: boolean;
+  staffPortal: boolean;
+  publicBooking: boolean;
+  productionWorkflow: boolean;
+  revenueModule: boolean;
+  marketingHub: boolean;
+}
+
 export interface CompanyProfile {
   id: string;
   companyName: string;
@@ -495,6 +532,11 @@ export interface CompanyProfile {
   defaultQuoteTemplate?: string;
   defaultInvoiceTemplate?: string;
   defaultProposalTemplate?: string;
+  themePreset?: string;
+  graphicsPreset?: string;
+  typographyPreset?: string;
+  customThemeId?: string;
+  portalConfig?: PortalConfig;
   createdAt: string;
 }
 
@@ -505,6 +547,7 @@ export interface GlobalSettings {
   pdfHashEnabled?: boolean;
   pdfSecureRenderEnabled?: boolean;
   pdfSecretSalt?: string;
+  customThemes?: CustomThemeConfig[];
   // future global settings here
 }
 
@@ -538,4 +581,37 @@ export interface Equipment {
   type: string; // Camera, Lens, Drone, Accessory
   serialNumber?: string;
   status: 'Assigned' | 'Available' | 'Maintenance';
+}
+
+export interface ApprovalAuditTrail {
+  approvedBy?: string;
+  approvedDate?: string;
+  rejectedBy?: string;
+  rejectedDate?: string;
+  notes?: string;
+}
+
+export type ApprovalType = 
+  | 'Client Payment Proof Approval'
+  | 'Invoice Payment Confirmation'
+  | 'Expense Reimbursement Approval'
+  | 'Freelancer Payment Approval'
+  | 'Vendor Payment Approval'
+  | 'Quotation Approval'
+  | 'Discount Approval'
+  | 'Refund Approval';
+
+export interface ApprovalRecord {
+  id: string;
+  type: ApprovalType;
+  targetId: string; // ID of the Invoice, Expense, or Quote
+  targetType: 'invoice' | 'expense' | 'quotation';
+  clientName: string;
+  brandName?: string;
+  amount: number;
+  submissionDate: string;
+  status: 'Pending Approval' | 'Approved' | 'Rejected';
+  notes?: string;
+  metadata?: any; // To store screenshots, utr numbers, etc.
+  auditTrail: ApprovalAuditTrail;
 }

@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  FileText, CheckCircle2, Upload, ArrowLeft, ShieldCheck, 
-  Info, AlertCircle, Lock
+  CheckCircle2, Upload, ArrowLeft, ShieldCheck, 
+  Info, AlertCircle
 } from 'lucide-react';
 import { type Invoice, InvoiceStatus, type Client } from '../types';
 import { api } from '../services/api';
@@ -180,7 +180,7 @@ const AgreementPage: React.FC = () => {
 
   if (error && error.includes("404")) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
         <div className="w-24 h-24 bg-amber-500/10 rounded-[2.5rem] flex items-center justify-center mb-8 border border-amber-500/10 shadow-2xl shadow-amber-500/5">
           <AlertCircle className="text-amber-500 w-12 h-12" />
         </div>
@@ -211,7 +211,7 @@ const AgreementPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10 text-center animate-ios-slide-up">
         <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-8 border border-red-500/10">
           <AlertCircle className="text-red-500 w-10 h-10" />
         </div>
@@ -224,10 +224,10 @@ const AgreementPage: React.FC = () => {
     );
   }
 
-  if (!quote && !isOrphaned) return <div className="min-h-screen bg-black flex items-center justify-center"><div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>;
+  if (!quote && !isOrphaned) return <div className="min-h-screen bg-transparent flex items-center justify-center"><div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>;
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 md:p-12 font-sans selection:bg-blue-500 selection:text-white animate-ios-fade-in">
+    <div className="min-h-screen bg-transparent text-white p-6 md:p-12 font-sans selection:bg-primary selection:text-white animate-ios-fade-in">
       <ConfirmDialog
         isOpen={isDeleteConfirmOpen}
         title="Delete Orphaned Agreement"
@@ -340,8 +340,8 @@ const AgreementPage: React.FC = () => {
                  <div className="shrink-0">
                      {isAgreed ? (
                         <div className="flex flex-col gap-4 animate-ios-slide-up">
-                           <div className="flex items-center gap-6 p-6 bg-emerald-500/5 border border-emerald-500/10 rounded-3xl">
-                              <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                           <div className="flex items-center gap-6 p-6 bg-primary/5 border border-primary/10 rounded-3xl">
+                              <CheckCircle2 className="w-8 h-8 text-primary" />
                               <div>
                                  <p className="text-lg font-black text-white uppercase tracking-widest">Agreement Accepted</p>
                                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mt-1">Confirmed on: {new Date(client?.activeAgreement?.acceptedAt || new Date()).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
@@ -359,7 +359,7 @@ const AgreementPage: React.FC = () => {
                            <div className="relative mt-1">
                               <input 
                                 type="checkbox" 
-                                className="peer appearance-none w-6 h-6 bg-black border border-white/20 rounded-lg checked:bg-blue-500 checked:border-blue-500 transition-all disabled:cursor-not-allowed"
+                                className="peer appearance-none w-6 h-6 bg-black border border-white/20 rounded-lg checked:bg-primary checked:border-primary transition-all disabled:cursor-not-allowed"
                                 checked={isAgreed}
                                 onChange={(e) => setIsAgreed(e.target.checked)}
                                 disabled={!client?.activeAgreement?.body}
@@ -380,7 +380,7 @@ const AgreementPage: React.FC = () => {
            <div className="space-y-12">
               <div className="glass-panel p-10 squircle-lg border border-white/5 bg-white/[0.01] space-y-10">
                  <div className="flex items-center gap-4">
-                    <ShieldCheck className="w-6 h-6 text-emerald-500" />
+                    <ShieldCheck className="w-6 h-6 text-primary" />
                     <h3 className="text-xl font-black uppercase tracking-widest text-white">Identity Verification</h3>
                  </div>
 
@@ -399,11 +399,11 @@ const AgreementPage: React.FC = () => {
                        />
                        <label 
                          htmlFor="id-upload" 
-                         className={`w-full h-40 border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center p-6 cursor-pointer transition-all ${idFile ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-black/50 border-white/10 hover:border-white/20 hover:bg-white/[0.02]'}`}
+                         className={`w-full h-40 border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center p-6 cursor-pointer transition-all ${idFile ? 'bg-primary/5 border-primary/20' : 'bg-black/50 border-white/10 hover:border-white/20 hover:bg-white/[0.02]'}`}
                        >
                           {idFile ? (
                              <>
-                                <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
+                                <CheckCircle2 className="w-8 h-8 text-primary mb-2" />
                                 <p className="text-[10px] font-black text-white uppercase tracking-widest mb-1">{idFile.name}</p>
                                 <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{(idFile.size / 1024 / 1024).toFixed(2)} MB • File Staged</p>
                              </>
@@ -473,3 +473,4 @@ const AgreementPage: React.FC = () => {
 };
 
 export default AgreementPage;
+

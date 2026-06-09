@@ -97,7 +97,7 @@ const CoordinationPage: React.FC = () => {
          {/* Dynamic Progress Bar */}
          {ev.startTime && ev.endTime && (
             <div className="absolute top-0 left-0 h-1 bg-white/5 w-full overflow-hidden">
-               <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${ev.calcProgress}%` }} />
+               <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${ev.calcProgress}%` }} />
             </div>
          )}
          
@@ -114,7 +114,7 @@ const CoordinationPage: React.FC = () => {
 
          {(ev.startTime || ev.endTime) && (
             <div className="flex gap-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-               {ev.startTime && <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-emerald-500" /> Start: {ev.startTime}</span>}
+               {ev.startTime && <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-primary" /> Start: {ev.startTime}</span>}
                {ev.endTime && <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-red-500" /> End: {ev.endTime}</span>}
             </div>
          )}
@@ -123,19 +123,19 @@ const CoordinationPage: React.FC = () => {
             <div className="p-4 bg-black/40 rounded-xl border border-white/5 flex flex-col gap-2 text-left mt-2">
                {ev.brideLocation && (
                   <div className="flex items-start gap-2">
-                     <MapPin className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
+                     <MapPin className="w-3 h-3 text-primary shrink-0 mt-0.5" />
                      <p className="text-[10px] font-medium text-zinc-400 truncate"><span className="font-black uppercase tracking-widest text-zinc-600 mr-2">Bride</span>{ev.brideLocation}</p>
                   </div>
                )}
                {ev.groomLocation && (
                   <div className="flex items-start gap-2">
-                     <MapPin className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
+                     <MapPin className="w-3 h-3 text-primary shrink-0 mt-0.5" />
                      <p className="text-[10px] font-medium text-zinc-400 truncate"><span className="font-black uppercase tracking-widest text-zinc-600 mr-2">Groom</span>{ev.groomLocation}</p>
                   </div>
                )}
                {ev.venueLocation && (
                   <div className="flex items-start gap-2 pt-2 border-t border-white/5">
-                     <MapPin className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" />
+                     <MapPin className="w-3 h-3 text-primary shrink-0 mt-0.5" />
                      <p className="text-[10px] font-medium text-zinc-400 truncate"><span className="font-black uppercase tracking-widest text-zinc-600 mr-2">Venue</span>{ev.venueLocation}</p>
                   </div>
                )}
@@ -176,11 +176,11 @@ const CoordinationPage: React.FC = () => {
 
          {/* IN PROGRESS COLUMN */}
          <div className="space-y-6">
-            <div className="flex items-center justify-between border-b border-blue-500/20 pb-4">
+            <div className="flex items-center justify-between border-b border-primary/20 pb-4">
                <h2 className="text-xs font-black uppercase text-blue-400 tracking-widest flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" /> In Progress
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> In Progress
                </h2>
-               <span className="bg-blue-500/10 text-blue-400 text-[10px] font-bold px-2 py-1 rounded">{eventBuckets.inProgress.length}</span>
+               <span className="bg-primary/10 text-blue-400 text-[10px] font-bold px-2 py-1 rounded">{eventBuckets.inProgress.length}</span>
             </div>
             <div className="space-y-4">
                {eventBuckets.inProgress.map(renderEventCard)}
@@ -190,11 +190,11 @@ const CoordinationPage: React.FC = () => {
 
          {/* COMPLETED COLUMN */}
          <div className="space-y-6">
-            <div className="flex items-center justify-between border-b border-emerald-500/20 pb-4">
-               <h2 className="text-xs font-black uppercase text-emerald-500 tracking-widest flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> Completed
+            <div className="flex items-center justify-between border-b border-primary/20 pb-4">
+               <h2 className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary" /> Completed
                </h2>
-               <span className="bg-emerald-500/10 text-emerald-500 text-[10px] font-bold px-2 py-1 rounded">{eventBuckets.completed.length}</span>
+               <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-1 rounded">{eventBuckets.completed.length}</span>
             </div>
             <div className="space-y-4">
                {eventBuckets.completed.map(renderEventCard)}
@@ -207,3 +207,4 @@ const CoordinationPage: React.FC = () => {
 };
 
 export default CoordinationPage;
+

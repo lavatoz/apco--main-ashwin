@@ -23,7 +23,7 @@ export default function TeamPage() {
   // SAFE GUARD 1: No user session
   if (!user) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center">
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10 text-center">
         <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mb-6" />
         <h1 className="text-lg font-semibold text-white uppercase tracking-widest">Verifying Identity</h1>
         <p className="text-zinc-400 text-xs uppercase mt-2">SECURE PROTOCOL ACTIVE</p>
@@ -36,7 +36,7 @@ export default function TeamPage() {
   
   if (!hasAccess) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-10 text-center">
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10 text-center">
         <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-8 border border-red-500/20">
           <span className="text-red-500 text-4xl font-black">!</span>
         </div>

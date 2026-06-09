@@ -1,6 +1,6 @@
 import React from 'react';
 import { type TemplateProps } from '../types';
-import { Shield, ArrowRight } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 export const ArtisansQuote: React.FC<TemplateProps> = ({ company, client, document }) => {
   const items = document?.items || [];
@@ -87,7 +87,7 @@ export const ArtisansQuote: React.FC<TemplateProps> = ({ company, client, docume
                </div>
             )}
             {document?.discountValue > 0 && (
-               <div className="flex justify-between text-sm text-emerald-500 font-mono">
+               <div className="flex justify-between text-sm text-primary font-mono">
                   <span>Discount</span>
                   <span>-₹{document.discountValue.toLocaleString()}</span>
                </div>
@@ -113,3 +113,4 @@ export const ArtisansQuote: React.FC<TemplateProps> = ({ company, client, docume
     </div>
   );
 };
+

@@ -144,12 +144,12 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
       {/* DASHBOARD METRICS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="glass-panel p-6 squircle-lg relative overflow-hidden group border border-white/5">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Activity className="w-24 h-24 text-blue-500" /></div>
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Activity className="w-24 h-24 text-primary" /></div>
           <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-2 flex items-center gap-2"><Layers className="w-3 h-3"/> Active Projects</p>
           <h3 className="text-4xl font-black tracking-tight text-white">{activeProjects.length}</h3>
         </div>
         <div className="glass-panel p-6 squircle-lg relative overflow-hidden group border border-white/5">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Calendar className="w-24 h-24 text-emerald-500" /></div>
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Calendar className="w-24 h-24 text-primary" /></div>
           <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-2 flex items-center gap-2"><Calendar className="w-3 h-3"/> Upcoming Shoots</p>
           <h3 className="text-4xl font-black tracking-tight text-white">{upcomingShoots.length}</h3>
         </div>
@@ -171,7 +171,7 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
         <div className="lg:col-span-2 glass-panel p-8 squircle-lg space-y-6">
           <div className="flex items-center justify-between border-b border-white/5 pb-4">
             <h3 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-3">
-              <Package className="w-4 h-4 text-blue-500" /> Task Management
+              <Package className="w-4 h-4 text-primary" /> Task Management
             </h3>
           </div>
           
@@ -186,7 +186,7 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
                   <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center border ${
                       task.status === TaskStatus.Overdue ? 'bg-red-500/10 border-red-500/20 text-red-500' :
                       task.status === TaskStatus.InProgress ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
-                      'bg-blue-500/10 border-blue-500/20 text-blue-500'
+                      'bg-primary/10 border-primary/20 text-primary'
                   }`}>
                      <Layers className="w-4 h-4" />
                   </div>
@@ -205,7 +205,7 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
                        className={`bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-white/20 ${
                            task.status === TaskStatus.Overdue ? 'text-red-500' :
                            task.status === TaskStatus.InProgress ? 'text-amber-500' :
-                           task.status === TaskStatus.Completed ? 'text-emerald-500' :
+                           task.status === TaskStatus.Completed ? 'text-primary' :
                            'text-zinc-300'
                        }`}
                     >
@@ -225,7 +225,7 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
            <div className="glass-panel p-8 squircle-lg space-y-6">
               <div className="flex items-center justify-between border-b border-white/5 pb-4">
                 <h3 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-3">
-                  <Users className="w-4 h-4 text-emerald-500" /> Team Workload
+                  <Users className="w-4 h-4 text-primary" /> Team Workload
                 </h3>
               </div>
               <div className="space-y-3">
@@ -308,7 +308,7 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
                       {c.name || c.projectName}
                     </option>
                   ))}
-                  <option value="NEW_CLIENT" className="bg-zinc-900 text-blue-500">+ ADD NEW CLIENT</option>
+                  <option value="NEW_CLIENT" className="bg-zinc-900 text-primary">+ ADD NEW CLIENT</option>
                 </select>
               </div>
 
@@ -411,3 +411,4 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
 };
 
 export default ProductionHub;
+

@@ -8,7 +8,7 @@ export const DefaultAgreement: React.FC<TemplateProps> = ({ company, agreement }
   return (
     <div className="glass-panel p-10 squircle-lg border border-white/5 bg-white/[0.01] relative flex flex-col min-h-[600px] w-full max-w-4xl mx-auto">
        <div className="flex items-center gap-4 mb-8 shrink-0">
-          <FileText className="w-6 h-6 text-blue-500" />
+          <FileText className="w-6 h-6 text-primary" />
           <h3 className="text-xl font-black uppercase tracking-widest text-white">Terms of Engagement</h3>
        </div>
        
@@ -38,8 +38,8 @@ export const DefaultAgreement: React.FC<TemplateProps> = ({ company, agreement }
        {isAgreed && (
          <div className="mt-8 shrink-0">
             <div className="flex flex-col gap-4 animate-ios-slide-up">
-               <div className="flex items-center gap-6 p-6 bg-emerald-500/5 border border-emerald-500/10 rounded-3xl">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+               <div className="flex items-center gap-6 p-6 bg-primary/5 border border-primary/10 rounded-3xl">
+                  <CheckCircle2 className="w-8 h-8 text-primary" />
                   <div>
                      <p className="text-lg font-black text-white uppercase tracking-widest">Agreement Accepted</p>
                      <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mt-1">Confirmed on: {new Date(agreement?.acceptedAt || new Date()).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
@@ -51,3 +51,4 @@ export const DefaultAgreement: React.FC<TemplateProps> = ({ company, agreement }
     </div>
   );
 };
+

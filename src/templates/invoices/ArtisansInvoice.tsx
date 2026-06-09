@@ -33,7 +33,7 @@ export const ArtisansInvoice: React.FC<TemplateProps> = ({ company, client, docu
            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">
              DATE: {document?.issueDate ? new Date(document.issueDate).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}
            </p>
-           <div className={`mt-4 inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${balance <= 0 ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
+           <div className={`mt-4 inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${balance <= 0 ? 'bg-primary/10 text-primary border-primary/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
               {balance <= 0 ? 'PAID IN FULL' : 'PAYMENT PENDING'}
            </div>
         </div>
@@ -104,7 +104,7 @@ export const ArtisansInvoice: React.FC<TemplateProps> = ({ company, client, docu
                </div>
             )}
             {document?.discountValue > 0 && (
-               <div className="flex justify-between text-sm text-emerald-500 font-mono">
+               <div className="flex justify-between text-sm text-primary font-mono">
                   <span>Discount</span>
                   <span>-₹{document.discountValue.toLocaleString()}</span>
                </div>
@@ -114,7 +114,7 @@ export const ArtisansInvoice: React.FC<TemplateProps> = ({ company, client, docu
                <span>₹{total.toLocaleString()}</span>
             </div>
             {paidAmount > 0 && (
-               <div className="flex justify-between items-center text-sm font-black text-emerald-500 pt-2 font-mono">
+               <div className="flex justify-between items-center text-sm font-black text-primary pt-2 font-mono">
                   <span className="uppercase tracking-widest text-[10px]">Paid</span>
                   <span>-₹{paidAmount.toLocaleString()}</span>
                </div>
@@ -140,3 +140,4 @@ export const ArtisansInvoice: React.FC<TemplateProps> = ({ company, client, docu
     </div>
   );
 };
+
