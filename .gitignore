@@ -67,3 +67,6 @@ coverage/
 scratch/
 *.broken
 lint*.txt
+logs/
+tmp/
+temp/

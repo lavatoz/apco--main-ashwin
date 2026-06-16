@@ -1,16 +1,38 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, CheckCircle2, Clock } from 'lucide-react';
 import type { Client, Project } from '../../types';
 import { WORKFLOW_STAGES, normalizeWorkflowStage } from '../../utils/workflowUtils';
+import { api } from '../../services/api';
+
+import ClientPageLoader from './ClientPageLoader';
 
 interface ClientTimelineProps {
   client: Client | null;
 }
 
 const ClientTimeline: React.FC<ClientTimelineProps> = ({ client }) => {
-  if (!client) return null;
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const allProjects: Project[] = JSON.parse(localStorage.getItem('projects') || '[]');
+  useEffect(() => {
+    const hydrateProjects = async () => {
+      try {
+        const data = await api.getProjects();
+        if (data && Array.isArray(data)) {
+          setProjects(data);
+        }
+      } catch (err) {
+        console.warn("Failed to load timeline projects from API", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    hydrateProjects();
+  }, []);
+
+  if (!client || loading) return <ClientPageLoader />;
+
+  const allProjects = projects;
   const clientProjects = allProjects.filter(p => p.clientId === client.id);
   const mainProject = clientProjects[0] || null;
   const currentStage = normalizeWorkflowStage(mainProject?.stage);

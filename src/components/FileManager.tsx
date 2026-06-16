@@ -16,22 +16,19 @@ interface ArchiveFile {
     accessRoles: string[];
 }
 
+import { files as filesApi } from '../services/api/files';
+
 const FileManager: React.FC = () => {
     const [files, setFiles] = useState<ArchiveFile[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const projectId = 'global';
 
     const fetchFiles = async () => {
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5000/api/files", {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setFiles(data);
-            }
+            const data = await filesApi.getFilesByProject(projectId).catch(() => []);
+            setFiles(data);
         } catch (err) {
             console.error("Failed to load files", err);
         } finally {
@@ -48,20 +45,9 @@ const FileManager: React.FC = () => {
         if (!file) return;
 
         setIsUploading(true);
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('accessRoles', JSON.stringify(['admin', 'staff', 'client']));
-
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5000/api/files/upload", {
-                method: 'POST',
-                headers: { "Authorization": `Bearer ${token}` },
-                body: formData
-            });
-            if (res.ok) {
-                await fetchFiles();
-            }
+            await filesApi.uploadProjectFile(projectId, 'General', file);
+            await fetchFiles();
         } catch (err) {
             console.error("Upload failed", err);
         } finally {
@@ -71,20 +57,7 @@ const FileManager: React.FC = () => {
 
     const handleDownload = async (fileId: string, fileName: string) => {
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`http://localhost:5000/api/files/download/${fileId}`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const blob = await res.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            }
+            await filesApi.downloadProjectFile(fileId, fileName);
         } catch (err) {
             console.error("Download failed", err);
         }

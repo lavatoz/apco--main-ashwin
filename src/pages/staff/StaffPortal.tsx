@@ -5,8 +5,32 @@ import { type Task, type Client, type AttendanceRecord, type Equipment } from '.
 import { 
     Calendar, CheckSquare, UploadCloud, Clock, 
     Camera, User, AlertCircle, FileVideo, 
-    MapPin, Play, UserCircle, Briefcase
+    MapPin, Play, UserCircle, Briefcase,
+    Download, Trash2, FileText, Image, Loader
 } from 'lucide-react';
+
+const formatBytes = (bytes: number, decimals = 2) => {
+    if (!bytes) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+};
+
+const formatDate = (dateStr: string) => {
+    try {
+        return new Date(dateStr).toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch {
+        return dateStr;
+    }
+};
 
 const StaffPortal = () => {
     const user = getAuthUser();
@@ -21,22 +45,84 @@ const StaffPortal = () => {
     const [currentSession, setCurrentSession] = useState<AttendanceRecord | null>(null);
 
     // Upload state
-    const [uploadClient, setUploadClient] = useState('');
-    const [uploadType, setUploadType] = useState('RAW Photos');
+    const [projects, setProjects] = useState<any[]>([]);
+    const [selectedProjectId, setSelectedProjectId] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('Gallery');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+    const [projectFiles, setProjectFiles] = useState<any[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
+
+    const fetchFiles = useCallback(async (projId: string) => {
+        if (!projId) return;
+        try {
+            const filesData = await api.getFilesByProject(projId);
+            setProjectFiles(filesData || []);
+        } catch (err) {
+            console.error("Failed to load project files", err);
+        }
+    }, []);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setSelectedFile(e.target.files[0]);
+        }
+    };
+
+    const handleUpload = async () => {
+        if (!selectedProjectId || !selectedFile) return;
+        setIsUploading(true);
+        setUploadProgress(0);
+        try {
+            await api.uploadProjectFileWithProgress(
+                selectedProjectId,
+                selectedCategory,
+                selectedFile,
+                false,
+                (percent) => {
+                    setUploadProgress(percent);
+                }
+            );
+            setSelectedFile(null);
+            setUploadProgress(null);
+            const fileInput = document.getElementById('file-upload-input') as HTMLInputElement;
+            if (fileInput) fileInput.value = '';
+            fetchFiles(selectedProjectId);
+        } catch (err: any) {
+            console.error("Upload failed", err);
+            alert(err.message || "Upload failed");
+            setUploadProgress(null);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleDeleteFile = async (fileId: string) => {
+        if (!window.confirm("Are you sure you want to delete this file?")) return;
+        try {
+            await api.deleteProjectFile(fileId);
+            fetchFiles(selectedProjectId);
+        } catch (err: any) {
+            console.error("Deletion failed", err);
+            alert(err.message || "Failed to delete file");
+        }
+    };
 
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [t, c, a, e] = await Promise.all([
+            const [t, c, a, e, p] = await Promise.all([
                 api.getTasks(),
                 api.getClients(),
                 api.getAttendance(user?.id || ''),
-                api.getEquipment(user?.id || '')
+                api.getEquipment(user?.id || ''),
+                api.getProjects()
             ]);
             setTasks(t);
             setClients(c);
             setAttendance(a);
             setEquipment(e);
+            setProjects(p || []);
 
             const activeSession = a.find(record => !record.clockOut);
             if (activeSession) {
@@ -291,45 +377,173 @@ const StaffPortal = () => {
 
                 {/* UPLOAD CENTER TAB */}
                 {activeTab === 'uploads' && (
-                    <div className="glass-panel p-8 squircle-md border border-white/5 animate-ios-fade-in">
-                        <div className="max-w-2xl mx-auto space-y-8">
-                            <div className="text-center">
-                                <UploadCloud className="w-12 h-12 text-zinc-500 mx-auto mb-4" />
-                                <h2 className="text-2xl font-black text-white uppercase tracking-tight">Media Upload Center</h2>
-                                <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mt-2">Upload and link deliverables to your assigned projects</p>
-                            </div>
-
-                            <div className="space-y-6 bg-black/50 p-8 rounded-3xl border border-white/5">
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Select Project</label>
-                                    <select className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all appearance-none" value={uploadClient} onChange={e => setUploadClient(e.target.value)}>
-                                        <option value="" className="bg-zinc-900">-- Choose Project --</option>
-                                        {myClients.map(c => (
-                                            <option key={c.id} value={c.id} className="bg-zinc-900">{c.name} - {c.projectName}</option>
-                                        ))}
-                                    </select>
+                    <div className="space-y-8 animate-ios-fade-in">
+                        <div className="glass-panel p-8 squircle-md border border-white/5 bg-gradient-to-br from-indigo-500/10 to-transparent">
+                            <div className="max-w-2xl mx-auto space-y-8">
+                                <div className="text-center">
+                                    <UploadCloud className="w-12 h-12 text-indigo-400 mx-auto mb-4 animate-pulse" />
+                                    <h2 className="text-2xl font-black text-white uppercase tracking-tight">Media Upload Center</h2>
+                                    <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mt-2">Upload and link deliverables to your projects</p>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Upload Type</label>
-                                    <select className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all appearance-none" value={uploadType} onChange={e => setUploadType(e.target.value)}>
-                                        {['RAW Photos', 'RAW Videos', 'Drone Footage', 'Edited Photos', 'Albums', 'Teasers', 'Highlights'].map(t => (
-                                            <option key={t} value={t} className="bg-zinc-900">{t}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                <div className="space-y-6 bg-black/50 p-8 rounded-3xl border border-white/5">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Select Project</label>
+                                            <select 
+                                                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all appearance-none" 
+                                                value={selectedProjectId} 
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    setSelectedProjectId(val);
+                                                    fetchFiles(val);
+                                                }}
+                                            >
+                                                <option value="" className="bg-zinc-900">-- Choose Project --</option>
+                                                {projects.map(p => (
+                                                    <option key={p.id} value={p.id} className="bg-zinc-900">{p.name} ({p.status})</option>
+                                                ))}
+                                            </select>
+                                        </div>
 
-                                <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 flex flex-col items-center justify-center text-center hover:border-white/20 transition-all cursor-pointer bg-white/[0.02]">
-                                    <FileVideo className="w-8 h-8 text-zinc-500 mb-4" />
-                                    <p className="text-sm font-bold text-white mb-1">Click or drag files here</p>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Max size: 50GB</p>
-                                </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Upload Category</label>
+                                            <select 
+                                                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all appearance-none" 
+                                                value={selectedCategory} 
+                                                onChange={e => setSelectedCategory(e.target.value)}
+                                            >
+                                                {['Gallery', 'Deliverables', 'Agreements', 'Invoices', 'Quotations', 'Raw Uploads'].map(cat => (
+                                                    <option key={cat} value={cat} className="bg-zinc-900">{cat}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
 
-                                <button disabled={!uploadClient} className="touch-target w-full py-4 bg-white text-black rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-zinc-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                    Start Upload
-                                </button>
+                                    {/* Custom Drag & Drop / Selection UI */}
+                                    <div 
+                                        onClick={() => document.getElementById('file-upload-input')?.click()}
+                                        className="border-2 border-dashed border-white/10 hover:border-indigo-500/50 rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all cursor-pointer bg-white/[0.01] hover:bg-white/[0.03]"
+                                    >
+                                        <input 
+                                            type="file" 
+                                            id="file-upload-input" 
+                                            className="hidden" 
+                                            onChange={handleFileChange}
+                                        />
+                                        <FileVideo className="w-10 h-10 text-zinc-500 mb-4" />
+                                        {selectedFile ? (
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-black text-white">{selectedFile.name}</p>
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{formatBytes(selectedFile.size)}</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <p className="text-sm font-bold text-white mb-1">Click to browse or drop file here</p>
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Max size: 100MB</p>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {isUploading && uploadProgress !== null && (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                <span>Uploading to Google Drive...</span>
+                                                <span>{uploadProgress}%</span>
+                                            </div>
+                                            <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                                                <div 
+                                                    className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300" 
+                                                    style={{ width: `${uploadProgress}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <button 
+                                        disabled={!selectedProjectId || !selectedFile || isUploading} 
+                                        onClick={handleUpload}
+                                        className="touch-target w-full py-4 bg-white text-black rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-zinc-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                        {isUploading ? (
+                                            <>
+                                                <Loader className="w-4 h-4 animate-spin" />
+                                                Uploading...
+                                            </>
+                                        ) : (
+                                            'Start Upload'
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                         </div>
+
+                        {selectedProjectId && (
+                            <div className="glass-panel p-8 squircle-md border border-white/5 space-y-6">
+                                <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                                    <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.2em]">Project Uploads Registry</h3>
+                                    <span className="text-[10px] font-mono text-zinc-500">{projectFiles.length} files total</span>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {projectFiles.map((file: any) => {
+                                        const isImage = file.mimeType?.startsWith('image/');
+                                        return (
+                                            <div key={file.id} className="p-4 bg-black/50 rounded-2xl border border-white/5 flex items-center justify-between gap-4">
+                                                <div className="flex items-center gap-4 min-w-0">
+                                                    <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                                                        {isImage ? (
+                                                            <Image className="w-5 h-5 text-indigo-400" />
+                                                        ) : (
+                                                            <FileText className="w-5 h-5 text-emerald-400" />
+                                                        )}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <h4 className="text-xs font-black text-white truncate uppercase tracking-wider mb-1" title={file.fileName}>{file.fileName}</h4>
+                                                        <div className="flex flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-widest">
+                                                            <span className={`px-2 py-0.5 rounded text-[8px] ${
+                                                                file.category === 'Gallery' ? 'bg-purple-500/10 text-purple-400' :
+                                                                file.category === 'Deliverables' ? 'bg-emerald-500/10 text-emerald-400' :
+                                                                file.category === 'Agreements' ? 'bg-blue-500/10 text-blue-400' :
+                                                                file.category === 'Invoices' || file.category === 'Quotations' ? 'bg-amber-500/10 text-amber-400' :
+                                                                'bg-zinc-500/10 text-zinc-400'
+                                                            }`}>
+                                                                {file.category}
+                                                            </span>
+                                                            <span className="text-zinc-600">•</span>
+                                                            <span className="text-zinc-500">{formatDate(file.uploadedAt)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <button 
+                                                        onClick={() => api.downloadProjectFile(file.id, file.fileName)}
+                                                        className="touch-target p-2 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white rounded-xl transition-all"
+                                                        title="Download file"
+                                                    >
+                                                        <Download className="w-4 h-4" />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteFile(file.id)}
+                                                        className="touch-target p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-all"
+                                                        title="Delete file"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {projectFiles.length === 0 && (
+                                        <div className="col-span-full py-12 text-center border border-dashed border-white/5 rounded-2xl">
+                                            <p className="text-xs text-zinc-600 font-mono uppercase tracking-widest">No files uploaded to this project yet.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

@@ -1,43 +1,57 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, Mail, ExternalLink, Calendar } from 'lucide-react';
 import type { Client } from '../../types';
+import { api } from '../../services/api';
+
+import ClientPageLoader from './ClientPageLoader';
 
 interface ClientDirectoryProps {
   client: Client | null;
 }
 
 const ClientDirectory: React.FC<ClientDirectoryProps> = ({ client }) => {
-  if (!client) return null;
+  const [assignedStaff, setAssignedStaff] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const clientId = client.id || (client as any)._id;
-  const users = JSON.parse(localStorage.getItem('users') || '[]');
-  const savedTeamAssignments = JSON.parse(localStorage.getItem(`client_team_${clientId}`) || 'null');
+  useEffect(() => {
+    if (!client) return;
+    const clientId = client.id || (client as any)._id;
 
-  console.log('loggedInClientId', clientId);
-  console.log('savedTeamAssignments', savedTeamAssignments);
+    const loadData = async () => {
+      try {
+        const [allProjects, allUsers] = await Promise.all([
+          api.getProjects(),
+          api.getStaff()
+        ]);
 
-  const assignedStaff: any[] = [];
+        const clientProjects = allProjects.filter(p => p.clientId === clientId);
+        const mainProject = clientProjects[0];
 
-  if (savedTeamAssignments && Array.isArray(savedTeamAssignments)) {
-     savedTeamAssignments.forEach((cat: any) => {
-        if (cat.members && Array.isArray(cat.members)) {
-           cat.members.forEach((m: any) => {
-              if (m.memberId) {
-                 const user = users.find((u: any) => u.id === m.memberId);
-                 if (user) {
-                    assignedStaff.push({
-                       ...user,
-                       displayRole: cat.name,
-                       assignedDates: m.assigned_dates || []
-                    });
-                 }
-              }
-           });
+        if (mainProject && mainProject.staffAssignments) {
+          const staffAssigned = mainProject.staffAssignments.map((a: any) => {
+            const user = allUsers.find((u: any) => u.id === a.userId);
+            return {
+              id: a.userId,
+              name: user ? user.name : 'Unassigned',
+              email: user ? user.email : '',
+              displayRole: a.role === 'DroneOperator' ? 'Drone Operator' : a.role,
+              assignedDates: a.assignedAt ? [a.assignedAt] : []
+            };
+          });
+          setAssignedStaff(staffAssigned);
+        } else {
+          setAssignedStaff([]);
         }
-     });
-  }
+      } catch (err) {
+        console.error("Failed to load staff assignments in ClientDirectory:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [client?.id]);
 
-  console.log('filteredTeamAssignments', assignedStaff);
+  if (!client || loading) return <ClientPageLoader />;
 
   return (
     <div className="p-8 md:p-12 animate-ios-slide-up max-w-[1400px] mx-auto">

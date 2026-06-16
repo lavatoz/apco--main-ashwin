@@ -10,7 +10,7 @@ import { useCompanySettings, useCompanyForClient } from '../hooks/useCompanySett
 
 import { getAuthUser } from '../utils/storage';
 
-import { WORKFLOW_STAGES, getWorkflowProgress, normalizeWorkflowStage } from '../utils/workflowUtils';
+import { WORKFLOW_STAGES, normalizeWorkflowStage, calculateProjectWorkflowProgress } from '../utils/workflowUtils';
 import { DocumentPreviewModal } from '../components/DocumentPreviewModal';
 import { getBrandQuoteTemplate, getBrandInvoiceTemplate } from '../templates/registry';
 import { advanceProjectWorkflow, emergencyOverrideWorkflow } from '../utils/workflowEngine';
@@ -50,326 +50,7 @@ const ROLES = [
 ];
 
 
-const SmartRoleDropdown: React.FC<{
-   role: string,
-   allStaff: UserType[],
-   selectedId: string,
-   onChange: (id: string) => void,
-   onAddNew: () => void,
-   onDelete?: (id: string) => void,
-   onEdit?: (staff: UserType) => void,
-   isBusyFn?: (id: string) => boolean,
-   onAddMember?: (member: UserType) => void
-}> = ({ role, allStaff, selectedId, onChange, onDelete, onEdit, isBusyFn, onAddMember }) => {
-   const [isOpen, setIsOpen] = useState(false);
-   const [search, setSearch] = useState('');
-   const wrapperRef = useRef<HTMLDivElement>(null);
-   const contentRef = useRef<HTMLDivElement>(null);
 
-   const [isAddingInDropdown, setIsAddingInDropdown] = useState(false);
-   const [newMemberNameInDropdown, setNewMemberNameInDropdown] = useState('');
-   const [newMemberRoleInDropdown, setNewMemberRoleInDropdown] = useState(role);
-
-   const [inlineEditingId, setInlineEditingId] = useState<string | null>(null);
-   const [editName, setEditName] = useState('');
-   const [editRole, setEditRole] = useState('');
-
-   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-
-
-
-   useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-         const target = event.target as Node;
-         if (wrapperRef.current && !wrapperRef.current.contains(target)) {
-            if (contentRef.current && contentRef.current.contains(target)) {
-               return;
-            }
-            setIsOpen(false);
-            setIsAddingInDropdown(false);
-            setInlineEditingId(null);
-            setDeleteConfirmId(null);
-         }
-      };
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-   }, []);
-
-   const filteredOpts = allStaff.filter(s => s.staffRole === role && (s.name?.toLowerCase().includes(search.toLowerCase()) || s.email?.toLowerCase().includes(search.toLowerCase())));
-   const selectedOpt = allStaff.find(s => s.id === selectedId);
-   const displayValue = selectedOpt ? (selectedOpt.name || selectedOpt.email) : '';
-
-   const handleAddSaved = (e: React.MouseEvent) => {
-      e.preventDefault(); e.stopPropagation();
-      if (!newMemberNameInDropdown.trim()) return;
-      const newUser: UserType = {
-         id: `staff_${Date.now()}`,
-         name: newMemberNameInDropdown,
-         email: `${newMemberNameInDropdown.toLowerCase().replace(/\s/g, '')}@artisans.local`,
-         role: 'Staff',
-         staffRole: newMemberRoleInDropdown as any,
-         isActive: true,
-         permissions: []
-      };
-      onAddMember?.(newUser);
-      if (newMemberRoleInDropdown === role) {
-         onChange(newUser.id);
-      }
-      setIsAddingInDropdown(false);
-      setNewMemberNameInDropdown('');
-      setSearch('');
-   };
-
-   const handleEditSave = (e: React.MouseEvent, id: string) => {
-      e.preventDefault(); e.stopPropagation();
-      if (!editName.trim()) return;
-      const original = allStaff.find(s => s.id === id);
-      if (!original) return;
-
-      const updated: UserType = {
-         ...original,
-         name: editName,
-         staffRole: editRole as any
-      };
-      onEdit?.(updated);
-      setInlineEditingId(null);
-   };
-
-   return (
-      <div className={`relative flex-1 ${isOpen ? 'z-[9999]' : 'z-10'}`} ref={wrapperRef}>
-         <div
-            onMouseDown={(e) => { e.preventDefault(); setIsOpen(!isOpen); }}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsOpen(!isOpen); } }}
-            tabIndex={0}
-            className={`w-full bg-white/[0.03] border ${isOpen ? 'border-indigo-500/50 ring-4 ring-indigo-500/10' : (isBusyFn && isBusyFn(selectedId) ? 'border-amber-500/50' : 'border-white/5')} rounded-xl p-3.5 flex justify-between items-center text-[10px] font-black text-white hover:bg-white/[0.08] transition-all cursor-pointer shadow-sm group outline-none`}
-         >
-            <div className="flex items-center gap-3 overflow-hidden">
-               {selectedOpt ? (
-                  <div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-white text-[9px] font-black uppercase shrink-0 shadow-lg shadow-indigo-500/20">
-                     {(selectedOpt.name || selectedOpt.email || '?').charAt(0)}
-                  </div>
-               ) : (
-                  <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center shrink-0">
-                     <Users className="w-2.5 h-2.5 text-zinc-500 group-hover:text-zinc-400 transition-colors" />
-                  </div>
-               )}
-               <span className="truncate">{displayValue || 'Select Personnel...'}</span>
-            </div>
-            <div className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-               <Plus className="w-3 h-3 text-zinc-600 group-hover:text-zinc-400 transition-colors shrink-0" />
-            </div>
-         </div>
-
-         {isOpen && (
-            <div
-               ref={contentRef}
-               className="absolute left-0 right-0 top-[calc(100%+8px)] bg-[#0c0c0e] border border-white/10 rounded-2xl z-[10000] shadow-[0_30px_90px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col animate-ios-fade-in pointer-events-auto backdrop-blur-xl"
-            >
-               {isAddingInDropdown ? (
-                  <div className="p-5 space-y-4 animate-ios-slide-up" onMouseDown={e => e.stopPropagation()}>
-                     <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-1">Initialize Registry</p>
-                     <div className="space-y-3">
-                        <div className="space-y-1">
-                           <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Full Name</label>
-                           <input
-                              autoFocus
-                              placeholder="Ex. Jane Doe"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all"
-                              value={newMemberNameInDropdown}
-                              onChange={e => setNewMemberNameInDropdown(e.target.value)}
-                           />
-                        </div>
-                        <div className="space-y-1">
-                           <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest px-1">Functional Class</label>
-                           <select
-                              className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] font-bold text-white outline-none focus:border-indigo-500/50 transition-all appearance-none"
-                              value={newMemberRoleInDropdown}
-                              onChange={e => setNewMemberRoleInDropdown(e.target.value)}
-                           >
-                              {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                           </select>
-                        </div>
-                     </div>
-                     <div className="flex gap-2 pt-2">
-                        <button onClick={handleAddSaved} className="flex-1 py-3 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-95 shadow-xl shadow-white/10">Commit Person</button>
-                        <button onClick={() => setIsAddingInDropdown(false)} className="px-4 py-3 bg-white/5 text-zinc-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
-                     </div>
-                  </div>
-               ) : (
-                  <>
-                     <div className="p-3 border-b border-white/5 shrink-0 relative bg-white/[0.02]">
-                        <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-6 top-1/2 -translate-y-1/2" />
-                        <input
-                           type="text"
-                           autoFocus
-                           className="w-full bg-black/40 border border-white/5 rounded-xl p-3 pl-10 text-[10px] font-bold text-white placeholder:text-zinc-600 outline-none focus:border-white/20 transition-all font-mono"
-                           placeholder="SEARCH PERSONNEL..."
-                           value={search}
-                           onChange={e => setSearch(e.target.value)}
-                        />
-                     </div>
-
-                     <div className="max-h-[280px] overflow-y-auto no-scrollbar p-2 flex flex-col gap-1.5 custom-scrollbar">
-                        {filteredOpts.map(s => {
-                           const isEditing = inlineEditingId === s.id;
-                           const isDeleting = deleteConfirmId === s.id;
-
-                           if (isEditing) {
-                              return (
-                                 <div key={s.id} className="p-3 bg-white/5 rounded-xl space-y-3 animate-ios-fade-in" onMouseDown={e => e.stopPropagation()}>
-                                    <input
-                                       autoFocus
-                                       className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-[10px] font-bold text-white outline-none focus:border-indigo-500/50"
-                                       value={editName}
-                                       onChange={e => setEditName(e.target.value)}
-                                    />
-                                    <div className="flex items-center gap-2">
-                                       <select
-                                          className="flex-1 bg-black/40 border border-white/10 rounded-lg p-2 text-[9px] font-black text-zinc-400 uppercase outline-none"
-                                          value={editRole}
-                                          onChange={e => setEditRole(e.target.value)}
-                                       >
-                                          {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                                       </select>
-                                       <button onClick={(e) => handleEditSave(e, s.id)} className="p-2 bg-primary text-white rounded-lg hover:bg-emerald-600 transition-all"><Check size={12} /></button>
-                                       <button onClick={() => setInlineEditingId(null)} className="p-2 bg-white/5 text-zinc-500 rounded-lg hover:bg-white/10 transition-all"><X size={12} /></button>
-                                    </div>
-                                 </div>
-                              );
-                           }
-
-                           if (isDeleting) {
-                              return (
-                                 <div key={s.id} className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-between animate-ios-slide-up" onMouseDown={e => e.stopPropagation()}>
-                                    <span className="text-[9px] font-black text-red-500 uppercase tracking-widest px-1">Are you sure?</span>
-                                    <div className="flex items-center gap-2">
-                                       <button
-                                          onClick={(e) => {
-                                             e.preventDefault(); e.stopPropagation();
-                                             onDelete?.(s.id);
-                                             setDeleteConfirmId(null);
-                                          }}
-                                          className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-red-600 transition-all"
-                                       >
-                                          Delete
-                                       </button>
-                                       <button onClick={() => setDeleteConfirmId(null)} className="px-3 py-1.5 bg-white/5 text-zinc-500 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
-                                    </div>
-                                 </div>
-                              );
-                           }
-
-                           return (
-                              <div
-                                 key={s.id}
-                                 onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    onChange(s.id);
-                                    setIsOpen(false);
-                                    setSearch('');
-                                 }}
-                                 className="p-3 hover:bg-white/[0.05] rounded-xl cursor-pointer flex justify-between items-center transition-all group/item"
-                              >
-                                 <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className={`w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-[11px] font-black uppercase shrink-0 group-hover/item:bg-indigo-500 group-hover/item:text-white transition-all shadow-sm`}>
-                                       {(s.name || s.email || '?').charAt(0)}
-                                    </div>
-                                    <div className="truncate">
-                                       <p className="text-[10px] font-black text-white uppercase truncate tracking-wide">{s.name || s.email}</p>
-                                       <p className="text-[8px] font-bold text-zinc-500 truncate uppercase mt-0.5 flex items-center gap-1">
-                                          <div className="w-1 h-1 rounded-full bg-zinc-700" />
-                                          {s.staffRole || 'Member'}
-                                       </p>
-                                    </div>
-                                 </div>
-                                 <div className="flex items-center gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                    <button
-                                       type="button"
-                                       onMouseDown={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setEditName(s.name || '');
-                                          setEditRole(s.staffRole || '');
-                                          setInlineEditingId(s.id);
-                                       }}
-                                       className="p-1.5 hover:bg-white/10 rounded-lg text-zinc-500 hover:text-white transition-all"
-                                    >
-                                       <Edit2 size={12} />
-                                    </button>
-                                    <button
-                                       type="button"
-                                       onMouseDown={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setDeleteConfirmId(s.id);
-                                       }}
-                                       className="p-1.5 hover:bg-red-500/10 rounded-lg text-zinc-500 hover:text-red-500 transition-all"
-                                    >
-                                       <Trash2 size={12} />
-                                    </button>
-                                    {isBusyFn && isBusyFn(s.id) ? (
-                                       <span className="text-[7px] text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full uppercase font-black tracking-tighter">Busy</span>
-                                    ) : (
-                                       <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                                    )}
-                                 </div>
-                              </div>
-                           );
-                        })}
-
-                        {filteredOpts.length === 0 && (
-                           <div className="py-12 flex flex-col items-center justify-center gap-3 opacity-50">
-                              <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5">
-                                 <Users className="w-5 h-5 text-zinc-500" />
-                              </div>
-                              <p className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">No members found</p>
-                           </div>
-                        )}
-
-                        {selectedId && !inlineEditingId && !deleteConfirmId && (
-                           <>
-                              <div className="h-px bg-white/5 my-1 shrink-0" />
-                              <div
-                                 onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    onChange('');
-                                    setIsOpen(false);
-                                    setSearch('');
-                                 }}
-                                 className="p-3 hover:bg-red-500/10 rounded-xl cursor-pointer flex items-center justify-center gap-2 group/clear transition-all"
-                              >
-                                 <X className="w-3 h-3 text-zinc-600 group-hover/clear:text-red-500 transition-colors" />
-                                 <span className="text-[9px] font-black text-zinc-600 group-hover/clear:text-red-500 uppercase tracking-widest transition-colors">Clear Assignment</span>
-                              </div>
-                           </>
-                        )}
-                     </div>
-
-                     <div className="border-t border-white/5 bg-black/40 p-4 shrink-0 relative z-[1000]">
-                        <button
-                           type="button"
-                           onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              console.log('Add New Person clicked');
-                              setNewMemberNameInDropdown(search);
-                              setNewMemberRoleInDropdown(role);
-                              setIsAddingInDropdown(true);
-                           }}
-                           className="w-full py-3.5 bg-white text-black hover:bg-zinc-200 active:scale-[0.98] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl shadow-indigo-500/10 pointer-events-auto cursor-pointer relative z-[1001]"
-                        >
-                           + Add New Person
-                        </button>
-                     </div>
-                  </>
-               )}
-            </div>
-         )}
-      </div>
-   );
-};
 
 
 const ClientDetailsPage: React.FC = () => {
@@ -586,6 +267,35 @@ const ClientDetailsPage: React.FC = () => {
    const [newStaffForm, setNewStaffForm] = useState({ name: '', role: 'photographer', contact: '' });
    const [pendingDropdownAssign, setPendingDropdownAssign] = useState<{ role: string, idx: number } | null>(null);
 
+   // Personnel Selector Modal State
+   const [isPersonnelBrowserOpen, setIsPersonnelBrowserOpen] = useState(false);
+   const [pendingSelectorAssign, setPendingSelectorAssign] = useState<{
+      categoryId: string;
+      memberIndex: number;
+      role: string;
+   } | null>(null);
+   const [browserSelectedStaffId, setBrowserSelectedStaffId] = useState<string>('');
+   const [browserSearch, setBrowserSearch] = useState('');
+
+   const getStaffRosterStatus = (staffId: string) => {
+      const staff = allStaff.find(s => s.id === staffId);
+      if (!staff) return 'Available';
+      
+      if (!staff.isActive || (staff as any).status === 'On Leave' || (staff as any).isOnLeave) {
+         return 'On Leave';
+      }
+
+      // Check if assigned to this client
+      const isAssignedToCurrent = teamCategories.some(cat => 
+         cat.members.some((m: any) => m.memberId === staffId)
+      );
+      if (isAssignedToCurrent) {
+         return 'Assigned';
+      }
+
+      return 'Available';
+   };
+
    const [pendingConfirm, setPendingConfirm] = useState<{
       title: string;
       message: string;
@@ -605,13 +315,6 @@ const ClientDetailsPage: React.FC = () => {
    };
 
 
-
-   const handleAddArtisanMember = (m: UserType) => {
-      // Sync to global users for Team Placement
-      const storedUsers = JSON.parse(localStorage.getItem('users') || '[]');
-      localStorage.setItem('users', JSON.stringify([...storedUsers, m]));
-      setAllStaff(prev => [...prev, m]);
-   };
 
    // Agreement Templates State
    const [agreementTemplates, setAgreementTemplates] = useState<AgreementTemplate[]>([]);
@@ -663,56 +366,94 @@ const ClientDetailsPage: React.FC = () => {
    const [newMemberEmailInSearch, setNewMemberEmailInSearch] = useState('');
    const [newMemberRateInSearch, setNewMemberRateInSearch] = useState('');
 
-   const [personnelRegistry, setPersonnelRegistry] = useState<any[]>(() => {
-      const stored = localStorage.getItem('personnel_registry');
-      if (stored) return JSON.parse(stored);
-      return SUGGESTIONS.team.map((t, idx) => ({ ...t, id: `pr_${idx}`, status: 'Active' }));
-   });
+   const [personnelRegistry, setPersonnelRegistry] = useState<any[]>([]);
 
-   const savePersonnelRegistry = (newRegistry: any[]) => {
-      setPersonnelRegistry(newRegistry);
-      localStorage.setItem('personnel_registry', JSON.stringify(newRegistry));
-   };
-
-   const handleDeletePersonnel = (id: string, e: React.MouseEvent) => {
+   const handleDeletePersonnel = async (id: string, e: React.MouseEvent) => {
       e.preventDefault(); e.stopPropagation();
       if (!window.confirm("Are you sure you want to remove this person from the registry?")) return;
 
       const personToRemove = personnelRegistry.find(p => p.id === id);
-      const newRegistry = personnelRegistry.filter(p => p.id !== id);
-      savePersonnelRegistry(newRegistry);
-
-      if (personToRemove) {
-         setCategorizedItems(prev => ({
-            ...prev,
-            team: prev.team.filter(t => t.name !== personToRemove.name)
-         }));
+      try {
+         await api.deletePersonnel(id);
+         setPersonnelRegistry(prev => prev.filter(p => p.id !== id));
+         if (personToRemove) {
+            setCategorizedItems(prev => ({
+               ...prev,
+               team: prev.team.filter(t => t.name !== personToRemove.name)
+            }));
+         }
+         addToast("Personnel removed from registry");
+      } catch (err) {
+         console.error(err);
+         addToast("Failed to remove personnel from registry");
       }
-      addToast("Personnel removed from registry");
    };
 
    const [editingPersonnel, setEditingPersonnel] = useState<any | null>(null);
 
-   const handleSavePersonnelEdit = () => {
+   const handleSavePersonnelEdit = async () => {
       if (!editingPersonnel || !editingPersonnel.name.trim()) return;
-      const newRegistry = personnelRegistry.map(p => p.id === editingPersonnel.id ? editingPersonnel : p);
-      savePersonnelRegistry(newRegistry);
+      try {
+         const payload = {
+            id: editingPersonnel.id,
+            name: editingPersonnel.name,
+            role: editingPersonnel.role,
+            phone: editingPersonnel.phone || null,
+            email: editingPersonnel.email || null,
+            rate: editingPersonnel.rate !== undefined ? Number(editingPersonnel.rate) : Number(editingPersonnel.cost) || 0,
+            status: editingPersonnel.status || 'Active'
+         };
+         const saved = await api.savePersonnel(payload);
+         setPersonnelRegistry(prev => prev.map(p => p.id === editingPersonnel.id ? saved : p));
 
-      const oldPerson = personnelRegistry.find(p => p.id === editingPersonnel.id);
-      if (oldPerson && oldPerson.name !== editingPersonnel.name) {
-         setCategorizedItems(prev => ({
-            ...prev,
-            team: prev.team.map(t => t.name === oldPerson.name ? { ...t, name: editingPersonnel.name, role: editingPersonnel.role } : t)
-         }));
-      } else if (oldPerson && oldPerson.role !== editingPersonnel.role) {
-         setCategorizedItems(prev => ({
-            ...prev,
-            team: prev.team.map(t => t.name === oldPerson.name ? { ...t, role: editingPersonnel.role } : t)
-         }));
+         const oldPerson = personnelRegistry.find(p => p.id === editingPersonnel.id);
+         if (oldPerson && oldPerson.name !== editingPersonnel.name) {
+            setCategorizedItems(prev => ({
+               ...prev,
+               team: prev.team.map(t => t.name === oldPerson.name ? { ...t, name: editingPersonnel.name, role: editingPersonnel.role } : t)
+            }));
+         } else if (oldPerson && oldPerson.role !== editingPersonnel.role) {
+            setCategorizedItems(prev => ({
+               ...prev,
+               team: prev.team.map(t => t.name === oldPerson.name ? { ...t, role: editingPersonnel.role } : t)
+            }));
+         }
+
+         setEditingPersonnel(null);
+         addToast("Personnel updated");
+      } catch (err) {
+         console.error(err);
+         addToast("Failed to update personnel");
       }
+   };
 
-      setEditingPersonnel(null);
-      addToast("Personnel updated");
+   const handleAddAndAssignPersonnel = async () => {
+      const newPerson = {
+         name: searchQuery,
+         role: newMemberRoleInSearch,
+         phone: newMemberPhoneInSearch || null,
+         email: newMemberEmailInSearch || null,
+         rate: Number(newMemberRateInSearch) || 0,
+         status: 'Active'
+      };
+      try {
+         const saved = await api.savePersonnel(newPerson);
+         setPersonnelRegistry(prev => [...prev, saved]);
+         setCategorizedItems(prev => ({ 
+            ...prev, 
+            team: [...prev.team, { id: saved.id, name: searchQuery, role: newMemberRoleInSearch, cost: Number(newMemberRateInSearch) || 0 }] 
+         }));
+         setSearchQuery("");
+         setNewMemberPhoneInSearch("");
+         setNewMemberEmailInSearch("");
+         setNewMemberRateInSearch("");
+         setShowSuggestions(false);
+         setIsAddingNewInSearch(false);
+         addToast("Personnel added to registry and assigned");
+      } catch (err) {
+         console.error(err);
+         addToast("Failed to register and assign personnel");
+      }
    };
 
    const searchRef = useRef<HTMLDivElement>(null);
@@ -974,11 +715,12 @@ const ClientDetailsPage: React.FC = () => {
          message: "Are you sure you want to delete this quotation? This action cannot be undone.",
          tone: "danger",
          onConfirm: () => {
-            setClientQuotes(prev => prev.filter(q => q.id !== quoteId));
-            const stored = JSON.parse(localStorage.getItem("quotes") || "[]");
-            const updated = stored.filter((q: any) => q.id !== quoteId);
-            localStorage.setItem("quotes", JSON.stringify(updated));
-            window.dispatchEvent(new Event("finance-updated"));
+            api.deleteInvoice(quoteId)
+               .then(() => {
+                  setClientQuotes(prev => prev.filter(q => q.id !== quoteId));
+                  window.dispatchEvent(new Event("finance-updated"));
+               })
+               .catch(err => console.error("Failed to delete quotation:", err));
          }
       });
    };
@@ -989,11 +731,12 @@ const ClientDetailsPage: React.FC = () => {
          message: "Are you sure you want to delete this invoice? This action cannot be undone.",
          tone: "danger",
          onConfirm: () => {
-            setClientInvoices(prev => prev.filter(i => i.id !== invoiceId));
-            const stored = JSON.parse(localStorage.getItem("invoices") || "[]");
-            const updated = stored.filter((i: any) => i.id !== invoiceId);
-            localStorage.setItem("invoices", JSON.stringify(updated));
-            window.dispatchEvent(new Event("finance-updated"));
+            api.deleteInvoice(invoiceId)
+               .then(() => {
+                  setClientInvoices(prev => prev.filter(i => i.id !== invoiceId));
+                  window.dispatchEvent(new Event("finance-updated"));
+               })
+               .catch(err => console.error("Failed to delete invoice:", err));
          }
       });
    };
@@ -1187,33 +930,51 @@ const ClientDetailsPage: React.FC = () => {
       setEditingTemplateId(id);
    };
 
-   const handleSaveTermsVersion = () => {
-      let updated = [...agreementTemplates];
-      if (editingTemplateId === 'new') {
-         const nextV = updated.length > 0 ? Math.max(...updated.map(g => g.version)) + 1 : 1;
-         updated.push({
-            id: 'v' + Date.now(),
-            version: nextV,
-            title: termsEditTitle,
-            body: termsEditText,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-         });
-      } else {
-         updated = updated.map(t => t.id === editingTemplateId ? { ...t, title: termsEditTitle, body: termsEditText, updatedAt: new Date().toISOString() } : t);
-      }
-      localStorage.setItem('artisans_agreement_templates', JSON.stringify(updated));
-      setAgreementTemplates(updated);
-      setEditingTemplateId(null);
-   };
+    const handleSaveTermsVersion = async () => {
+       try {
+          let payload: any;
+          if (editingTemplateId === 'new') {
+             const nextV = agreementTemplates.length > 0 ? Math.max(...agreementTemplates.map(g => g.version)) + 1 : 1;
+             payload = {
+                title: termsEditTitle,
+                body: termsEditText,
+                version: nextV
+             };
+          } else {
+             const existing = agreementTemplates.find(t => t.id === editingTemplateId);
+             payload = {
+                id: editingTemplateId,
+                title: termsEditTitle,
+                body: termsEditText,
+                version: existing ? existing.version : 1
+             };
+          }
+          const saved = await api.saveAgreementTemplate(payload);
+          if (editingTemplateId === 'new') {
+             setAgreementTemplates(prev => [...prev, saved]);
+          } else {
+             setAgreementTemplates(prev => prev.map(t => t.id === editingTemplateId ? saved : t));
+          }
+          setEditingTemplateId(null);
+          addToast("Agreement template saved");
+       } catch (err) {
+          console.error(err);
+          addToast("Failed to save template");
+       }
+    };
 
-   const handleDeleteTemplate = (id: string) => {
-      if (confirm("WARNING: This will globally delete this agreement template. Assigned snapshots will remain unaffected. Continue?")) {
-         const updated = agreementTemplates.filter(t => t.id !== id);
-         localStorage.setItem('artisans_agreement_templates', JSON.stringify(updated));
-         setAgreementTemplates(updated);
-      }
-   };
+    const handleDeleteTemplate = async (id: string) => {
+       if (confirm("WARNING: This will globally delete this agreement template. Assigned snapshots will remain unaffected. Continue?")) {
+          try {
+             await api.deleteAgreementTemplate(id);
+             setAgreementTemplates(prev => prev.filter(t => t.id !== id));
+             addToast("Agreement template deleted");
+          } catch (err) {
+             console.error(err);
+             addToast("Failed to delete template");
+          }
+       }
+    };
 
    const handleAssignToClient = (temp: AgreementTemplate) => {
       if (confirm(`Assign snapshot of ${temp.title} to this client?`)) {
@@ -1227,14 +988,12 @@ const ClientDetailsPage: React.FC = () => {
          };
 
          // Update Client Record
-         const storedClients = JSON.parse(localStorage.getItem('clients') || '[]');
-         const updatedClients = storedClients.map((c: Client) => {
-            if (c.id === id || c._id === id) {
-               return { ...c, activeAgreement: snapshot };
-            }
-            return c;
-         });
-         localStorage.setItem('clients', JSON.stringify(updatedClients));
+         if (client) {
+            const uc = { ...client, activeAgreement: snapshot };
+            api.saveClient(uc)
+               .then(saved => setClient(saved))
+               .catch(err => console.error("Failed to assign agreement", err));
+         }
 
          // Update local state UI
          setClientAgreement({
@@ -1250,42 +1009,33 @@ const ClientDetailsPage: React.FC = () => {
    };
 
    const handleRevokeAgreement = () => {
-      if (confirm("Remove active agreement from client? This will prevent them from accepting until re-assigned.")) {
-         const storedClients = JSON.parse(localStorage.getItem('clients') || '[]');
-         const updatedClients = storedClients.map((c: Client) => {
-            if (c.id === id || c._id === id) {
-               const prev = c.activeAgreement;
-               return { ...c, activeAgreement: prev ? { ...prev, status: 'revoked' } : undefined };
-            }
-            return c;
-         });
-         localStorage.setItem('clients', JSON.stringify(updatedClients));
+      if (client && confirm("Remove active agreement from client? This will prevent them from accepting until re-assigned.")) {
+         const prev = client.activeAgreement;
+         const uc = { ...client, activeAgreement: prev ? { ...prev, status: 'revoked' as any } : undefined };
+         api.saveClient(uc)
+            .then(saved => setClient(saved))
+            .catch(err => console.error("Failed to revoke agreement", err));
          setClientAgreement(null);
       }
    };
 
    const handleAcceptAgreement = () => {
-      if (!isAgreed || !clientAgreement) return;
+      if (!isAgreed || !clientAgreement || !client) return;
       const acceptedDate = new Date();
 
-      // Update Client Record Snapshot
-      const storedClients = JSON.parse(localStorage.getItem('clients') || '[]');
-      const updatedClients = storedClients.map((c: Client) => {
-         if (c.id === id || c._id === id) {
-            if (c.activeAgreement) {
-               return {
-                  ...c,
-                  activeAgreement: {
-                     ...c.activeAgreement,
-                     status: 'accepted' as any,
-                     acceptedAt: acceptedDate.toISOString()
-                  }
-               };
+      if (client.activeAgreement) {
+         const uc = {
+            ...client,
+            activeAgreement: {
+               ...client.activeAgreement,
+               status: 'accepted' as any,
+               acceptedAt: acceptedDate.toISOString()
             }
-         }
-         return c;
-      });
-      localStorage.setItem('clients', JSON.stringify(updatedClients));
+         };
+         api.saveClient(uc)
+            .then(saved => setClient(saved))
+            .catch(err => console.error("Failed to accept agreement", err));
+      }
 
       const ag: ClientAgreement = {
          ...clientAgreement,
@@ -1295,19 +1045,32 @@ const ClientDetailsPage: React.FC = () => {
       setClientAgreement(ag);
    };
 
-   const handleUploadIdProof = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-         const file = e.target.files[0];
-         const newDoc: IdDocument = {
-            clientId: id!,
-            type: "id_proof",
-            fileName: file.name,
-            fileUrl: URL.createObjectURL(file)
-         };
-         localStorage.setItem(`id_document_${id}`, JSON.stringify(newDoc));
-         setIdDocument(newDoc);
-      }
-   };
+    const handleUploadIdProof = async (e: React.ChangeEvent<HTMLInputElement>) => {
+       if (e.target.files && e.target.files[0]) {
+          const file = e.target.files[0];
+          if (!project) {
+             alert("A project must be created for this client before uploading identity documents.");
+             return;
+          }
+
+          try {
+             const renamedFile = new File([file], `ID_Proof_${(client?.name || 'Client').replace(/[^a-zA-Z0-9]/g, '_')}_${file.name}`, { type: file.type });
+             const uploadedFile = await api.uploadFile(project.id, 'Agreements', renamedFile, true);
+             
+             const newDoc: IdDocument = {
+                clientId: id!,
+                type: "id_proof",
+                fileName: file.name,
+                fileUrl: `/files/${uploadedFile.id}/download`
+             };
+             setIdDocument(newDoc);
+             addToast("ID Proof Uploaded & Secured");
+          } catch (err) {
+             console.error("Failed to upload ID proof", err);
+             addToast("Failed to upload ID proof");
+          }
+       }
+    };
 
    useEffect(() => {
       let isMounted = true;
@@ -1315,20 +1078,42 @@ const ClientDetailsPage: React.FC = () => {
       const fetchClientData = async () => {
          setLoading(true);
 
-         const storedClients = localStorage.getItem('clients');
          let foundClient: Client | null = null;
-         if (storedClients) {
-            const clients: Client[] = JSON.parse(storedClients);
-            foundClient = clients.find(c => c.id === id || c._id === id) || null;
-            if (isMounted) setClient(foundClient);
+         try {
+            foundClient = await api.getClientById(id!);
+            if (isMounted && foundClient) setClient(foundClient);
+         } catch (err) {
+            console.error("Failed to fetch client details from backend", err);
          }
 
          if (foundClient) {
-            // Hydrate Agreement Templates
-            const storedTemps = localStorage.getItem('artisans_agreement_templates');
-            if (storedTemps) {
-               setAgreementTemplates(JSON.parse(storedTemps));
-            }
+             // Hydrate Agreement Templates from backend
+             try {
+                const templates = await api.getAgreementTemplates();
+                if (templates && templates.length > 0) {
+                   setAgreementTemplates(templates);
+                } else {
+                   const defaultTemp = {
+                      title: 'Standard Operational Terms',
+                      body: "Apex Production Co. Standard Terms of Engagement. By signing, the client agrees to the production timeline and payment schedule outlined in the quotation.",
+                      version: 1
+                   };
+                   const created = await api.saveAgreementTemplate(defaultTemp);
+                   setAgreementTemplates([created]);
+                }
+             } catch (err) {
+                console.error("Failed to load templates from backend", err);
+             }
+
+             // Hydrate Personnel Registry from backend
+             try {
+                const registry = await api.getPersonnel();
+                if (registry && isMounted) {
+                   setPersonnelRegistry(registry);
+                }
+             } catch (err) {
+                console.error("Failed to load personnel from backend", err);
+             }
 
             // Hydrate Client Agreement from Snapshot
             if (foundClient.activeAgreement) {
@@ -1343,8 +1128,30 @@ const ClientDetailsPage: React.FC = () => {
                });
             }
 
-            const cd = JSON.parse(localStorage.getItem(`id_document_${id}`) || 'null');
-            if (cd) setIdDocument(cd);
+            // Staged files migrated to Google Drive + PostgreSQL.
+
+             let foundProject: Project | null = null;
+             try {
+                const projects = await api.getProjects();
+                foundProject = projects.find(p => p.clientId === id || p.clientId === foundClient?.id || p.clientId === foundClient?._id) || null;
+                if (isMounted) setProject(foundProject);
+                
+                if (foundProject) {
+                   const projectFiles = await api.getFilesByProject(foundProject.id, 'Agreements');
+                   const idFile = projectFiles.find((f: any) => f.fileName.startsWith('ID_Proof_'));
+                   if (idFile && isMounted) {
+                      const cleanName = idFile.fileName.replace(/^ID_Proof_[a-zA-Z0-9_]+?_/, '');
+                      setIdDocument({
+                         clientId: id!,
+                         type: "id_proof",
+                         fileName: cleanName,
+                         fileUrl: `/files/${idFile.id}/download`
+                      });
+                   }
+                }
+             } catch (err) {
+                console.error("Failed to fetch projects or ID document from backend", err);
+             }
 
             try {
                const allLedger = await api.getInvoices();
@@ -1364,51 +1171,35 @@ const ClientDetailsPage: React.FC = () => {
                console.error("Failed to fetch client documents", err);
             }
 
-            const storedUsers = localStorage.getItem('users');
-            if (storedUsers) {
-               const parsedUsers = JSON.parse(storedUsers);
-               if (isMounted) setAllStaff(parsedUsers.filter((u: any) => u.role === 'Staff'));
+            let staffRoster: UserType[] = [];
+            try {
+               const staffList = await api.getStaff();
+               staffRoster = staffList.map(s => ({
+                  id: s.id,
+                  email: s.email,
+                  role: 'Staff',
+                  staffRole: s.role,
+                  isActive: s.isActive,
+                  name: s.name,
+                  permissions: []
+               }));
+               if (isMounted) setAllStaff(staffRoster);
+            } catch (err) {
+               console.error("Failed to fetch staff roster from backend", err);
             }
 
-            const cTeam = JSON.parse(localStorage.getItem(`client_team_${id}`) || 'null');
-            if (cTeam && isMounted) {
-               if (Array.isArray(cTeam)) {
-                  // New dynamic format
-                  setTeamCategories(cTeam);
-               } else {
-                  // Legacy object format migration
-                  const migrated: any[] = [];
-                  for (const role in cTeam) {
-                     const members = (cTeam[role] && cTeam[role].length > 0)
-                        ? (typeof cTeam[role][0] === 'string'
-                           ? cTeam[role].map((str: string) => ({ memberId: str, assigned_dates: [] }))
-                           : cTeam[role].map((item: any) => ({
-                              memberId: item.memberId || '',
-                              assigned_dates: item.assigned_dates || (item.assigned_date ? [item.assigned_date] : [])
-                           })))
-                        : [{ memberId: '', assigned_dates: [] }];
-
-                     migrated.push({
-                        id: `cat_${role}`,
-                        name: role.charAt(0).toUpperCase() + role.slice(1),
-                        members
-                     });
-                  }
-                  setTeamCategories(migrated);
-               }
+            const defaultRoles = ['Photographer', 'Videographer', 'Editor', 'Assistant', 'Drone Operator', 'Designer'];
+            if (foundProject && isMounted) {
+               const nextCats = getProjectTeamCategories(foundProject);
+               setTeamCategories(nextCats);
             } else if (isMounted) {
-               // Default categories if nothing in storage
-               setTeamCategories([
-                  { id: 'cat_photo', name: 'Photographer', members: [{ memberId: '', assigned_dates: [] }] },
-                  { id: 'cat_video', name: 'Videographer', members: [{ memberId: '', assigned_dates: [] }] }
-               ]);
-            }
-
-            const storedProjects = localStorage.getItem('projects');
-            if (storedProjects) {
-               const projects: Project[] = JSON.parse(storedProjects);
-               const foundProject = projects.find(p => p.clientId === id || p.clientId === foundClient?.id || p.clientId === foundClient?._id);
-               if (isMounted) setProject(foundProject || null);
+               setTeamCategories(
+                  defaultRoles.map(r => ({
+                     id: `cat_${r.toLowerCase().replace(/\s/g, '')}`,
+                     name: r,
+                     members: [{ memberId: '', assigned_dates: [] }]
+                  }))
+               );
             }
          }
 
@@ -1418,31 +1209,6 @@ const ClientDetailsPage: React.FC = () => {
       fetchClientData();
       return () => { isMounted = false; };
    }, [id]);
-
-   const handleDeleteStaff = (staffId: string) => {
-      if (!confirm("Are you sure you want to remove this staff member? This will clear them from current assignments.")) return;
-      const stored = JSON.parse(localStorage.getItem('users') || '[]');
-      const updated = stored.filter((u: any) => u.id !== staffId);
-      localStorage.setItem('users', JSON.stringify(updated));
-      setAllStaff(updated.filter((u: any) => u.role === 'Staff'));
-
-      setTeamCategories(prev => {
-         const next = prev.map(cat => ({
-            ...cat,
-            members: cat.members.map(m => m.memberId === staffId ? { ...m, memberId: '' } : m)
-         }));
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-         syncToProjects(next);
-         return next;
-      });
-   };
-
-   const handleEditStaff = (staff: UserType) => {
-      const stored = JSON.parse(localStorage.getItem('users') || '[]');
-      const updated = stored.map((u: any) => u.id === staff.id ? { ...u, ...staff } : u);
-      localStorage.setItem('users', JSON.stringify(updated));
-      setAllStaff(updated.filter((u: any) => u.role === 'Staff'));
-   };
 
    const handleAddNewStaffSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -1472,73 +1238,93 @@ const ClientDetailsPage: React.FC = () => {
          localStorage.setItem('users', JSON.stringify(updatedUsers));
          setAllStaff(updatedUsers.filter((u: any) => u.role === 'Staff'));
 
-         if (pendingDropdownAssign) {
+         if (isPersonnelBrowserOpen) {
+            setBrowserSelectedStaffId(newUser.id);
+         } else if (pendingDropdownAssign) {
             handleMemberChange(pendingDropdownAssign.role, pendingDropdownAssign.idx, newUser.id);
          }
       }
       setIsAddStaffModalOpen(false);
       setNewStaffForm({ name: '', role: 'photographer', contact: '' });
    };
-   const syncToProjects = async (categories: any[]) => {
-      const stored = localStorage.getItem('projects');
-      if (!stored) return;
-      const projects: any[] = JSON.parse(stored);
-      const pIdx = projects.findIndex(p => p.clientId === id || p.id === project?.id);
-      if (pIdx >= 0) {
-         const projectTeam: any = {};
-         let hasEditor = false;
-         let hasMember = false;
 
-         categories.forEach(cat => {
-            const key = cat.name.toLowerCase().replace(/\s/g, '') + 's';
-            projectTeam[key] = cat.members.map((item: any) => {
-               const staff = allStaff.find(s => s.id === item.memberId);
-               if (staff && item.memberId) {
-                  hasMember = true;
-                  if (cat.name.toLowerCase().includes('editor') || staff.role.toLowerCase().includes('editor')) {
-                     hasEditor = true;
-                  }
-               }
-               return {
-                  id: item.memberId,
-                  name: staff?.name || 'Unassigned',
-                  type: staff?.role === 'Staff' ? 'internal' : staff?.role === 'Admin' ? 'internal' : 'external',
-                  assigned_dates: item.assigned_dates || [],
-                  assigned_events: item.assigned_events || []
-               };
-            });
-         });
-         projects[pIdx].team = projectTeam;
-         localStorage.setItem('projects', JSON.stringify(projects));
-         setProject(projects[pIdx]);
-
-         // Workflow auto-advance based on assignments
-         if (hasEditor) {
-            await advanceProjectWorkflow(projects[pIdx].id, 'Editing', 'Editor assigned to project');
-         } else if (hasMember) {
-            await advanceProjectWorkflow(projects[pIdx].id, 'Team Assigned', 'Team member assigned');
-         }
-      }
+   const mapUiRoleToDbRole = (uiRole: string): string => {
+      const clean = uiRole.replace(/\s/g, '').toLowerCase();
+      if (clean === 'photographer') return 'Photographer';
+      if (clean === 'videographer') return 'Videographer';
+      if (clean === 'editor') return 'Editor';
+      if (clean === 'assistant') return 'Assistant';
+      if (clean === 'droneoperator') return 'DroneOperator';
+      if (clean === 'designer') return 'Designer';
+      return uiRole;
    };
-   const handleMemberChange = (catId: string, mIdx: number, val: string) => {
-      setTeamCategories(prev => {
-         const next = prev.map(cat => {
-            if (cat.id !== catId) return cat;
-            const nextMembers = [...cat.members];
-            nextMembers[mIdx] = { ...nextMembers[mIdx], memberId: val };
-            return { ...cat, members: nextMembers };
-         });
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-         syncToProjects(next);
-         return next;
+
+   const getProjectTeamCategories = (proj: Project) => {
+      const defaultRoles = ['Photographer', 'Videographer', 'Editor', 'Assistant', 'Drone Operator', 'Designer'];
+      const assignments = proj.staffAssignments || [];
+
+      return defaultRoles.map(roleName => {
+         const cleanRoleName = roleName.replace(/\s/g, '').toLowerCase();
+         const dbRole = mapUiRoleToDbRole(roleName);
+         
+         const matchingAssignments = assignments.filter((a: any) => 
+            a.role === dbRole
+         );
+
+         const members = matchingAssignments.length > 0 
+            ? matchingAssignments.map((a: any) => ({
+                 memberId: a.userId,
+                 assigned_dates: a.assignedAt ? [a.assignedAt] : []
+              }))
+            : [{ memberId: '', assigned_dates: [] }];
+
+         return {
+            id: `cat_${cleanRoleName}`,
+            name: roleName,
+            members
+         };
       });
    };
 
+   const handleMemberChange = async (catId: string, mIdx: number, val: string) => {
+      if (!project) {
+         addToast("Cannot assign crew: No project exists for this client");
+         return;
+      }
+      
+      const category = teamCategories.find(c => c.id === catId);
+      if (!category) return;
+      
+      const oldMemberId = category.members[mIdx]?.memberId;
+      const dbRole = mapUiRoleToDbRole(category.name);
 
+      try {
+         if (oldMemberId) {
+            await api.unassignStaff(project.id, oldMemberId);
+         }
+         
+         if (val) {
+            await api.assignStaff(project.id, val, dbRole);
+            addToast(`Assigned ${category.name}`);
+         } else {
+            addToast(`Unassigned ${category.name}`);
+         }
+
+         const updatedProj = await api.getProjectById(project.id);
+         if (updatedProj) {
+            setProject(updatedProj);
+            const nextCats = getProjectTeamCategories(updatedProj);
+            setTeamCategories(nextCats);
+         }
+      } catch (err: any) {
+         console.error("Failed to update staff assignment:", err);
+         addToast(err?.message || "Failed to update staff assignment");
+      }
+   };
 
    const handleAddEventToMember = (catId: string, mIdx: number, eventId: string) => {
       setTeamCategories(prev => {
-         const next = prev.map(cat => {
+         return prev.map(cat => {
             if (cat.id !== catId) return cat;
             const nextMembers = [...cat.members];
             const currentEvents = nextMembers[mIdx].assigned_events || [];
@@ -1549,15 +1335,12 @@ const ClientDetailsPage: React.FC = () => {
             };
             return { ...cat, members: nextMembers };
          });
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-         syncToProjects(next);
-         return next;
       });
    };
 
    const handleRemoveEvent = (catId: string, mIdx: number, eIdx: number) => {
       setTeamCategories(prev => {
-         const next = prev.map(cat => {
+         return prev.map(cat => {
             if (cat.id !== catId) return cat;
             const nextMembers = [...cat.members];
             const nextEvents = [...(nextMembers[mIdx].assigned_events || [])];
@@ -1565,45 +1348,52 @@ const ClientDetailsPage: React.FC = () => {
             nextMembers[mIdx] = { ...nextMembers[mIdx], assigned_events: nextEvents };
             return { ...cat, members: nextMembers };
          });
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-         syncToProjects(next);
-         return next;
       });
    };
 
    const addMemberRow = (catId: string) => {
       setTeamCategories(prev => {
-         const next = prev.map(cat => {
+         return prev.map(cat => {
             if (cat.id !== catId) return cat;
             return { ...cat, members: [...cat.members, { memberId: '', assigned_dates: [] }] };
          });
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-         syncToProjects(next);
-         return next;
       });
    };
 
-   const removeMemberRow = (catId: string, mIdx: number) => {
-      setTeamCategories(prev => {
-         const next = prev.map(cat => {
-            if (cat.id !== catId) return cat;
-            if (cat.members.length <= 1) return cat;
-            return { ...cat, members: cat.members.filter((_, i) => i !== mIdx) };
-         });
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-         syncToProjects(next);
-         return next;
-      });
+   const removeMemberRow = async (catId: string, mIdx: number) => {
+      if (!project) return;
+      const category = teamCategories.find(c => c.id === catId);
+      if (!category) return;
+      const memberId = category.members[mIdx]?.memberId;
+
+      try {
+         if (memberId) {
+            await api.unassignStaff(project.id, memberId);
+            addToast("Unassigned crew member");
+         }
+
+         const updatedProj = await api.getProjectById(project.id);
+         if (updatedProj) {
+            setProject(updatedProj);
+            const nextCats = getProjectTeamCategories(updatedProj);
+            setTeamCategories(nextCats);
+         } else {
+            setTeamCategories(prev => prev.map(cat => {
+               if (cat.id !== catId) return cat;
+               return { ...cat, members: cat.members.filter((_, i) => i !== mIdx) };
+            }));
+         }
+      } catch (err: any) {
+         console.error("Failed to remove staff assignment:", err);
+         addToast(err?.message || "Failed to remove staff assignment");
+      }
    };
 
    const handleAddCategory = () => {
       const name = prompt("Enter category name (e.g. Photographer, Drone Pilot)");
       if (!name) return;
       setTeamCategories(prev => {
-         const next = [...prev, { id: `cat_${Date.now()}`, name, members: [{ memberId: '', assigned_dates: [] }] }];
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-         syncToProjects(next);
-         return next;
+         return [...prev, { id: `cat_${Date.now()}`, name, members: [{ memberId: '', assigned_dates: [] }] }];
       });
    };
 
@@ -1612,20 +1402,14 @@ const ClientDetailsPage: React.FC = () => {
       const name = prompt("Edit category name", cat?.name);
       if (!name) return;
       setTeamCategories(prev => {
-         const next = prev.map(c => c.id === id ? { ...c, name } : c);
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-         syncToProjects(next);
-         return next;
+         return prev.map(c => c.id === id ? { ...c, name } : c);
       });
    };
 
    const handleDeleteCategory = (id: string) => {
       if (!confirm("Delete this category and all its assignments?")) return;
       setTeamCategories(prev => {
-         const next = prev.filter(c => c.id !== id);
-         localStorage.setItem(`client_team_${id}`, JSON.stringify(next));
-         syncToProjects(next);
-         return next;
+         return prev.filter(c => c.id !== id);
       });
    };
 
@@ -1771,9 +1555,37 @@ const ClientDetailsPage: React.FC = () => {
                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Status</p>
                            <span className="px-2 py-1 bg-white/10 rounded text-[10px] font-bold text-white uppercase tracking-widest">{client.status}</span>
                         </div>
-                        <div className="col-span-1 sm:col-span-2 md:col-span-4 border-t border-white/5 pt-4 mt-2">
-                           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Address</p>
-                           <p className="text-sm font-bold text-white whitespace-pre-wrap">{client.address || 'N/A'}</p>
+                        <div className="col-span-1 sm:col-span-2 md:col-span-4 border-t border-white/5 pt-4 mt-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                           <div>
+                              <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Billing / Mailing Address</p>
+                              <p className="text-sm font-bold text-white whitespace-pre-wrap">{client.address || 'Not Provided'}</p>
+                           </div>
+                           <div>
+                              <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Additional Notes</p>
+                              <p className="text-sm font-bold text-white whitespace-pre-wrap">{client.notes || 'Not Provided'}</p>
+                           </div>
+                        </div>
+                        
+                        <div className="col-span-1 sm:col-span-2 md:col-span-4 border-t border-white/5 pt-4 mt-2 space-y-4">
+                           <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em]">Logistics & Addresses</p>
+                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                              <div>
+                                 <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Location Type</p>
+                                 <p className="text-sm font-bold text-white uppercase">{client.eventLogistics?.locationType ? `${client.eventLogistics.locationType}'s Side` : 'Not Provided'}</p>
+                              </div>
+                              <div>
+                                 <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Bride Home Address</p>
+                                 <p className="text-sm font-bold text-white whitespace-pre-wrap">{client.eventLogistics?.brideAddress || 'Not Provided'}</p>
+                              </div>
+                              <div>
+                                 <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Groom Home Address</p>
+                                 <p className="text-sm font-bold text-white whitespace-pre-wrap">{client.eventLogistics?.groomAddress || 'Not Provided'}</p>
+                              </div>
+                              <div>
+                                 <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Venue Address</p>
+                                 <p className="text-sm font-bold text-white whitespace-pre-wrap">{client.eventLogistics?.venueAddress || 'Not Provided'}</p>
+                              </div>
+                           </div>
                         </div>
                      </div>
                   </div>
@@ -2193,7 +2005,21 @@ const ClientDetailsPage: React.FC = () => {
                               </label>
                            )}
                            {idDocument && (
-                              <button onClick={() => window.open(idDocument.fileUrl)} className="px-6 py-3 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all text-center">View Artifact</button>
+                               <button 
+                                  onClick={() => {
+                                     if (idDocument.fileUrl.startsWith('blob:') || idDocument.fileUrl.startsWith('data:')) {
+                                        window.open(idDocument.fileUrl);
+                                     } else {
+                                        const match = idDocument.fileUrl.match(/\/files\/([a-f0-9-]+)\/download/);
+                                        const fileId = match ? match[1] : idDocument.fileUrl;
+                                        api.downloadProjectFile(fileId, idDocument.fileName)
+                                           .catch(err => console.error("Failed to view ID document", err));
+                                     }
+                                  }} 
+                                  className="px-6 py-3 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all text-center"
+                               >
+                                  View Artifact
+                               </button>
                            )}
                         </div>
                      </div>
@@ -2248,64 +2074,96 @@ const ClientDetailsPage: React.FC = () => {
                                  </div>
 
                                  <div className="space-y-5">
-                                    {category.members.map((rowVal, idx) => (
-                                       <div key={idx} className="flex flex-col gap-4 p-5 bg-black/20 rounded-xl border border-white/5 shadow-inner group/row">
-                                          <div className="w-full">
-                                             <SmartRoleDropdown
-                                                role={category.name}
-                                                allStaff={allStaff}
-                                                selectedId={rowVal?.memberId || ''}
-                                                onChange={val => handleMemberChange(category.id, idx, val)}
-                                                onAddNew={() => {
-                                                   setEditingStaffId(null);
-                                                   setPendingDropdownAssign({ role: category.id, idx });
-                                                   setNewStaffForm({ name: '', role: category.name, contact: '' });
-                                                   setIsAddStaffModalOpen(true);
-                                                }}
-                                                onDelete={handleDeleteStaff}
-                                                onEdit={handleEditStaff}
-                                                onAddMember={handleAddArtisanMember}
-                                             />
-                                          </div>
-
-                                          <div className="space-y-4">
-                                             <p className="text-sm font-semibold uppercase text-zinc-300 tracking-wide px-1">
-                                                Assigned Events
-                                             </p>
-                                             <div className="flex flex-wrap gap-3">
-                                                {(rowVal.assigned_events || []).map((eventId, eIdx) => {
-                                                   const assignedEv = client?.events?.find(e => e.id === eventId);
-                                                   return (
-                                                      <div key={eIdx} className={`relative flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full group/chip hover:border-white/20 transition-all shadow-sm`}>
-                                                         <Calendar className="w-3 h-3 text-zinc-500" />
-                                                         <span className="text-sm font-medium text-zinc-200 uppercase tracking-widest whitespace-nowrap">
-                                                            {assignedEv ? `${assignedEv.name} (${new Date(assignedEv.date).toLocaleDateString()})` : 'Unknown Event'}
-                                                         </span>
-                                                         <button
-                                                            type="button"
-                                                            onClick={(e) => { e.stopPropagation(); handleRemoveEvent(category.id, idx, eIdx); }}
-                                                            className="relative z-10 ml-2 flex items-center justify-center w-6 h-6 rounded-full text-zinc-400 hover:text-red-400 hover:bg-red-500/20 transition duration-200 active:scale-90"
-                                                         >
-                                                            <X size={14} />
-                                                         </button>
-                                                      </div>
-                                                   )
-                                                })}
-                                                <select
-                                                   className="flex items-center gap-2 px-4 py-2 bg-black/50 border border-white/5 border-dashed rounded-lg cursor-pointer hover:bg-white/10 hover:border-white/20 transition-all text-sm font-medium text-zinc-300 uppercase tracking-widest outline-none appearance-none"
-                                                   onChange={(e) => {
-                                                      if (e.target.value) {
-                                                         handleAddEventToMember(category.id, idx, e.target.value);
-                                                         e.target.value = '';
-                                                      }
+                                    {category.members.map((rowVal, idx) => {
+                                       const selectedStaff = allStaff.find(s => s.id === rowVal?.memberId);
+                                       const staffStatus = selectedStaff ? getStaffRosterStatus(selectedStaff.id) : null;
+                                       return (
+                                          <div key={idx} className="flex flex-col gap-4 p-5 bg-black/20 rounded-xl border border-white/5 shadow-inner group/row">
+                                             <div className="w-full">
+                                                <button
+                                                   type="button"
+                                                   onClick={() => {
+                                                      setPendingSelectorAssign({ categoryId: category.id, memberIndex: idx, role: category.name });
+                                                      setBrowserSelectedStaffId(rowVal?.memberId || '');
+                                                      setBrowserSearch('');
+                                                      setIsPersonnelBrowserOpen(true);
                                                    }}
-                                                   value=""
+                                                   className="w-full bg-white/[0.03] border border-white/5 hover:border-white/10 hover:bg-white/[0.08] rounded-xl p-3.5 flex justify-between items-center text-xs font-semibold text-white transition-all cursor-pointer shadow-sm group outline-none"
                                                 >
-                                                   <option value="" disabled>+ Assign Event</option>
-                                                   {client?.events?.map(ev => (
-                                                      <option key={ev.id} value={ev.id}>{ev.name} ({new Date(ev.date).toLocaleDateString()})</option>
-                                                   ))}
-                                                </select>
+                                                   <div className="flex items-center gap-3 overflow-hidden">
+                                                      {selectedStaff ? (
+                                                         <>
+                                                            <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white text-[10px] font-black uppercase shrink-0 shadow-lg shadow-indigo-500/20">
+                                                               {(selectedStaff.name || selectedStaff.email || '?').charAt(0)}
+                                                            </div>
+                                                            <div className="text-left truncate">
+                                                               <p className="text-xs font-bold text-white uppercase truncate tracking-wide">{selectedStaff.name || selectedStaff.email}</p>
+                                                               <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">{selectedStaff.staffRole || category.name}</p>
+                                                            </div>
+                                                         </>
+                                                      ) : (
+                                                         <>
+                                                            <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center shrink-0">
+                                                               <Users className="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-400 transition-colors" />
+                                                            </div>
+                                                            <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Select Personnel...</span>
+                                                         </>
+                                                      )}
+                                                   </div>
+                                                   <div className="flex items-center gap-3 shrink-0">
+                                                      {selectedStaff && staffStatus && (
+                                                         <span className={`text-[8px] px-2 py-0.5 rounded-full uppercase font-black tracking-widest ${
+                                                            staffStatus === 'Available' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
+                                                            staffStatus === 'Assigned' ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' :
+                                                            'bg-rose-500/10 border border-rose-500/20 text-rose-400'
+                                                         }`}>
+                                                            {staffStatus}
+                                                         </span>
+                                                      )}
+                                                      <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors shrink-0" />
+                                                   </div>
+                                                </button>
+                                             </div>
+
+                                             <div className="space-y-4">
+                                                <p className="text-sm font-semibold uppercase text-zinc-300 tracking-wide px-1">
+                                                   Assigned Events
+                                                </p>
+                                                <div className="flex flex-wrap gap-3">
+                                                   {(rowVal.assigned_events || []).map((eventId, eIdx) => {
+                                                      const assignedEv = client?.events?.find(e => e.id === eventId);
+                                                      return (
+                                                         <div key={eIdx} className={`relative flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full group/chip hover:border-white/20 transition-all shadow-sm`}>
+                                                            <Calendar className="w-3 h-3 text-zinc-500" />
+                                                            <span className="text-sm font-medium text-zinc-200 uppercase tracking-widest whitespace-nowrap">
+                                                               {assignedEv ? `${assignedEv.name} (${new Date(assignedEv.date).toLocaleDateString()})` : 'Unknown Event'}
+                                                            </span>
+                                                            <button
+                                                               type="button"
+                                                               onClick={(e) => { e.stopPropagation(); handleRemoveEvent(category.id, idx, eIdx); }}
+                                                               className="relative z-10 ml-2 flex items-center justify-center w-6 h-6 rounded-full text-zinc-400 hover:text-red-400 hover:bg-red-500/20 transition duration-200 active:scale-90"
+                                                            >
+                                                               <X size={14} />
+                                                            </button>
+                                                         </div>
+                                                      )
+                                                   })}
+                                                   <select
+                                                      className="flex items-center gap-2 px-4 py-2 bg-black/50 border border-white/5 border-dashed rounded-lg cursor-pointer hover:bg-white/10 hover:border-white/20 transition-all text-sm font-medium text-zinc-300 uppercase tracking-widest outline-none appearance-none"
+                                                      onChange={(e) => {
+                                                         if (e.target.value) {
+                                                            handleAddEventToMember(category.id, idx, e.target.value);
+                                                            e.target.value = '';
+                                                         }
+                                                      }}
+                                                      value=""
+                                                   >
+                                                      <option value="" disabled>+ Assign Event</option>
+                                                      {client?.events?.map(ev => (
+                                                         <option key={ev.id} value={ev.id}>{ev.name} ({new Date(ev.date).toLocaleDateString()})</option>
+                                                      ))}
+                                                   </select>
+                                                </div>
                                              </div>
 
                                              {category.members.length > 1 && (
@@ -2319,9 +2177,8 @@ const ClientDetailsPage: React.FC = () => {
                                                 </button>
                                              )}
                                           </div>
-
-                                       </div>
-                                    ))}
+                                       );
+                                    })}
                                  </div>
                               </div>
                            );
@@ -2403,8 +2260,8 @@ const ClientDetailsPage: React.FC = () => {
                                        <button
                                           onClick={async () => {
                                              await advanceProjectWorkflow(project.id, 'Shoot Completed', 'Admin Marked Shoot Completed');
-                                             const updatedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
-                                             setProject(updatedProjects.find((p: any) => p.id === project.id) || project);
+                                             const updatedProj = await api.getProjectById(project.id);
+                                             if (updatedProj) setProject(updatedProj);
                                           }}
                                           className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white rounded-lg transition-colors border border-white/5"
                                        >
@@ -2415,8 +2272,8 @@ const ClientDetailsPage: React.FC = () => {
                                        <button
                                           onClick={async () => {
                                              await advanceProjectWorkflow(project.id, 'Selection Received', 'Selections Received');
-                                             const updatedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
-                                             setProject(updatedProjects.find((p: any) => p.id === project.id) || project);
+                                             const updatedProj = await api.getProjectById(project.id);
+                                             if (updatedProj) setProject(updatedProj);
                                           }}
                                           className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white rounded-lg transition-colors border border-white/5"
                                        >
@@ -2427,8 +2284,8 @@ const ClientDetailsPage: React.FC = () => {
                                        <button
                                           onClick={async () => {
                                              await advanceProjectWorkflow(project.id, 'Delivery Ready', 'Final deliverables uploaded');
-                                             const updatedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
-                                             setProject(updatedProjects.find((p: any) => p.id === project.id) || project);
+                                             const updatedProj = await api.getProjectById(project.id);
+                                             if (updatedProj) setProject(updatedProj);
                                           }}
                                           className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white rounded-lg transition-colors border border-white/5"
                                        >
@@ -2444,8 +2301,8 @@ const ClientDetailsPage: React.FC = () => {
                                                 return;
                                              }
                                              await advanceProjectWorkflow(project.id, 'Delivered', 'Admin Marked Project Delivered');
-                                             const updatedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
-                                             setProject(updatedProjects.find((p: any) => p.id === project.id) || project);
+                                             const updatedProj = await api.getProjectById(project.id);
+                                             if (updatedProj) setProject(updatedProj);
                                           }}
                                           className="px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-[9px] font-black uppercase tracking-widest text-emerald-400 rounded-lg transition-colors border border-primary/30"
                                        >
@@ -2469,8 +2326,8 @@ const ClientDetailsPage: React.FC = () => {
                                              if (confirm('Are you sure you want to force this workflow stage? This should only be used for corrections.')) {
                                                 const newStage = e.target.value as ProjectStage;
                                                 await emergencyOverrideWorkflow(project.id, newStage);
-                                                const updatedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
-                                                setProject(updatedProjects.find((p: any) => p.id === project.id) || project);
+                                                const updatedProj = await api.getProjectById(project.id);
+                                                if (updatedProj) setProject(updatedProj);
                                                 setShowEmergencyOverride(false);
                                              }
                                           }}
@@ -2488,14 +2345,14 @@ const ClientDetailsPage: React.FC = () => {
                            <div className="h-4 w-full bg-black/50 border border-white/5 rounded-full overflow-hidden p-1 relative group">
                               <div
                                  className="h-full bg-gradient-to-r from-blue-600 via-indigo-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(16,185,129,0.2)]"
-                                 style={{ width: `${getWorkflowProgress(project.stage)}%` }}
+                                 style={{ width: `${calculateProjectWorkflowProgress(project)}%` }}
                               >
                                  <div className="w-full h-full bg-[linear-gradient(45deg,rgba(255,255,255,0.1)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.1)_50%,rgba(255,255,255,0.1)_75%,transparent_75%,transparent)] bg-[length:20px_20px] animate-[progress-stripe_1s_linear_infinite]" />
                               </div>
                            </div>
                            <div className="flex justify-between items-center text-[10px] font-black uppercase text-zinc-500 tracking-widest mt-2 px-1">
                               <span>Initiated</span>
-                              <span>{getWorkflowProgress(project.stage)}% Complete</span>
+                              <span>{calculateProjectWorkflowProgress(project)}% Complete</span>
                            </div>
                         </div>
 
@@ -2800,27 +2657,7 @@ const ClientDetailsPage: React.FC = () => {
                                                    </div>
                                                    <button
                                                       type="button"
-                                                      onClick={() => {
-                                                         const newId = `team_${Date.now()}`;
-                                                         const newPerson = {
-                                                            id: newId,
-                                                            name: searchQuery,
-                                                            role: newMemberRoleInSearch,
-                                                            phone: newMemberPhoneInSearch,
-                                                            email: newMemberEmailInSearch,
-                                                            cost: Number(newMemberRateInSearch) || 0,
-                                                            status: 'Active' as const
-                                                         };
-                                                         savePersonnelRegistry([...personnelRegistry, newPerson]);
-                                                         setCategorizedItems(prev => ({ ...prev, team: [...prev.team, { id: newId, name: searchQuery, role: newMemberRoleInSearch, cost: Number(newMemberRateInSearch) || 0 }] }));
-                                                         setSearchQuery("");
-                                                         setNewMemberPhoneInSearch("");
-                                                         setNewMemberEmailInSearch("");
-                                                         setNewMemberRateInSearch("");
-                                                         setShowSuggestions(false);
-                                                         setIsAddingNewInSearch(false);
-                                                         addToast("Personnel added to registry and assigned");
-                                                      }}
+                                                      onClick={handleAddAndAssignPersonnel}
                                                       className="w-full py-3 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-[0.98] shadow-xl shadow-white/10"
                                                    >
                                                       Add & Assign to Project
@@ -3262,6 +3099,206 @@ const ClientDetailsPage: React.FC = () => {
                onClose={() => setPreviewDoc(null)}
             />
             , document.body)}
+
+         {isPersonnelBrowserOpen && pendingSelectorAssign && createPortal(
+            <div
+               className="fixed inset-0 bg-black/80 z-[9990] flex items-center justify-center p-4 backdrop-blur-md animate-ios-fade-in"
+               onClick={() => setIsPersonnelBrowserOpen(false)}
+            >
+               <div
+                  className="w-full max-w-4xl bg-[#0c0c0e] border border-white/10 rounded-3xl p-6 shadow-2xl animate-ios-slide-up relative flex flex-col max-h-[85vh] min-h-[500px]"
+                  style={{ width: '800px' }}
+                  onClick={(e) => e.stopPropagation()}
+               >
+                  {/* Modal Header */}
+                  <div className="flex justify-between items-center pb-4 border-b border-white/5 mb-4 shrink-0">
+                     <div>
+                        <h3 className="text-lg font-black text-white uppercase tracking-tighter flex items-center gap-2">
+                           Select Crew <span className="text-indigo-400">•</span> {pendingSelectorAssign.role} manifest
+                        </h3>
+                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-0.5">
+                           Search, filter, and assign personnel to the team manifest
+                        </p>
+                     </div>
+                     <div className="flex items-center gap-3">
+                        <button
+                           type="button"
+                           onClick={() => {
+                              setEditingStaffId(null);
+                              setPendingDropdownAssign(null);
+                              setNewStaffForm({ name: '', role: pendingSelectorAssign.role.toLowerCase(), contact: '' });
+                              setIsAddStaffModalOpen(true);
+                           }}
+                           className="px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 border border-indigo-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all active:scale-95 shadow-lg shadow-indigo-500/10 animate-pulse-subtle"
+                        >
+                           + Add New Person
+                        </button>
+                        <button
+                           onClick={() => setIsPersonnelBrowserOpen(false)}
+                           className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"
+                        >
+                           <X className="w-4 h-4 text-zinc-400" />
+                        </button>
+                     </div>
+                  </div>
+
+                  {/* Search input */}
+                  <div className="mb-4 shrink-0 relative">
+                     <Search className="w-4 h-4 text-zinc-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                     <input
+                        type="text"
+                        autoFocus
+                        className="w-full bg-black/40 border border-white/5 rounded-xl p-3.5 pl-12 text-xs font-bold text-white placeholder:text-zinc-600 outline-none focus:border-white/20 transition-all font-mono"
+                        placeholder="SEARCH BY NAME, ROLE, PHONE OR EMAIL..."
+                        value={browserSearch}
+                        onChange={e => setBrowserSearch(e.target.value)}
+                     />
+                  </div>
+
+                  {/* Roster Cards List */}
+                  <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 custom-scrollbar min-h-0">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-4">
+                        {(() => {
+                           const browserSearchLower = browserSearch.toLowerCase();
+                           const filteredRoster = allStaff.filter(s => {
+                              const nameMatch = s.name?.toLowerCase().includes(browserSearchLower);
+                              const roleMatch = s.staffRole?.toLowerCase().includes(browserSearchLower);
+                              const contactMatch = s.email?.toLowerCase().includes(browserSearchLower);
+                              return nameMatch || roleMatch || contactMatch;
+                           });
+
+                           const targetRole = pendingSelectorAssign.role.toLowerCase();
+                           const sortedRoster = [...filteredRoster].sort((a, b) => {
+                              const aMatch = a.staffRole?.toLowerCase() === targetRole;
+                              const bMatch = b.staffRole?.toLowerCase() === targetRole;
+                              if (aMatch && !bMatch) return -1;
+                              if (!aMatch && bMatch) return 1;
+                              return 0;
+                           });
+
+                           return sortedRoster.map(s => {
+                              const isSelected = browserSelectedStaffId === s.id;
+                              const status = getStaffRosterStatus(s.id);
+                              const badgeClass = status === 'Available' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
+                                                 status === 'Assigned' ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' :
+                                                 'bg-rose-500/10 border border-rose-500/20 text-rose-400';
+
+                              return (
+                                 <div
+                                    key={s.id}
+                                    onClick={() => setBrowserSelectedStaffId(s.id)}
+                                    onDoubleClick={() => {
+                                       handleMemberChange(pendingSelectorAssign.categoryId, pendingSelectorAssign.memberIndex, s.id);
+                                       setIsPersonnelBrowserOpen(false);
+                                    }}
+                                    className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between group/card ${
+                                       isSelected
+                                          ? 'bg-indigo-500/10 border-indigo-500/50 shadow-lg shadow-indigo-500/5'
+                                          : 'bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
+                                    }`}
+                                 >
+                                    <div className="flex items-center gap-3.5 overflow-hidden">
+                                       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black uppercase shrink-0 transition-all ${
+                                          isSelected 
+                                             ? 'bg-indigo-500 text-white' 
+                                             : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                       }`}>
+                                          {(s.name || s.email || '?').charAt(0)}
+                                       </div>
+                                       <div className="truncate">
+                                          <p className="text-xs font-bold text-white uppercase truncate tracking-wide">{s.name || s.email}</p>
+                                          <p className="text-[10px] font-bold text-zinc-500 truncate uppercase mt-0.5 flex items-center gap-1.5">
+                                             <span>{s.staffRole || 'Member'}</span>
+                                             {s.email && (
+                                                <>
+                                                   <span className="text-zinc-700">•</span>
+                                                   <span className="normal-case font-medium text-zinc-400 truncate max-w-[150px]">{s.email}</span>
+                                                </>
+                                             )}
+                                          </p>
+                                       </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                       <span className={`text-[8px] px-2.5 py-1 rounded-full uppercase font-black tracking-widest ${badgeClass}`}>
+                                          {status}
+                                       </span>
+                                       <div className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
+                                          isSelected 
+                                             ? 'bg-indigo-500 border-indigo-500 text-white' 
+                                             : 'border-white/10 text-transparent group-hover/card:border-white/30'
+                                       }`}>
+                                          <Check className="w-3 h-3" />
+                                       </div>
+                                    </div>
+                                 </div>
+                              );
+                           });
+                        })()}
+
+                        {(() => {
+                           const browserSearchLower = browserSearch.toLowerCase();
+                           const hasRecords = allStaff.some(s => {
+                              const nameMatch = s.name?.toLowerCase().includes(browserSearchLower);
+                              const roleMatch = s.staffRole?.toLowerCase().includes(browserSearchLower);
+                              const contactMatch = s.email?.toLowerCase().includes(browserSearchLower);
+                              return nameMatch || roleMatch || contactMatch;
+                           });
+
+                           if (!hasRecords) {
+                              return (
+                                 <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3 opacity-50">
+                                    <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5">
+                                       <Users className="w-6 h-6 text-zinc-500" />
+                                    </div>
+                                    <div className="text-center">
+                                       <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">No staff members found</p>
+                                       <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-wider mt-1">Try searching another query or add a new person</p>
+                                    </div>
+                                 </div>
+                              );
+                           }
+                           return null;
+                        })()}
+                     </div>
+                  </div>
+
+                  {/* Footer Actions */}
+                  <div className="pt-4 border-t border-white/5 mt-4 shrink-0 flex justify-between items-center gap-3">
+                     <button
+                        type="button"
+                        onClick={() => {
+                           handleMemberChange(pendingSelectorAssign.categoryId, pendingSelectorAssign.memberIndex, '');
+                           setIsPersonnelBrowserOpen(false);
+                        }}
+                        className="px-5 py-3 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                     >
+                        Clear Assignment
+                     </button>
+                     <div className="flex items-center gap-3">
+                        <button
+                           type="button"
+                           onClick={() => setIsPersonnelBrowserOpen(false)}
+                           className="px-5 py-3 bg-white/5 hover:bg-white/10 text-zinc-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                        >
+                           Cancel
+                        </button>
+                        <button
+                           type="button"
+                           onClick={() => {
+                              handleMemberChange(pendingSelectorAssign.categoryId, pendingSelectorAssign.memberIndex, browserSelectedStaffId);
+                              setIsPersonnelBrowserOpen(false);
+                           }}
+                           disabled={!browserSelectedStaffId}
+                           className="px-6 py-3 bg-white hover:bg-zinc-200 text-black disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] shadow-xl shadow-white/5 font-bold"
+                        >
+                           Confirm Assignment
+                        </button>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         , document.body)}
+
          {/* Add Staff Modal */}
          {isAddStaffModalOpen && createPortal(
             <div

@@ -1,10 +1,20 @@
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
+ 
+.font-sans {
+  font-family: var(--theme-font-family), ui-sans-serif, system-ui, sans-serif !important;
+}
 
 html {
   scroll-behavior: smooth;
   font-size: 19.2px;
+}
+
+@media (max-width: 767px) {
+  html {
+    font-size: 16px;
+  }
 }
 
 :root {
@@ -55,18 +65,183 @@ body {
   background-color: #ffffff !important;
 }
 
-/* Graphics Modes */
-[data-graphics="luxury-grain"]::after {
+/* ═══════════════════════════════════════════════════════════════════════════
+   GRAPHICS ENGINE MODES
+   Each preset creates a visually distinct atmosphere via overlays, gradients,
+   shadows, textures, and animations.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Glass Panel Shadow (driven by --theme-card-shadow from themeEngine) ── */
+.glass-panel, .glass-panel-dark {
+  box-shadow: var(--theme-card-shadow, none) !important;
+}
+
+/* ── Classic ── clean, no overlay ── */
+/* (no extra rules needed — it's the baseline) */
+
+/* ── Glassmorphism ── frosted glass with inner-light refraction ── */
+body[data-graphics="glassmorphism"] .glass-panel,
+body[data-graphics="glassmorphism"] .glass-panel-dark,
+.theme-preview-container[data-graphics="glassmorphism"] .glass-panel,
+.theme-preview-container[data-graphics="glassmorphism"] .glass-panel-dark {
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%) !important;
+  border-top: 1px solid rgba(255,255,255,0.15) !important;
+  border-left: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+/* ── Luxury Grain ── film-grain texture overlay ── */
+body[data-graphics="luxury-grain"]::after,
+.theme-preview-container[data-graphics="luxury-grain"]::after {
   content: "";
   position: fixed;
   top: 0; left: 0; width: 100vw; height: 100vh;
   pointer-events: none;
   z-index: 9999;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+body[data-graphics="luxury-grain"] .glass-panel,
+body[data-graphics="luxury-grain"] .glass-panel-dark,
+.theme-preview-container[data-graphics="luxury-grain"] .glass-panel,
+.theme-preview-container[data-graphics="luxury-grain"] .glass-panel-dark {
+  border-bottom: 1px solid rgba(255,255,255,0.03) !important;
 }
 
-[data-graphics="cinematic"] body {
-  background: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.05) 0%, var(--theme-bg) 70%) !important;
+/* ── Cinematic ── dramatic vignette + top spotlight ── */
+body[data-graphics="cinematic"]::before,
+.theme-preview-container[data-graphics="cinematic"]::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255,255,255,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 120% 100% at 50% 100%, rgba(0,0,0,0.5) 0%, transparent 70%);
+}
+body[data-graphics="cinematic"] .glass-panel,
+body[data-graphics="cinematic"] .glass-panel-dark,
+.theme-preview-container[data-graphics="cinematic"] .glass-panel,
+.theme-preview-container[data-graphics="cinematic"] .glass-panel-dark {
+  border: 1px solid rgba(255,255,255,0.05) !important;
+}
+
+/* ── Editorial ── sharp edges, ruled lines, no blur ── */
+body[data-graphics="editorial"] .glass-panel,
+body[data-graphics="editorial"] .glass-panel-dark,
+.theme-preview-container[data-graphics="editorial"] .glass-panel,
+.theme-preview-container[data-graphics="editorial"] .glass-panel-dark {
+  border-radius: 0px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-top: 2px solid rgba(255,255,255,0.12) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+body[data-graphics="editorial"]::after,
+.theme-preview-container[data-graphics="editorial"]::after {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.02;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 39px,
+    rgba(255,255,255,0.3) 39px,
+    rgba(255,255,255,0.3) 40px
+  );
+}
+
+/* ── Neon Pulse ── colored glow borders + pulsing ambient light ── */
+body[data-graphics="neon-pulse"]::before,
+.theme-preview-container[data-graphics="neon-pulse"]::before {
+  content: "";
+  position: fixed;
+  top: -50%; left: -50%; width: 200%; height: 200%;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse at 50% 30%, var(--theme-primary) 0%, transparent 50%);
+  opacity: 0.04;
+  animation: neon-breathe 4s ease-in-out infinite;
+}
+body[data-graphics="neon-pulse"] .glass-panel,
+body[data-graphics="neon-pulse"] .glass-panel-dark,
+.theme-preview-container[data-graphics="neon-pulse"] .glass-panel,
+.theme-preview-container[data-graphics="neon-pulse"] .glass-panel-dark {
+  border-color: color-mix(in srgb, var(--theme-primary) 25%, transparent) !important;
+  box-shadow: 0 0 20px color-mix(in srgb, var(--theme-primary) 12%, transparent),
+              inset 0 0 20px color-mix(in srgb, var(--theme-primary) 5%, transparent) !important;
+}
+@keyframes neon-breathe {
+  0%, 100% { opacity: 0.03; transform: scale(1); }
+  50% { opacity: 0.07; transform: scale(1.05); }
+}
+
+/* ── Marble Luxury ── subtle veined texture + warm highlight ── */
+body[data-graphics="marble-luxury"]::after,
+.theme-preview-container[data-graphics="marble-luxury"]::after {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.015' numOctaves='5' seed='2' stitchTiles='stitch'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='30'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='none' stroke='rgba(255,255,255,0.15)' stroke-width='0.5' filter='url(%23m)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+body[data-graphics="marble-luxury"]::before,
+.theme-preview-container[data-graphics="marble-luxury"]::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse 60% 40% at 30% 20%, rgba(255,248,240,0.04) 0%, transparent 70%);
+}
+body[data-graphics="marble-luxury"] .glass-panel,
+body[data-graphics="marble-luxury"] .glass-panel-dark,
+.theme-preview-container[data-graphics="marble-luxury"] .glass-panel,
+.theme-preview-container[data-graphics="marble-luxury"] .glass-panel-dark {
+  border-top: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+/* ── Aurora ── animated multi-color gradient backdrop ── */
+body[data-graphics="aurora"]::before,
+.theme-preview-container[data-graphics="aurora"]::before {
+  content: "";
+  position: fixed;
+  top: -30%; left: -20%; width: 140%; height: 160%;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 50% 30% at 20% 20%, rgba(80,200,120,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 80% 40%, rgba(138,43,226,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 30% at 50% 80%, rgba(59,130,246,0.04) 0%, transparent 70%);
+  animation: aurora-drift 12s ease-in-out infinite alternate;
+}
+body[data-graphics="aurora"] .glass-panel,
+body[data-graphics="aurora"] .glass-panel-dark,
+.theme-preview-container[data-graphics="aurora"] .glass-panel,
+.theme-preview-container[data-graphics="aurora"] .glass-panel-dark {
+  border-color: rgba(255,255,255,0.06) !important;
+}
+@keyframes aurora-drift {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  100% { transform: translate(3%, -2%) rotate(2deg); }
+}
+
+/* Theme preview container specific overrides for fixed positioning */
+.theme-preview-container::before,
+.theme-preview-container::after {
+  position: absolute !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* Dynamic Primary Color Utilities */

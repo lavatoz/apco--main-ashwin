@@ -1,12 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { FileSignature, ShieldCheck, Clock, X, Download, CheckCircle2 } from 'lucide-react';
-import type { Client, Project } from '../../types';
+import { FileSignature, ShieldCheck, Clock, X, Download, CheckCircle2, FileText } from 'lucide-react';
+import type { Client } from '../../types';
 import { api } from '../../services/api';
 import { generateAgreementPDF } from '../../utils/pdfGenerator';
 import { generateTimelineEvent } from '../../utils/workflowUtils';
 import { advanceProjectWorkflow } from '../../utils/workflowEngine';
 import { useCompanyForClient } from '../../hooks/useCompanySettings';
+import ClientPageLoader from './ClientPageLoader';
+
+const formatBytes = (bytes: number, decimals = 2) => {
+    if (!bytes) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+};
+
+const formatDate = (dateStr: string) => {
+    try {
+        return new Date(dateStr).toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch {
+        return dateStr;
+    }
+};
 
 interface ClientAgreementsProps {
   client: Client | null;
@@ -18,9 +42,33 @@ const ClientAgreements: React.FC<ClientAgreementsProps> = ({ client: initialClie
   const [signatureName, setSignatureName] = useState('');
   const [isSigning, setIsSigning] = useState(false);
   
+  const [agreementFiles, setAgreementFiles] = useState<any[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(true);
+
+  useEffect(() => {
+    const fetchAgreements = async () => {
+      if (!client) return;
+      setLoadingFiles(true);
+      try {
+        const allProjects = await api.getProjects();
+        const clientProjects = allProjects.filter(p => p.clientId === client.id);
+        const mainProject = clientProjects[0];
+        if (mainProject) {
+          const filesData = await api.getFilesByProject(mainProject.id, 'Agreements');
+          setAgreementFiles(filesData || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch agreement files", err);
+      } finally {
+        setLoadingFiles(false);
+      }
+    };
+    fetchAgreements();
+  }, [client?.id]);
+
   const settings = useCompanyForClient(client);
 
-  if (!client) return null;
+  if (!client) return <ClientPageLoader />;
 
   const agreement = client.activeAgreement;
 
@@ -60,7 +108,7 @@ const ClientAgreements: React.FC<ClientAgreementsProps> = ({ client: initialClie
       setClient(updatedClient);
 
       // 3. Update project workflow if it's currently at "Booked"
-      const storedProjects: Project[] = JSON.parse(localStorage.getItem('projects') || '[]');
+      const storedProjects = await api.getProjects();
       const mainProject = storedProjects.find(p => p.clientId === client.id);
       if (mainProject) {
         await advanceProjectWorkflow(mainProject.id, 'Agreement Signed', 'Client digitally signed agreement');
@@ -138,6 +186,45 @@ const ClientAgreements: React.FC<ClientAgreementsProps> = ({ client: initialClie
           </div>
         )}
       </div>
+
+      {/* Uploaded Agreements Registry */}
+      {loadingFiles ? (
+        <div className="py-12 flex flex-col items-center justify-center max-w-4xl mt-12 bg-white/[0.01] border border-white/5 rounded-2xl">
+          <div className="w-6 h-6 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-3" />
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Retrieving documents...</p>
+        </div>
+      ) : agreementFiles.length > 0 ? (
+        <div className="space-y-6 max-w-4xl mt-12">
+          <div className="flex items-center gap-4 px-2">
+            <h2 className="text-sm font-black uppercase text-zinc-400 tracking-[0.2em]">Agreement Documents ({agreementFiles.length})</h2>
+            <div className="h-px flex-1 bg-white/5" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {agreementFiles.map((file: any) => (
+              <div key={file.id} className="p-5 glass-panel border border-white/5 rounded-2xl flex items-center justify-between gap-4 bg-white/[0.01]">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-black text-white truncate uppercase tracking-wider mb-1" title={file.fileName}>{file.fileName}</h4>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">
+                      {formatBytes(file.size || 0)} • {formatDate(file.uploadedAt)}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => api.downloadProjectFile(file.id, file.fileName)}
+                  className="p-3 bg-white/5 hover:bg-white text-zinc-400 hover:text-black rounded-xl transition-all border border-white/10 shrink-0"
+                  title="Download Contract"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* AGREEMENT VIEWER MODAL */}
       {isViewerOpen && agreement && createPortal(

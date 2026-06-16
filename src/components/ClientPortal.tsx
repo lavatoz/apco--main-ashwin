@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Plus, Share2, Video, Image, FileText, Trash2, Users, MessageSquare, FolderOpen, Key, LockKeyhole, UserCheck, X, LayoutDashboard, IndianRupee, Receipt, Download, ChevronRight } from 'lucide-react';
 import type { Client, CloudConfig, TimelineItem, Deliverable, Person, StaffAssignment } from '../types';
-import { api } from '../services/api';
+import { api, fetchApi } from '../services/api';
+import { getTeamFromProjectAssignments } from '../utils/workflowUtils';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import Gallery from './Gallery';
-import { safeParse } from '../utils/storage';
 
 interface ClientPortalProps {
   client: Client;
@@ -31,6 +31,16 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
   const [cloudConfig, setCloudConfig] = useState<CloudConfig | null>(null);
   const { settings } = useCompanySettings();
 
+  const updateProjectAndPersist = async (updatedProj: any) => {
+    onUpdateClient(updatedProj);
+    setActiveProject(updatedProj);
+    try {
+      await api.saveProject(updatedProj);
+    } catch (err) {
+      console.error("Failed to save project update:", err);
+    }
+  };
+
   const [timelineForm, setTimelineForm] = useState<Partial<TimelineItem>>({ status: 'Pending' });
   const [deliverableForm, setDeliverableForm] = useState<Partial<Deliverable>>({ type: 'Photos', origin: 'GoogleDrive', isPublic: true });
 
@@ -38,12 +48,9 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
     const fetchProjects = async () => {
       setLoading(true);
       try {
-        const allProjs = safeParse<any[]>('projects', []);
+        const allProjs = await api.getProjects();
         const filtered = allProjs.filter((p: any) => p.clientId === clientId);
         setProjects(filtered);
-        
-        // If only one project, auto-select it? Or let user choose.
-        // For now, let user choose from cards.
       } catch (err) {
         console.error("Registry Sync Failure:", err);
       } finally {
@@ -182,8 +189,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
       ...project,
       portal: { ...portal, timeline: [...(portal.timeline || []), item] }
     };
-    onUpdateClient(updatedProject);
-    setActiveProject(updatedProject);
+    updateProjectAndPersist(updatedProject);
     setIsAddingTimeline(false);
     setTimelineForm({ status: 'Pending' });
   };
@@ -204,8 +210,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
       ...project,
       portal: { ...portal, deliverables: [...(portal.deliverables || []), item] }
     };
-    onUpdateClient(updatedProject);
-    setActiveProject(updatedProject);
+    updateProjectAndPersist(updatedProject);
     setIsAddingDeliverable(false);
     setDeliverableForm({ type: 'Photos', origin: 'GoogleDrive', isPublic: true });
   };
@@ -220,42 +225,28 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
       return t;
     });
     const updatedProject = { ...project, portal: { ...portal, timeline: updated } };
-    onUpdateClient(updatedProject);
-    setActiveProject(updatedProject);
+    updateProjectAndPersist(updatedProject);
   };
 
   const handleAssignClient = async () => {
       if (!selectedAssignClientId) return;
       try {
-          const token = localStorage.getItem("token");
-          const res = await fetch(`http://localhost:5000/api/projects/${activeProject?._id || activeProject?.id}/assign-client`, {
+          const updated = await fetchApi(`/projects/${activeProject?._id || activeProject?.id}/assign-client`, {
               method: 'PUT',
-              headers: { 
-                  "Authorization": `Bearer ${token}`,
-                  "Content-Type": "application/json"
-               },
               body: JSON.stringify({ clientId: selectedAssignClientId })
           });
-          if (res.ok) {
-              const updated = await res.json();
-              setActiveProject(updated);
-              setIsAssigningClient(false);
-              setSelectedAssignClientId('');
-          }
+          setActiveProject(updated);
+          setIsAssigningClient(false);
+          setSelectedAssignClientId('');
       } catch (err) { console.error("Assignment failed", err); }
   };
 
   const handleRemoveClient = async (clientId: string) => {
       try {
-          const token = localStorage.getItem("token");
-          const res = await fetch(`http://localhost:5000/api/projects/${activeProject?._id || activeProject?.id}/remove-client/${clientId}`, {
-              method: 'DELETE',
-              headers: { "Authorization": `Bearer ${token}` }
+          const updated = await fetchApi(`/projects/${activeProject?._id || activeProject?.id}/remove-client/${clientId}`, {
+              method: 'DELETE'
           });
-          if (res.ok) {
-              const updated = await res.json();
-              setActiveProject(updated);
-          }
+          setActiveProject(updated);
       } catch (err) { console.error("Removal failed", err); }
   };
 
@@ -336,11 +327,12 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
               clientId={typeof project.client === 'string' ? project.client : (project.client as any)?._id} 
               userRole={userRole} 
               onUpdate={async () => {
-                const token = localStorage.getItem("token");
-                const res = await fetch(`http://localhost:5000/api/projects/${activeProject?._id || activeProject?.id}`, {
-                  headers: { "Authorization": `Bearer ${token}` }
-                });
-                if (res.ok) setActiveProject(await res.json());
+                try {
+                  const updated = await fetchApi(`/projects/${activeProject?._id || activeProject?.id}`);
+                  setActiveProject(updated);
+                } catch (err) {
+                  console.error("Gallery status update failed", err);
+                }
               }} 
             />
           )}
@@ -373,8 +365,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
                     {userRole !== 'Client' && (
                       <button onClick={() => {
                           const updatedProject = { ...project, portal: { ...portal, deliverables: (portal.deliverables || []).filter((item: Deliverable) => item.id !== d.id) } };
-                          onUpdateClient(updatedProject);
-                          setActiveProject(updatedProject);
+                          updateProjectAndPersist(updatedProject);
                       }} className="opacity-0 group-hover:opacity-100 p-2 text-zinc-800 hover:text-red-500 transition-all">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -535,123 +526,167 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
                   <UserCheck className="w-6 h-6" /> Internal Management
                 </h2>
               </div>
-              
-              {userRole === 'Admin' ? (
-                 <div className="space-y-8 animate-ios-slide-up">
-                    {/* Financial Summary */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                       <div className="p-8 bg-black/40 rounded-[2rem] border border-white/5 space-y-4">
-                          <div className="flex justify-between items-center">
-                            <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-                               <Users className="w-3 h-3" /> Total Team Commitment
-                            </p>
-                          </div>
-                          <p className="text-3xl font-black text-white">₹{Object.values(project.team || {}).reduce((sum: number, s: any) => sum + (s.payment || 0), 0).toLocaleString('en-IN')}</p>
-                       </div>
-                       <div className="p-8 bg-black/40 rounded-[2rem] border border-white/5">
-                          <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1 flex items-center gap-2">
-                             <IndianRupee className="w-3 h-3" /> Net Project Profit
-                          </p>
-                          <div className="flex items-baseline gap-2">
-                             <p className={`text-3xl font-black ${((project.totalAmount || 0) - Object.values(project.team || {}).reduce((sum: number, s: any) => sum + (s.payment || 0), 0)) >= 0 ? 'text-primary' : 'text-red-500'}`}>
-                               ₹{((project.totalAmount || 0) - Object.values(project.team || {}).reduce((sum: number, s: any) => sum + (s.payment || 0), 0)).toLocaleString('en-IN')}
-                             </p>
-                             <span className="text-[10px] font-black text-zinc-700 uppercase">/ Total {project.totalAmount?.toLocaleString('en-IN')}</span>
-                          </div>
-                       </div>
-                    </div>
+              {userRole === 'Admin' ? (() => {
+                  const resolvedTeam = project.status === 'Completed'
+                      ? project.teamSnapshot || project.team
+                      : getTeamFromProjectAssignments(project.staffAssignments);
+                      
+                  const totalCommitment = Object.entries(resolvedTeam || {})
+                      .filter(([role]) => role.endsWith('s'))
+                      .reduce((sum, [_, val]) => {
+                          const assignments = Array.isArray(val) ? val : [];
+                          return sum + assignments.reduce((sSum: number, s: any) => sSum + (s.payment || 0), 0);
+                      }, 0);
+                  const netProfit = (project.totalAmount || 0) - totalCommitment;
 
-                    {/* Master Adjustment Field */}
-                    <div className="p-6 bg-white/5 rounded-3xl border border-white/10 space-y-4">
-                        <div className="flex justify-between items-center">
-                            <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Financial Master Controls</h4>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <p className="text-[8px] font-black text-zinc-700 uppercase tracking-widest px-2">Total Project Value (Revenue)</p>
-                                <div className="relative">
-                                    <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
-                                    <input 
-                                        type="number"
-                                        className="w-full bg-white/5 border border-white/5 rounded-xl p-4 pl-12 text-sm font-black text-white outline-none focus:bg-white/10"
-                                        value={project.totalAmount || 0}
-                                        onChange={(e) => {
-                                            const updated = { ...project, totalAmount: Number(e.target.value) };
-                                            onUpdateClient(updated);
-                                            setActiveProject(updated);
-                                        }}
-                                    />
-                                </div>
+                  return (
+                      <div className="space-y-8 animate-ios-slide-up">
+                          {/* Financial Summary */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="p-8 bg-black/40 rounded-[2rem] border border-white/5 space-y-4">
+                                  <div className="flex justify-between items-center">
+                                      <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+                                          <Users className="w-3 h-3" /> Total Team Commitment
+                                      </p>
+                                  </div>
+                                  <p className="text-3xl font-black text-white">₹{totalCommitment.toLocaleString('en-IN')}</p>
+                              </div>
+                              <div className="p-8 bg-black/40 rounded-[2rem] border border-white/5">
+                                  <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1 flex items-center gap-2">
+                                      <IndianRupee className="w-3 h-3" /> Net Project Profit
+                                  </p>
+                                  <div className="flex items-baseline gap-2">
+                                     <p className={`text-3xl font-black ${netProfit >= 0 ? 'text-primary' : 'text-red-500'}`}>
+                                       ₹{netProfit.toLocaleString('en-IN')}
+                                     </p>
+                                     <span className="text-[10px] font-black text-zinc-700 uppercase">/ Total {project.totalAmount?.toLocaleString('en-IN')}</span>
+                                  </div>
+                              </div>
+                           </div>
+
+                           {/* Master Adjustment Field */}
+                           <div className="p-6 bg-white/5 rounded-3xl border border-white/10 space-y-4">
+                               <div className="flex justify-between items-center">
+                                   <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Financial Master Controls</h4>
+                               </div>
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                   <div className="space-y-1">
+                                       <p className="text-[8px] font-black text-zinc-700 uppercase tracking-widest px-2">Total Project Value (Revenue)</p>
+                                       <div className="relative">
+                                           <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
+                                           <input 
+                                               type="number"
+                                               className="w-full bg-white/5 border border-white/5 rounded-xl p-4 pl-12 text-sm font-black text-white outline-none focus:bg-white/10"
+                                               value={project.totalAmount || 0}
+                                               onChange={(e) => {
+                                                   const updated = { ...project, totalAmount: Number(e.target.value) };
+                                                   updateProjectAndPersist(updated);
+                                               }}
+                                           />
+                                       </div>
+                                   </div>
+                               </div>
+                           </div>
+
+                           {/* Payment Breakdown */}
+                           <div className="space-y-4">
+                              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-4">Logistics & Payment Breakdown</p>
+                              <div className="grid grid-cols-1 gap-3">
+                                 {Object.entries(resolvedTeam || {})
+                                    .filter(([role]) => role.endsWith('s'))
+                                    .map(([role, val]) => {
+                                       if (!val || (Array.isArray(val) && val.length === 0)) return null;
+                                       const assignments: StaffAssignment[] = Array.isArray(val) ? val : [val as StaffAssignment];
+                                       const displayName = role.endsWith('s') ? role.slice(0, -1) : role;
+                                       
+                                       return assignments.map((staff: any, idx) => {
+                                          const roleDisplayName = staff.role || (displayName.charAt(0).toUpperCase() + displayName.slice(1));
+                                          const itemRoleLabel = assignments.length > 1 ? `${roleDisplayName} #${idx + 1}` : roleDisplayName;
+                                          return (
+                                             <div key={`${role}-${idx}`} className="p-6 bg-white/5 rounded-3xl border border-white/5 flex justify-between items-center group hover:bg-white/10 transition-all">
+                                                <div className="flex items-center gap-5">
+                                                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${staff.type === 'external' ? 'bg-primary/10 text-blue-400' : 'bg-primary/10 text-primary'} border border-white/5`}>
+                                                      {itemRoleLabel.charAt(0).toUpperCase()}
+                                                   </div>
+                                                   <div>
+                                                      <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{itemRoleLabel}</p>
+                                                      <p className="text-sm font-black text-white flex items-center gap-2">
+                                                         {staff.name} 
+                                                         {staff.type === 'external' ? 
+                                                           <span className="text-[7px] bg-primary/20 text-blue-400 px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">External Agent</span> : 
+                                                           <span className="text-[7px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">Registry Staff</span>
+                                                         }
+                                                      </p>
+                                                   </div>
+                                                </div>
+                                                <div className="text-right">
+                                                   <p className="text-[8px] font-black text-zinc-700 uppercase tracking-widest mb-1 leading-none text-right">Adjust Payout</p>
+                                                   <div className="relative">
+                                                       <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
+                                                       <input 
+                                                         type="number"
+                                                         className="bg-black/40 border border-white/5 rounded-lg p-2 pl-8 text-xs font-black text-white outline-none w-28 text-right focus:border-red-500/30"
+                                                         value={staff.payment || 0}
+                                                         onChange={(e) => {
+                                                             const newPayment = Number(e.target.value);
+                                                             let updatedRoleVal;
+                                                             if (Array.isArray(project.team?.[role])) {
+                                                                const roleArr = [...project.team[role]];
+                                                                // Find matching staff element by ID or index
+                                                                const staffIdx = roleArr.findIndex((s: any) => s.id === staff.id);
+                                                                if (staffIdx >= 0) {
+                                                                   roleArr[staffIdx] = { ...roleArr[staffIdx], payment: newPayment };
+                                                                } else if (idx < roleArr.length) {
+                                                                   roleArr[idx] = { ...roleArr[idx], payment: newPayment };
+                                                                } else {
+                                                                   roleArr.push({ ...staff, payment: newPayment });
+                                                                }
+                                                                updatedRoleVal = roleArr;
+                                                             } else {
+                                                                updatedRoleVal = [{ ...staff, payment: newPayment }];
+                                                             }
+                                                             
+                                                             const updatedTeam = { 
+                                                                ...project.team, 
+                                                                [role]: updatedRoleVal,
+                                                                [role.slice(0, -1)]: updatedRoleVal[0] 
+                                                             };
+                                                             const updatedProject = { ...project, team: updatedTeam };
+                                                             updateProjectAndPersist(updatedProject);
+                                                         }}
+                                                       />
+                                                   </div>
+                                                </div>
+                                             </div>
+                                          );
+                                       });
+                                    })}
+                              </div>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Payment Breakdown */}
-                    <div className="space-y-4">
-                       <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-4">Logistics & Payment Breakdown</p>
-                       <div className="grid grid-cols-1 gap-3">
-                          {Object.entries(project.team || {}).map(([role, val]) => {
-                             const staff = val as StaffAssignment;
-                             return (
-                                <div key={role} className="p-6 bg-white/5 rounded-3xl border border-white/5 flex justify-between items-center group hover:bg-white/10 transition-all">
-                                   <div className="flex items-center gap-5">
-                                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${staff.type === 'external' ? 'bg-primary/10 text-blue-400' : 'bg-primary/10 text-primary'} border border-white/5`}>
-                                         {role.charAt(0).toUpperCase()}
-                                      </div>
-                                      <div>
-                                         <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{role}</p>
-                                         <p className="text-sm font-black text-white flex items-center gap-2">
-                                            {staff.name} 
-                                            {staff.type === 'external' ? 
-                                              <span className="text-[7px] bg-primary/20 text-blue-400 px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">External Agent</span> : 
-                                              <span className="text-[7px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">Registry Staff</span>
-                                            }
-                                         </p>
-                                      </div>
-                                   </div>
-                                   <div className="text-right">
-                                      <p className="text-[8px] font-black text-zinc-700 uppercase tracking-widest mb-1 leading-none text-right">Adjust Payout</p>
-                                      <div className="relative">
-                                          <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
-                                          <input 
-                                            type="number"
-                                            className="bg-black/40 border border-white/5 rounded-lg p-2 pl-8 text-xs font-black text-white outline-none w-28 text-right focus:border-red-500/30"
-                                            value={staff.payment || 0}
-                                            onChange={(e) => {
-                                                const updatedTeam = { ...project.team, [role]: { ...staff, payment: Number(e.target.value) } };
-                                                const updatedProject = { ...project, team: updatedTeam };
-                                                onUpdateClient(updatedProject);
-                                                setActiveProject(updatedProject);
-                                            }}
-                                          />
-                                      </div>
-                                   </div>
-                                </div>
-                             );
-                          })}
-                       </div>
-                    </div>
-
-                    <div className="p-10 border-t border-white/5 flex flex-col items-center">
-                        <div className="p-4 bg-primary/10 rounded-2xl border border-primary/10 mb-6 max-w-sm text-center">
-                            <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1 leading-tight">Ledger Synchronized</p>
-                            <p className="text-[8px] font-bold text-zinc-600 uppercase leading-tight">All manual adjustments are instantly persisted in the project's financial metadata.</p>
+                           <div className="p-10 border-t border-white/5 flex flex-col items-center">
+                               <div className="p-4 bg-primary/10 rounded-2xl border border-primary/10 mb-6 max-w-sm text-center">
+                                   <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1 leading-tight">Ledger Synchronized</p>
+                                   <p className="text-[8px] font-bold text-zinc-600 uppercase leading-tight">All manual adjustments are instantly persisted in the project's financial metadata.</p>
+                               </div>
+                               <button 
+                                  onClick={async () => {
+                                      try {
+                                          await api.saveProject(project);
+                                          alert("Project financials updated and locked.");
+                                      } catch (err) {
+                                          console.error("Failed to commit financials ledger:", err);
+                                          alert("Failed to commit ledger changes to database.");
+                                      }
+                                  }}
+                                  className="px-10 py-5 bg-white text-black font-black uppercase text-[11px] rounded-2xl tracking-widest transition-all active:scale-95 shadow-2xl hover:bg-zinc-200"
+                               >
+                                  Commit Ledger Changes
+                               </button>
+                           </div>
                         </div>
-                        <button 
-                           onClick={() => {
-                               // Force a persistent save to projects collection
-                               const stored = safeParse<any[]>('projects', []);
-                               const updated = stored.map((p: any) => p.id === project.id ? project : p);
-                               localStorage.setItem('projects', JSON.stringify(updated));
-                               alert("Project financials updated and locked.");
-                           }}
-                           className="px-10 py-5 bg-white text-black font-black uppercase text-[11px] rounded-2xl tracking-widest transition-all active:scale-95 shadow-2xl hover:bg-zinc-200"
-                        >
-                           Commit Ledger Changes
-                        </button>
-                    </div>
-                 </div>
-              ) : (
+                     );
+                  })() : (
                 <div className="py-32 flex flex-col items-center justify-center space-y-6 opacity-30">
                    <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center border border-white/10">
                       <LockKeyhole className="w-8 h-8 text-zinc-500" />

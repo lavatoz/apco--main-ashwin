@@ -140,16 +140,69 @@ export const applyTheme = (
     }
   }
 
-  // 3. Graphics Preset Overrides
-  if (graphicsId === 'glassmorphism') {
-    blur = 'blur(40px) saturate(150%)';
-    cardBg = 'rgba(255, 255, 255, 0.05)';
-    border = 'rgba(255, 255, 255, 0.1)';
-  } else if (graphicsId === 'neon-pulse') {
-    // Add glow class logic later via dataset
+  // 3. Graphics Preset Overrides — each preset gets a distinct visual treatment
+  let cardShadow = 'none';
+  let glow = 'none';
+
+  switch (graphicsId) {
+    case 'classic':
+      // Default — no overrides
+      break;
+
+    case 'glassmorphism':
+      blur = 'blur(40px) saturate(180%)';
+      cardBg = 'rgba(255, 255, 255, 0.06)';
+      border = 'rgba(255, 255, 255, 0.15)';
+      cardShadow = '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)';
+      break;
+
+    case 'luxury-grain':
+      blur = 'blur(12px) saturate(120%)';
+      cardBg = 'rgba(255, 255, 255, 0.02)';
+      border = 'rgba(255, 255, 255, 0.06)';
+      cardShadow = '0 4px 24px rgba(0,0,0,0.4)';
+      break;
+
+    case 'cinematic':
+      blur = 'blur(24px) saturate(140%)';
+      cardBg = 'rgba(0, 0, 0, 0.4)';
+      border = 'rgba(255, 255, 255, 0.08)';
+      cardShadow = '0 20px 60px rgba(0,0,0,0.6), 0 0 80px rgba(0,0,0,0.3)';
+      break;
+
+    case 'editorial':
+      blur = 'none';
+      cardBg = 'rgba(255, 255, 255, 0.03)';
+      border = 'rgba(255, 255, 255, 0.12)';
+      radius = '0px';
+      cardShadow = '0 1px 0 rgba(255,255,255,0.05)';
+      break;
+
+    case 'neon-pulse':
+      blur = 'blur(30px) saturate(200%)';
+      cardBg = 'rgba(0, 0, 0, 0.5)';
+      border = `${primary}40`;
+      cardShadow = `0 0 30px ${primary}20, 0 0 60px ${primary}10`;
+      glow = `0 0 40px ${primary}30, 0 0 80px ${primary}15`;
+      break;
+
+    case 'marble-luxury':
+      blur = 'blur(16px) saturate(110%)';
+      cardBg = 'rgba(255, 255, 255, 0.04)';
+      border = 'rgba(255, 255, 255, 0.1)';
+      cardShadow = '0 8px 40px rgba(0,0,0,0.3), inset 0 0.5px 0 rgba(255,255,255,0.08)';
+      break;
+
+    case 'aurora':
+      blur = 'blur(30px) saturate(160%)';
+      cardBg = 'rgba(0, 0, 0, 0.3)';
+      border = 'rgba(255, 255, 255, 0.08)';
+      cardShadow = '0 12px 48px rgba(0,0,0,0.4)';
+      glow = `0 0 120px ${primary}20`;
+      break;
   }
   
-  // Set Dataset for Graphics Mode so CSS can target it (e.g. .graphics-luxury-grain)
+  // Set Dataset for Graphics Mode so CSS can target it (body[data-graphics="..."])
   if (!containerId) {
     document.body.dataset.graphics = graphicsId;
     document.body.dataset.themeType = bg.toLowerCase() === '#000000' || bg.toLowerCase().startsWith('#0') ? 'dark' : 'light';
@@ -171,4 +224,8 @@ export const applyTheme = (
   // We're redefining the --primary-color variable as well so legacy components using it still work
   root.style.setProperty('--primary-color', primary);
   root.style.setProperty('--primary-color-rgb', hexToRgb(primary));
+
+  // Graphics-specific CSS variables
+  root.style.setProperty('--theme-card-shadow', cardShadow);
+  root.style.setProperty('--theme-glow', glow);
 };

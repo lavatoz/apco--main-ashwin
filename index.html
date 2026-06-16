@@ -14,6 +14,20 @@
   <meta name="mobile-web-app-capable" content="yes">
 
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['var(--theme-font-family)', 'sans-serif'],
+          },
+          colors: {
+            primary: 'rgb(var(--primary-color-rgb) / <alpha-value>)',
+          }
+        }
+      }
+    }
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet">
 

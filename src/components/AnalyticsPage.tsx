@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { fetchApi } from '../services/api';
 
 const AnalyticsPage: React.FC = () => {
   const { type } = useParams<{ type: string }>();
@@ -17,18 +18,10 @@ const AnalyticsPage: React.FC = () => {
   useEffect(() => {
     const fetchBrands = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const response = await fetch("http://localhost:5000/api/brands", {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const bData = await response.json();
-          setBrands(bData);
-          if (bData.length > 0) {
-            setSelectedBrandId(bData[0]._id);
-          } else {
-            setLoading(false);
-          }
+        const bData = await fetchApi('/brands');
+        setBrands(bData);
+        if (bData.length > 0) {
+          setSelectedBrandId(bData[0]._id);
         } else {
           setLoading(false);
         }
@@ -47,25 +40,14 @@ const AnalyticsPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem("token");
-        const response = await fetch(`http://localhost:5000/api/finance/summary?brandId=${selectedBrandId}`, {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error("Failed connecting to finance service");
-        }
-        
-        const summary = await response.json();
+        const summary = await fetchApi(`/finance/summary?brandId=${selectedBrandId}`);
         
         setData([
           { name: "Revenue", value: summary.totalRevenue || 0 },
           { name: "Expenses", value: summary.totalExpenses || 0 },
           { name: "Profit", value: summary.profit || 0 }
         ]);
-      } catch (err) {
+      } catch (err: any) {
         setError(err instanceof Error ? err.message : 'Network check failed');
       } finally {
         setLoading(false);

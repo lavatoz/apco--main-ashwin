@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -12,6 +12,7 @@ import { api } from '../services/api';
 import { calculateEventStatusAndProgress } from '../utils/eventUtils';
 import { generateGroupedAlerts } from '../utils/alertEngine';
 import { useCompanySettings } from '../hooks/useCompanySettings';
+import ClientModal from './ClientModal';
 
 interface DashboardProps {
   invoices: Invoice[];
@@ -24,7 +25,7 @@ interface DashboardProps {
   divisions: Division[];
   addDivision: (division: Division) => void;
   deleteDivision: (id: string) => void;
-  addClient: (client: Client) => Promise<void>;
+  addClient: (client: Client) => Promise<any>;
 }
 
 const slugify = (text: string) => text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -48,27 +49,6 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
 
   // Create Client States
   const [isAddingClient, setIsAddingClient] = useState(false);
-  const [isSubmittingClient, setIsSubmittingClient] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [clientFormData, setClientFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    eventDate: '',
-    projectType: 'Wedding',
-    companyId: selectedBrand !== 'All' ? selectedBrand : '',
-    projectName: companies.find(d => d.id === selectedBrand)?.companyName || ''
-  });
-
-  useEffect(() => {
-    if (selectedBrand === 'All' && companies.length === 1 && !clientFormData.companyId) {
-      setClientFormData(prev => ({
-        ...prev,
-        companyId: companies[0].id,
-        projectName: companies[0].companyName
-      }));
-    }
-  }, [companies, selectedBrand, clientFormData.companyId]);
 
   const isAdmin = userRole === 'Admin';
 
@@ -113,60 +93,16 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
     }
   };
 
-  const handleCreateClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!clientFormData.companyId || clientFormData.companyId === 'All') {
-      setFormError("Please select a specific Project Registry");
-      return;
-    }
-    if (!clientFormData.name) {
-      setFormError("Name is required");
-      return;
-    }
+  // Unified client creation is handled by ClientModal component
 
-    setIsSubmittingClient(true);
-    setFormError(null);
-
-    const targetComp = companies.find(d => d.id === clientFormData.companyId);
-
-    const clientData: Client = {
-      id: String(Date.now()),
-      _id: `client-${Date.now()}`,
-      projectName: clientFormData.name,
-      name: clientFormData.name,
-      email: clientFormData.email,
-      phone: clientFormData.phone,
-      eventDate: clientFormData.eventDate,
-      projectType: clientFormData.projectType,
-      brand: targetComp?.companyName || clientFormData.projectName || 'Unknown',
-      divisionId: clientFormData.companyId,
-      companyId: clientFormData.companyId,
-      notes: '',
-      people: [],
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-
-    try {
-      await addClient(clientData);
-      setClientFormData({
-        name: '',
-        email: '',
-        phone: '',
-        eventDate: '',
-        projectType: 'Wedding',
-        companyId: selectedBrand !== 'All' ? selectedBrand : (companies.length === 1 ? companies[0].id : ''),
-        projectName: companies.find(d => d.id === selectedBrand)?.companyName || ''
-      });
-      setIsAddingClient(false);
-    } catch (err) {
-      setFormError("Failed to save data.");
-    } finally {
-      setIsSubmittingClient(false);
-    }
-  };
+  const lastFetchedBrand = useRef<string | null>(null);
 
   useEffect(() => {
+    if (lastFetchedBrand.current === selectedBrand) {
+      return;
+    }
+    lastFetchedBrand.current = selectedBrand;
+
     const fetchSummary = async () => {
       try {
         const data = await api.getFinanceSummary(selectedBrand, selectedBrand === 'All' ? 'global' : 'project');
@@ -365,16 +301,6 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
         <div className="flex justify-end -mb-6">
           <button
             onClick={() => {
-              setFormError(null);
-              setClientFormData({
-                name: '',
-                email: '',
-                phone: '',
-                eventDate: '',
-                projectType: 'Wedding',
-                companyId: selectedBrand !== 'All' ? selectedBrand : (companies.length === 1 ? companies[0].id : ''),
-                projectName: companies.find(d => d.id === selectedBrand)?.companyName || ''
-              });
               setIsAddingClient(true);
             }}
             className="bg-white text-black px-8 py-3.5 rounded-2xl flex items-center gap-3 font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 ios-transition shadow-lg active:scale-95"
@@ -386,7 +312,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
       )}
       
       {/* Metrics Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
         {metrics.map((m) => {
           const Icon = m.icon;
           return (
@@ -449,7 +375,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
 
       {/* Today's Events Section */}
       {todayEvents.length > 0 && (
-        <div className="bg-primary/5 p-12 squircle-xl border border-primary/10 space-y-10 flex flex-col">
+        <div className="bg-primary/5 p-5 md:p-12 squircle-xl border border-primary/10 space-y-10 flex flex-col">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-black text-white uppercase tracking-widest flex items-center gap-4">
               <CalendarCheck className="w-6 h-6 text-primary" /> Today's Events
@@ -461,7 +387,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {todayEvents.map((ev, idx) => (
-              <div key={ev.id || idx} onClick={() => navigate(`/project/${ev.clientId}`)} className="p-6 bg-emerald-950/20 border border-primary/20 rounded-3xl relative overflow-hidden group cursor-pointer hover:bg-emerald-950/40 transition-colors">
+              <div key={ev.id || idx} onClick={() => navigate(`/project/${ev.clientId}`)} className="p-4 md:p-6 bg-emerald-950/20 border border-primary/20 rounded-3xl relative overflow-hidden group cursor-pointer hover:bg-emerald-950/40 transition-colors">
                 <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
                 <div className="flex items-start justify-between mb-4">
                   <div>
@@ -496,7 +422,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Alerts Section */}
-        <div className="lg:col-span-2 bg-amber-500/5 border border-amber-500/10 p-12 squircle-xl space-y-10">
+        <div className="lg:col-span-2 bg-amber-500/5 border border-amber-500/10 p-5 md:p-12 squircle-xl space-y-10">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-black text-white uppercase tracking-widest flex items-center gap-4">
               <MessageSquare className="w-6 h-6 text-amber-500 fill-amber-500/20" /> Active Alerts
@@ -511,7 +437,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
                <div 
                   key={idx} 
                   onClick={() => navigate(`/project/${group.clientId}`)}
-                  className={`p-6 rounded-3xl border flex flex-col gap-4 group hover:bg-white/10 ios-transition cursor-pointer ${group.highestPriority === 1 ? 'border-red-500/20 bg-red-500/5' : group.highestPriority === 2 ? 'border-amber-500/20 bg-amber-500/5' : 'border-primary/20 bg-primary/5'}`}
+                  className={`p-4 md:p-6 rounded-3xl border flex flex-col gap-4 group hover:bg-white/10 ios-transition cursor-pointer ${group.highestPriority === 1 ? 'border-red-500/20 bg-red-500/5' : group.highestPriority === 2 ? 'border-amber-500/20 bg-amber-500/5' : 'border-primary/20 bg-primary/5'}`}
                 >
                   <div className="flex items-center gap-3 border-b border-white/5 pb-3">
                      <AlertCircle className={`w-5 h-5 ${group.highestPriority === 1 ? 'text-red-500' : group.highestPriority === 2 ? 'text-amber-500' : 'text-primary'}`} />
@@ -549,7 +475,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
         </div>
 
         {/* Events Section */}
-        <div className="bg-primary/5 p-12 squircle-xl border border-primary/10 space-y-10 flex flex-col">
+        <div className="bg-primary/5 p-5 md:p-12 squircle-xl border border-primary/10 space-y-10 flex flex-col">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-black text-white uppercase tracking-widest flex items-center gap-4">
               <CalendarCheck className="w-6 h-6 text-primary" /> Upcoming Events
@@ -647,12 +573,12 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
           {divisions.map(div => (
             <div 
               key={div.id} 
               onClick={() => navigate(`/ecosystem/brand/${slugify(div.name)}`)}
-              className={`glass-panel p-10 relative group overflow-hidden transition-all duration-500 squircle-lg border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] cursor-pointer hover:scale-[1.02] hover:border-white/20 shadow-2xl ${fadingId === div.id ? 'animate-fade-out' : ''}`}
+              className={`glass-panel p-6 md:p-10 relative group overflow-hidden transition-all duration-500 squircle-lg border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] cursor-pointer hover:scale-[1.02] hover:border-white/20 shadow-2xl ${fadingId === div.id ? 'animate-fade-out' : ''}`}
             >
               <div className="absolute top-0 right-0 w-1.5 h-full opacity-40 group-hover:opacity-100 bg-primary" />
               
@@ -680,7 +606,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 block">{div.type} Operational Registry</span>
                  <button 
                    onClick={(e) => { e.stopPropagation(); navigate(`/ecosystem/brand/${slugify(div.name)}`); }}
-                   className="w-full py-4 bg-white/5 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-white group-hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                   className="w-full py-3 md:py-4 bg-white/5 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-white group-hover:bg-white/10 transition-all flex items-center justify-center gap-2"
                  >
                     Deployment View
                     <Shield className="w-3 h-3" />
@@ -693,7 +619,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
 
       {isAdding && (
         <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-6 backdrop-blur-2xl">
-          <div className="bg-zinc-900 border border-white/10 rounded-[2.5rem] w-full max-w-xl p-12 shadow-2xl animate-ios-slide-up">
+          <div className="bg-zinc-900 border border-white/10 rounded-3xl md:rounded-[2.5rem] w-full max-w-xl p-6 md:p-12 shadow-2xl animate-ios-slide-up">
             <div className="flex justify-between items-center mb-12">
               <h2 className="text-3xl font-black text-white uppercase tracking-tight">{isEditing ? 'Update Registry' : 'Register Projects'}</h2>
               <button onClick={() => { setIsAdding(false); setIsEditing(null); setNewDiv({ type: 'Wedding' }); }} className="p-3 bg-white/5 text-zinc-600 hover:text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
@@ -730,7 +656,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
           onClick={() => { setIsDeleteModalOpen(false); setDivToDelete(null); }}
         >
           <div 
-            className="bg-zinc-900 border border-white/10 rounded-[3rem] w-full max-w-[400px] p-12 shadow-2xl text-center animate-modal-content m-4"
+            className="bg-zinc-900 border border-white/10 rounded-3xl md:rounded-[3rem] w-full max-w-[400px] p-6 md:p-12 shadow-2xl text-center animate-modal-content m-4"
             onClick={e => e.stopPropagation()}
           >
             <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-red-500/20">
@@ -769,100 +695,14 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
         document.body
       )}
 
-      {isAddingClient && createPortal(
-        <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-          onClick={() => setIsAddingClient(false)}
-        >
-          <div 
-            className="w-full max-w-xl bg-zinc-900 border border-white/10 squircle-lg p-10 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto no-scrollbar relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-10">
-              <div>
-                <h2 className="text-3xl font-black text-white tracking-tight uppercase">New Client</h2>
-                <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mt-1">Add New Client</p>
-              </div>
-              <button disabled={isSubmittingClient} onClick={() => {
-                setIsAddingClient(false);
-              }} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"><X className="w-6 h-6 text-zinc-400 hover:text-white" /></button>
-            </div>
-
-            {formError && (
-              <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl text-[10px] uppercase tracking-widest font-mono text-center">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateClient} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Assign to Project Registry *</label>
-                {selectedBrand !== 'All' ? (
-                   <div className="w-full glass-panel rounded-xl p-4 text-sm font-bold text-zinc-400 cursor-not-allowed">
-                      {companies.find(d => d.id === selectedBrand)?.companyName || selectedBrand}
-                      <span className="ml-2 text-[8px] opacity-40">(Locked by Global Filter)</span>
-                   </div>
-                ) : (
-                  <select 
-                    className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" 
-                    value={clientFormData.companyId || ''} 
-                    onChange={e => {
-                      const id = e.target.value;
-                      const comp = companies.find(d => d.id === id);
-                      setClientFormData(prev => ({ ...prev, companyId: id, projectName: comp?.companyName || '' }));
-                    }} 
-                    disabled={isSubmittingClient}
-                  >
-                    {companies.length > 1 && <option value="" disabled>Select Registry</option>}
-                    {companies.map(d => <option key={d.id} className="bg-zinc-900" value={d.id}>{d.companyName}</option>)}
-                  </select>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Client Name *</label>
-                <input className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. Rahul & Priya" value={clientFormData.name} onChange={e => setClientFormData(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmittingClient} />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Email <span className="opacity-50">(Optional)</span></label>
-                <input type="email" className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. hello@example.com" value={clientFormData.email} onChange={e => setClientFormData(prev => ({ ...prev, email: e.target.value }))} disabled={isSubmittingClient} />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Project Type *</label>
-                <select className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={clientFormData.projectType} onChange={e => setClientFormData(prev => ({ ...prev, projectType: e.target.value }))} disabled={isSubmittingClient}>
-                  <option value="Wedding" className="bg-zinc-900">Luxury Wedding</option>
-                  <option value="Kids" className="bg-zinc-900">Kids & Maternity</option>
-                  <option value="Corporate" className="bg-zinc-900">Corporate Production</option>
-                  <option value="Fashion" className="bg-zinc-900">Fashion Editorial</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Phone <span className="opacity-50">(Optional)</span></label>
-                  <input className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="+91 98765 43210" value={clientFormData.phone} onChange={e => setClientFormData(prev => ({ ...prev, phone: e.target.value }))} disabled={isSubmittingClient} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Event Date <span className="opacity-50">(Optional)</span></label>
-                  <input type="date" className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={clientFormData.eventDate} onChange={e => setClientFormData(prev => ({ ...prev, eventDate: e.target.value }))} disabled={isSubmittingClient} />
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-8 border-t border-white/5">
-                <button type="button" disabled={isSubmittingClient} onClick={() => {
-                  setIsAddingClient(false);
-                }} className="flex-1 py-4 bg-white/5 text-zinc-500 hover:text-white squircle-sm font-black uppercase text-[11px] tracking-widest transition-all disabled:opacity-50">Cancel</button>
-                <button type="submit" disabled={isSubmittingClient} className="flex-1 py-4 bg-white text-black hover:bg-zinc-200 squircle-sm font-black uppercase text-[11px] tracking-widest shadow-xl transition-all disabled:opacity-50">
-                  {isSubmittingClient ? 'Saving...' : 'Create Client'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
+      <ClientModal 
+        isOpen={isAddingClient}
+        onClose={() => setIsAddingClient(false)}
+        onSubmit={addClient}
+        companies={companies}
+        clients={clients}
+        preselectedBrandId={selectedBrand}
+      />
     </div>
   );
 };

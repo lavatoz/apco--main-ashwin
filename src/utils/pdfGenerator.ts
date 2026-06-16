@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
 import { sha256 } from 'js-sha256';
@@ -6,8 +6,31 @@ import html2canvas from 'html2canvas';
 import { type Invoice, type Client, type CompanyProfile, type GlobalSettings, type ActiveAgreementSnapshot } from '../types';
 import { quoteTemplates, invoiceTemplates, getTemplate } from '../templates/registry';
 import { type CustomTemplateMetadata } from '../templates/types';
+import { api } from '../services/api';
 
-export const generateInvoicePDF = async (invoice: Invoice, client: Client, settings: CompanyProfile) => {
+const getPdfOptions = (gSettings: GlobalSettings, customOptions: any = {}) => {
+  const options: any = {
+    orientation: customOptions.orientation || 'p',
+    unit: customOptions.unit || 'mm',
+    format: customOptions.format || 'a4'
+  };
+  if (gSettings.pdfOwnerPassword) {
+    const useOpenPassword =
+      gSettings.pdfPasswordMode === 'open-password' &&
+      !!gSettings.pdfUserPassword?.trim();
+
+    options.encryption = {
+      // When open-password mode: set userPassword so viewers prompt on open.
+      // When owner-only mode: empty string means no open prompt.
+      userPassword: useOpenPassword ? gSettings.pdfUserPassword!.trim() : '',
+      ownerPassword: gSettings.pdfOwnerPassword,
+      userPermissions: ['print']
+    };
+  }
+  return options;
+};
+
+export const generateInvoicePDF = async (invoice: Invoice, client: Client, settings: CompanyProfile, autoSave = true) => {
   const globalStored = localStorage.getItem('artisans_global_settings');
   const gSettings: GlobalSettings = globalStored ? JSON.parse(globalStored) : {};
   
@@ -17,11 +40,7 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
 
   if (templateDef.metadata.type === 'canva_image') {
       const metadata = templateDef.metadata as CustomTemplateMetadata;
-      const doc = new jsPDF({
-         orientation: 'p',
-         unit: 'mm',
-         format: 'a4'
-      });
+      const doc = new jsPDF(getPdfOptions(gSettings, { orientation: 'p', unit: 'mm', format: 'a4' }));
       const pdfWidth = doc.internal.pageSize.getWidth();
       const pdfHeight = doc.internal.pageSize.getHeight();
 
@@ -98,8 +117,16 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
       }
 
       const filename = `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'}_${invoice.id}.pdf`;
-      doc.save(filename);
-      return;
+      if (autoSave) {
+         doc.save(filename);
+      }
+      try {
+         invoice.generatedPdf = doc.output('datauristring');
+         await api.saveInvoice(invoice);
+      } catch (err) {
+         console.error('Failed to cache custom template PDF', err);
+      }
+      return doc;
   }
   
   if (gSettings.pdfSecureRenderEnabled) {
@@ -111,11 +138,7 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
            backgroundColor: null, // let html2canvas use element background
         });
         const imgData = canvas.toDataURL('image/png');
-        const doc = new jsPDF({
-           orientation: 'p',
-           unit: 'mm',
-           format: 'a4'
-        });
+        const doc = new jsPDF(getPdfOptions(gSettings, { orientation: 'p', unit: 'mm', format: 'a4' }));
         
         const imgProps = (doc as any).getImageProperties(imgData);
         const pdfWidth = doc.internal.pageSize.getWidth();
@@ -131,18 +154,23 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
            creator: 'Artisans OS v1.0'
         });
 
-        // Still applying encryption if set
-        if (gSettings.pdfOwnerPassword && typeof (doc as any).setEncryption === 'function') {
-           (doc as any).setEncryption('', gSettings.pdfOwnerPassword, ['print'], 128);
-        }
+
 
         const filename = `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'}_${invoice.id}_SECURE.pdf`;
-        doc.save(filename);
-        return;
+        if (autoSave) {
+           doc.save(filename);
+        }
+        try {
+           invoice.generatedPdf = doc.output('datauristring');
+           await api.saveInvoice(invoice);
+        } catch (err) {
+           console.error('Failed to cache secure render PDF', err);
+        }
+        return doc;
      }
   }
 
-  const doc = new jsPDF();
+  const doc = new jsPDF(getPdfOptions(gSettings));
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -447,10 +475,12 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
   }
 
   // LAYER 4: VERIFY FOOTER
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text(`VERIFY AUTHENTICITY AT: artisans.app/verify/${invoice.id}`, pageWidth / 2, footerY + 5, { align: 'center' });
+  if (gSettings.pdfVerifyLinkEnabled !== false) {
+     doc.setFontSize(7);
+     doc.setFont('helvetica', 'bold');
+     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+     doc.text(`VERIFY AUTHENTICITY AT: artisans.app/verify/${invoice.id}`, pageWidth / 2, footerY + 5, { align: 'center' });
+  }
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
@@ -471,21 +501,27 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
     creator: 'Artisans OS v1.0'
   });
 
-  // 7. ENCRYPTION
-  if (gSettings.pdfOwnerPassword && typeof (doc as any).setEncryption === 'function') {
-     (doc as any).setEncryption('', gSettings.pdfOwnerPassword, ['print'], 128);
-  }
+
 
   // Save
   const filename = `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'}_${invoice.id}_${client.projectName || client.name || 'Client'}.pdf`.replace(/[\s\/]/g, '_');
-  doc.save(filename);
+  if (autoSave) {
+     doc.save(filename);
+  }
+  try {
+     invoice.generatedPdf = doc.output('datauristring');
+     await api.saveInvoice(invoice);
+  } catch (err) {
+     console.error('Failed to cache standard PDF', err);
+  }
+  return doc;
 };
 
-export const generateAgreementPDF = async (agreement: ActiveAgreementSnapshot, client: Client, settings: CompanyProfile) => {
+export const generateAgreementPDF = async (agreement: ActiveAgreementSnapshot, client: Client, settings: CompanyProfile, autoSave = true) => {
   const globalStored = localStorage.getItem('artisans_global_settings');
   const gSettings: GlobalSettings = globalStored ? JSON.parse(globalStored) : {};
 
-  const doc = new jsPDF();
+  const doc = new jsPDF(getPdfOptions(gSettings));
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -691,5 +727,8 @@ export const generateAgreementPDF = async (agreement: ActiveAgreementSnapshot, c
   });
 
   const agreementFilename = `Agreement_${client.projectName || client.name || 'Client'}.pdf`.replace(/[\s\/]/g, '_');
-  doc.save(agreementFilename);
+  if (autoSave) {
+     doc.save(agreementFilename);
+  }
+  return doc;
 };
