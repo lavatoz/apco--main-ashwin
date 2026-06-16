@@ -1,4 +1,4 @@
-import type { ProjectStage, TimelineItem } from '../types';
+import type { ProjectStage, TimelineItem, Project } from '../types';
 
 export const WORKFLOW_STAGES = [
   'Booked',
@@ -52,4 +52,47 @@ export const generateTimelineEvent = (title: string, description: string): Timel
     date: new Date().toISOString(),
     status: 'Completed'
   };
+};
+
+export const calculateProjectWorkflowProgress = (project?: Project | null): number => {
+  if (!project || !project.stageTracking) return 0;
+  let completedCount = 0;
+  for (let i = 1; i <= 10; i++) {
+    if (project.stageTracking[String(i)]?.status === 'Completed') {
+      completedCount++;
+    }
+  }
+  return Math.round((completedCount / 10) * 100);
+};
+
+export const getTeamFromProjectAssignments = (assignments?: any[]): any => {
+  if (!assignments || !Array.isArray(assignments)) return {};
+  
+  const defaultRoles = ['Photographer', 'Videographer', 'Editor', 'Assistant', 'DroneOperator', 'Designer'];
+  const team: any = {};
+
+  defaultRoles.forEach(roleName => {
+     const cleanName = roleName.toLowerCase();
+     const pluralKey = (cleanName === 'droneoperator' ? 'droneoperator' : cleanName) + 's';
+     const singularKey = cleanName === 'droneoperator' ? 'droneoperator' : cleanName;
+
+     const matching = assignments.filter((a: any) => a.role === roleName);
+     const mapped = matching.map((a: any) => ({
+        id: a.userId,
+        name: a.user ? `${a.user.firstName} ${a.user.lastName}` : 'Unassigned',
+        type: 'internal',
+        assigned_dates: a.assignedAt ? [a.assignedAt] : [],
+        role: roleName === 'DroneOperator' ? 'Drone Operator' : roleName
+     }));
+
+     team[pluralKey] = mapped;
+     team[singularKey] = mapped.length > 0 ? mapped[0] : undefined;
+  });
+
+  return team;
+};
+
+// Keep placeholder for backward compatibility
+export const getTeamFromClientAssignments = (_clientId?: string, _currentProjectTeam?: any): any => {
+  return {};
 };

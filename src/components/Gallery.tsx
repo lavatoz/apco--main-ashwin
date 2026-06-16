@@ -121,7 +121,7 @@ const Gallery: React.FC<GalleryProps> = ({ clientId, userRole, onUpdate }) => {
   };
 
   const getImageUrl = (path: string) => {
-    // API_URL is http://localhost:5000/api
+    // API_URL is http://localhost:3000/api
     const serverBase = API_URL.replace('/api', '');
     return `${serverBase}/${path}`;
   };

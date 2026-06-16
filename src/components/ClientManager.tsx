@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Calendar, UserPlus, X, Mail, Phone, User, Trash2, Edit2, ChevronDown, Briefcase, LayoutGrid, Loader2 } from 'lucide-react';
+import { Search, Calendar, UserPlus, Mail, Phone, User, Trash2, Edit2, ChevronDown, Briefcase, LayoutGrid, Loader2 } from 'lucide-react';
 
 import { type Client, type Division } from '../types';
 import { useCompanySettings } from '../hooks/useCompanySettings';
+import ClientModal from './ClientModal';
 
 interface ClientManagerProps {
   clients: Client[];
   divisions: Division[];
-  addClient: (client: Client) => Promise<void>;
+  addClient: (client: Client) => Promise<any>;
   deleteClient: (id: string) => Promise<void>;
   selectedDivisionId: string | 'All';
   userDivisionIds?: string[];
@@ -25,29 +26,10 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
   const [searchTerm, setSearchTerm] = useState('');
 
   // Editing State
-  const [isEditing, setIsEditing] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   // Form State
   const [isAdding, setIsAdding] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    eventDate: '',
-    projectType: 'Wedding',
-    companyId: '',
-    projectName: '',
-    locationType: '' as 'Bride' | 'Groom' | '',
-    brideAddress: '',
-    groomAddress: '',
-    venueAddress: '',
-    notes: '',
-    address: ''
-  });
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
@@ -80,122 +62,17 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
   }, [isAdding, isDeleteModalOpen]);
 
   useEffect(() => {
-    const targetComp = companies.find(d => d.id === preselectedId);
-    setFormData(prev => ({
-      ...prev,
-      companyId: preselectedId !== 'All' ? preselectedId : (companies.length === 1 ? companies[0].id : ''),
-      projectName: targetComp?.companyName || (companies.length === 1 ? companies[0].companyName : '')
-    }));
     if (preselectedId) setSelectedDivId(preselectedId);
     setLoading(false);
   }, [companies, preselectedId]);
 
-
-
   const handleStartEdit = (e: React.MouseEvent, client: Client) => {
     e.stopPropagation();
     setEditingClient(client);
-    setFormData({
-      name: client.name || '',
-      email: client.email || '',
-      phone: client.phone || '',
-      eventDate: client.eventDate || '',
-      projectType: client.projectType || 'Wedding',
-      companyId: client.companyId || client.divisionId || '',
-      projectName: client.brand || '',
-      locationType: client.eventLogistics?.locationType || '',
-      brideAddress: client.eventLogistics?.brideAddress || '',
-      groomAddress: client.eventLogistics?.groomAddress || '',
-      venueAddress: client.eventLogistics?.venueAddress || '',
-      notes: client.notes || '',
-      address: client.address || ''
-    });
-    setIsEditing(true);
     setIsAdding(true);
   };
 
-  const handleCreateClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    console.log("[DEBUG] formData.companyId before submit:", formData.companyId);
-
-    if (!formData.companyId || formData.companyId === 'All') {
-      setFormError("Please select a specific Project Registry");
-      return;
-    }
-    if (!formData.name) {
-      setFormError("Name is required");
-      return;
-    }
-    if (formData.email) {
-      const emailExists = allClients.some(c => 
-        c.email?.toLowerCase() === formData.email.toLowerCase() && 
-        (!isEditing || c.id !== editingClient?.id)
-      );
-      if (emailExists) {
-        setFormError("Client email must be unique");
-        return;
-      }
-    }
-
-    setIsSubmitting(true);
-    setFormError(null);
-
-    const targetComp = companies.find(d => d.id === formData.companyId);
-
-    const clientData: Client = {
-      id: isEditing && editingClient ? editingClient.id : String(Date.now()),
-      _id: isEditing && editingClient ? editingClient._id : `client-${Date.now()}`,
-      projectName: formData.name,
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      eventDate: formData.eventDate,
-      projectType: formData.projectType,
-      brand: targetComp?.companyName || formData.projectName || 'Unknown',
-      divisionId: formData.companyId,
-      companyId: formData.companyId,
-      notes: formData.notes || editingClient?.notes || '',
-      address: formData.address || editingClient?.address || '',
-      people: editingClient?.people || [],
-      status: editingClient?.status || 'pending',
-      createdAt: isEditing && editingClient ? editingClient.createdAt : new Date().toISOString(),
-      eventLogistics: {
-        locationType: (formData.locationType as 'Bride' | 'Groom') || undefined,
-        brideAddress: formData.brideAddress,
-        groomAddress: formData.groomAddress,
-        venueAddress: formData.venueAddress
-      }
-    };
-
-    try {
-      await addClient(clientData);
-
-      // Clear form and close modal
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        eventDate: '',
-        projectType: 'Wedding',
-        companyId: preselectedId !== 'All' ? preselectedId : (companies.length === 1 ? companies[0].id : ''),
-        projectName: companies.find(d => d.id === preselectedId)?.companyName || (companies.length === 1 ? companies[0].companyName : ''),
-        locationType: '',
-        brideAddress: '',
-        groomAddress: '',
-        venueAddress: '',
-        notes: '',
-        address: ''
-      });
-      setIsAdding(false);
-      setIsEditing(false);
-      setEditingClient(null);
-    } catch (err) {
-      setFormError("Failed to save data. Insufficient storage or permission issues.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // Unified client creation/editing is handled by ClientModal component
 
   const confirmDelete = async () => {
     if (!clientToDelete) return;
@@ -325,24 +202,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
             <button
               onMouseDown={(e) => {
                  e.preventDefault();
-                 setFormError(null);
-                 setIsEditing(false);
                  setEditingClient(null);
-                 setFormData({
-                   name: '',
-                   email: '',
-                   phone: '',
-                   eventDate: '',
-                   projectType: 'Wedding',
-                   companyId: preselectedId !== 'All' ? preselectedId : (companies.length === 1 ? companies[0].id : ''),
-                   projectName: companies.find(d => d.id === preselectedId)?.companyName || (companies.length === 1 ? companies[0].companyName : ''),
-                   locationType: '',
-                   brideAddress: '',
-                   groomAddress: '',
-                   venueAddress: '',
-                   notes: '',
-                   address: ''
-                 });
                  setIsAdding(true);
               }}
               className="bg-white text-black px-8 py-3.5 rounded-2xl flex items-center gap-3 font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 ios-transition shadow-lg active:scale-95"
@@ -381,8 +241,8 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredClients.map(client => (
-          <div key={client.id} className={`glass-panel p-10 squircle-lg ios-transition hover:scale-[1.02] active:scale-[0.98] group relative flex flex-col h-full border border-white/5 cursor-pointer ${fadingId === client.id ? 'animate-fade-out' : ''}`} onMouseDown={() => onOpenPortal(client)}>
-            <div className="flex justify-between items-start mb-8">
+          <div key={client.id} className={`glass-panel p-6 md:p-10 squircle-lg ios-transition hover:scale-[1.02] active:scale-[0.98] group relative flex flex-col h-full border border-white/5 cursor-pointer ${fadingId === client.id ? 'animate-fade-out' : ''}`} onMouseDown={() => onOpenPortal(client)}>
+            <div className="flex justify-between items-start mb-6 md:mb-8">
               <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/10 text-xs font-black text-zinc-500 tracking-widest uppercase font-mono truncate max-w-[120px]">
                 {client.id}
               </div>
@@ -414,10 +274,10 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
             </h3>
 
             {client.brand && (
-              <p className="text-sm font-semibold uppercase tracking-wider text-zinc-600 mb-8 border-l-2 border-blue-600 pl-3">{client.brand}</p>
+              <p className="text-sm font-semibold uppercase tracking-wider text-zinc-600 mb-6 md:mb-8 border-l-2 border-blue-600 pl-3">{client.brand}</p>
             )}
 
-            <div className="space-y-4 mb-8">
+            <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
               <div className="flex items-center gap-3 text-base text-gray-300 font-medium truncate">
                 <Mail className="w-4 h-4 text-zinc-600 flex-shrink-0" />
                 <span className="truncate">{client.email || 'N/A'}</span>
@@ -428,8 +288,8 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
               </div>
             </div>
 
-            <div className="space-y-4 pt-6 border-t border-white/5 mt-auto">
-              <div className="flex items-center justify-between text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">
+            <div className="space-y-3 md:space-y-4 pt-4 md:pt-6 border-t border-white/5 mt-auto">
+              <div className="flex items-center justify-between text-sm font-bold text-zinc-500 uppercase tracking-widest mb-4 md:mb-6">
                 <span className="flex items-center gap-3">
                   <Calendar className="w-4 h-4" /> 
                   {client.eventDate ? new Date(client.eventDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : 'No Event Date'}
@@ -451,164 +311,15 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
         ))}
       </div>
 
-      {isAdding && createPortal(
-        <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-          onClick={() => {
-            setIsAdding(false);
-            setIsEditing(false);
-            setEditingClient(null);
-          }}
-        >
-          <div 
-            className="w-full max-w-xl bg-zinc-900 border border-white/10 squircle-lg p-10 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto no-scrollbar relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-10">
-              <div>
-                <h2 className="text-3xl font-black text-white tracking-tight uppercase">{isEditing ? 'Edit Client' : 'New Client'}</h2>
-                <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mt-1">{isEditing ? 'Profile Management' : 'Add New Client'}</p>
-              </div>
-              <button disabled={isSubmitting} onClick={() => {
-                setIsAdding(false);
-                setIsEditing(false);
-                setEditingClient(null);
-              }} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"><X className="w-6 h-6 text-zinc-400 hover:text-white" /></button>
-            </div>
-
-            {formError && (
-              <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl text-[10px] uppercase tracking-widest font-mono text-center">
-                {formError}
-              </div>
-            )}
-
-            {(() => {
-               const selectedCompany = companies.find(d => d.id === formData.companyId);
-               const isTinyToes = selectedCompany?.companyName?.toLowerCase().includes('tiny toes') || false;
-
-               return (
-            <form onSubmit={handleCreateClient} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Assign to Project Registry *</label>
-                {preselectedId !== 'All' ? (
-                   <div className="w-full glass-panel rounded-xl p-4 text-sm font-bold text-zinc-400 cursor-not-allowed">
-                      {companies.find(d => d.id === preselectedId)?.companyName || preselectedId}
-                      <span className="ml-2 text-[8px] opacity-40">(Locked by Global Filter)</span>
-                   </div>
-                ) : (
-                  <select 
-                    className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" 
-                    value={formData.companyId || ''} 
-                    onChange={e => {
-                      const id = e.target.value;
-                      const comp = companies.find(d => d.id === id);
-                      setFormData(prev => ({ ...prev, companyId: id, projectName: comp?.companyName || '' }));
-                    }} 
-                    disabled={isSubmitting}
-                  >
-                    {companies.length > 1 && <option value="" disabled>Select Registry</option>}
-                    {companies.map(d => <option key={d.id} className="bg-zinc-900" value={d.id}>{d.companyName}</option>)}
-                  </select>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Client Name *</label>
-                <input className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. Rahul & Priya" value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Email <span className="opacity-50">(Optional)</span></label>
-                <input type="email" className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="e.g. hello@example.com" value={formData.email} onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))} disabled={isSubmitting} />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Project Type *</label>
-                <select className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={formData.projectType} onChange={e => setFormData(prev => ({ ...prev, projectType: e.target.value }))} disabled={isSubmitting}>
-                  <option value="Wedding" className="bg-zinc-900">Luxury Wedding</option>
-                  <option value="Kids" className="bg-zinc-900">Kids & Maternity</option>
-                  <option value="Corporate" className="bg-zinc-900">Corporate Production</option>
-                  <option value="Fashion" className="bg-zinc-900">Fashion Editorial</option>
-                </select>
-              </div>
-
-              {!isTinyToes && (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Location Type <span className="opacity-50">(Optional)</span></label>
-                    <select className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={formData.locationType} onChange={e => setFormData(prev => ({ ...prev, locationType: e.target.value as any }))} disabled={isSubmitting}>
-                      <option value="" className="bg-zinc-900">None</option>
-                      <option value="Bride" className="bg-zinc-900">Bride</option>
-                      <option value="Groom" className="bg-zinc-900">Groom</option>
-                    </select>
-                  </div>
-
-                  {formData.locationType === 'Bride' && (
-                    <>
-                      <div className="space-y-2">
-                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Bride Home Address</label>
-                        <textarea className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter full address" value={formData.brideAddress} onChange={e => setFormData(prev => ({ ...prev, brideAddress: e.target.value }))} disabled={isSubmitting} />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Venue Address</label>
-                        <textarea className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter venue address" value={formData.venueAddress} onChange={e => setFormData(prev => ({ ...prev, venueAddress: e.target.value }))} disabled={isSubmitting} />
-                      </div>
-                    </>
-                  )}
-
-                  {formData.locationType === 'Groom' && (
-                    <>
-                      <div className="space-y-2">
-                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Groom Home Address</label>
-                        <textarea className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter full address" value={formData.groomAddress} onChange={e => setFormData(prev => ({ ...prev, groomAddress: e.target.value }))} disabled={isSubmitting} />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Venue Address</label>
-                        <textarea className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Enter venue address" value={formData.venueAddress} onChange={e => setFormData(prev => ({ ...prev, venueAddress: e.target.value }))} disabled={isSubmitting} />
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Phone <span className="opacity-50">(Optional)</span></label>
-                  <input className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" placeholder="+91 98765 43210" value={formData.phone} onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))} disabled={isSubmitting} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">{isTinyToes ? 'Event/Shoot Date' : 'Event Date'} <span className="opacity-50">(Optional)</span></label>
-                  <input type="date" className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50" value={formData.eventDate} onChange={e => setFormData(prev => ({ ...prev, eventDate: e.target.value }))} disabled={isSubmitting} />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Address <span className="opacity-50">(Optional)</span></label>
-                <textarea className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[100px]" placeholder="House No. 24,&#10;Green Valley Road,&#10;Kochi, Kerala" value={formData.address} onChange={e => setFormData(prev => ({ ...prev, address: e.target.value }))} disabled={isSubmitting} rows={3} />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Notes <span className="opacity-50">(Optional)</span></label>
-                <textarea className="w-full glass-panel squircle-sm p-4 text-sm font-bold text-white focus:border-white/20 outline-none disabled:opacity-50 min-h-[80px]" placeholder="Any special requirements..." value={formData.notes} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} disabled={isSubmitting} />
-              </div>
-
-              <div className="flex gap-4 pt-8 border-t border-white/5">
-                <button type="button" disabled={isSubmitting} onClick={() => {
-                  setIsAdding(false);
-                  setIsEditing(false);
-                  setEditingClient(null);
-                }} className="flex-1 py-4 bg-white/5 text-zinc-500 hover:text-white squircle-sm font-black uppercase text-[11px] tracking-widest transition-all disabled:opacity-50">Cancel</button>
-                <button type="submit" disabled={isSubmitting} className="flex-1 py-4 bg-white text-black hover:bg-zinc-200 squircle-sm font-black uppercase text-[11px] tracking-widest shadow-xl transition-all disabled:opacity-50">
-                  {isSubmitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Client')}
-                </button>
-              </div>
-            </form>
-            );
-            })()}
-          </div>
-        </div>,
-        document.body
-      )}
+      <ClientModal 
+        isOpen={isAdding}
+        onClose={() => { setIsAdding(false); setEditingClient(null); }}
+        onSubmit={addClient}
+        companies={companies}
+        clients={allClients}
+        initialClient={editingClient}
+        preselectedBrandId={selectedDivId}
+      />
       {/* DELETE CONFIRMATION MODAL */}
       {isDeleteModalOpen && clientToDelete && createPortal(
         <div 
@@ -616,7 +327,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
           onMouseDown={() => { setIsDeleteModalOpen(false); setClientToDelete(null); }}
         >
           <div 
-            className="bg-zinc-900 border border-white/10 rounded-[3rem] w-full max-w-[400px] p-12 shadow-2xl text-center animate-modal-content m-4"
+            className="bg-zinc-900 border border-white/10 rounded-3xl md:rounded-[3rem] w-full max-w-[400px] p-6 md:p-12 shadow-2xl text-center animate-modal-content m-4"
             onMouseDown={e => e.stopPropagation()}
           >
             <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-red-500/20">

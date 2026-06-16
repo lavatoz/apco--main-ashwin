@@ -9,7 +9,6 @@ import { type Invoice, InvoiceStatus, type Client } from '../types';
 import { api } from '../services/api';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { safeParse } from '../utils/storage';
 import { agreementTemplates, getTemplate } from '../templates/registry';
 
 const AgreementPage: React.FC = () => {
@@ -30,11 +29,6 @@ const AgreementPage: React.FC = () => {
     const loadData = async () => {
       if (!quoteId) return;
       console.log('[AgreementPage] Initializing lookup for URL ID:', quoteId);
-      
-      // Explicit debug check of storage
-      const allInvoices = safeParse<any[]>('artisans_invoices', []);
-      console.log('[AgreementPage] Storage Check - Total Records:', allInvoices.length);
-      console.log('[AgreementPage] Storage Check - Matching ID?:', allInvoices.find((i: any) => String(i.id) === quoteId || String(i._id) === quoteId));
 
       try {
         const foundQuote = await api.getQuoteById(quoteId);
@@ -108,6 +102,17 @@ const AgreementPage: React.FC = () => {
     setError(null);
     
     try {
+      // Determine Project ID for file upload
+      const projectId = (quote as any).projectId || quote.project?.id || (typeof quote.project === 'string' ? quote.project : undefined) || (client as any).projectId;
+      if (!projectId) {
+        throw new Error("No active project associated with this quotation/client to link ID proof.");
+      }
+
+      // Upload ID proof file to Google Drive via backend
+      const renamedFile = new File([idFile], `ID_Proof_${(client.name || 'Client').replace(/[^a-zA-Z0-9]/g, '_')}_${idFile.name}`, { type: idFile.type });
+      const uploadedFile = await api.uploadFile(projectId, 'Agreements', renamedFile, true);
+      console.log('[AgreementPage] ID Proof uploaded successfully:', uploadedFile.id);
+
       // 1. Update Client activeAgreement status
       if (client.activeAgreement) {
          const updatedClient = {
@@ -119,10 +124,8 @@ const AgreementPage: React.FC = () => {
             }
          };
          
-         // Persist back to clients storage
-         const storedClients = safeParse<Client[]>('clients', []);
-         const newClients = storedClients.map((c: any) => (c.id === client.id || c._id === client.id) ? updatedClient : c);
-         localStorage.setItem('clients', JSON.stringify(newClients));
+         // Persist back to database
+         await api.saveClient(updatedClient);
          setClient(updatedClient);
       }
 

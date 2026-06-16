@@ -11,9 +11,7 @@ interface UserSession {
 }
 
 export const usePermissions = () => {
-  const user = useMemo(() => {
-    return getAuthUser() as UserSession | null;
-  }, []);
+  const user = getAuthUser() as UserSession | null;
 
   const hasPermission = (permission: UserPermission) => {
     if (!user) return false;
@@ -56,7 +54,7 @@ export const usePermissions = () => {
     
     // Reverse Map for redirection with priority
     const permissionToRoute: Record<string, string> = {
-      dashboard: user.role === 'Client' ? '/client-dashboard' : '/dashboard',
+      dashboard: '/dashboard',
       finance: '/ledger',
       tasks: '/tasks',
       clients: '/directory',

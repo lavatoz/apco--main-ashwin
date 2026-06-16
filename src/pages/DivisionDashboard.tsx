@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Users, Briefcase, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import type { Division, Client, Project } from '../types';
+import { api } from '../services/api';
 
 const DivisionDashboard: React.FC = () => {
     const { divisionId } = useParams<{ divisionId: string }>();
@@ -11,41 +12,44 @@ const DivisionDashboard: React.FC = () => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const refreshData = useCallback(() => {
-        const storedDivs = localStorage.getItem('divisions');
-        const divs: Division[] = storedDivs ? JSON.parse(storedDivs) : [];
-        const foundDiv = divs.find(d => d.id === divisionId);
-        
-        if (foundDiv) {
-            setDivision(foundDiv);
+    const refreshData = useCallback(async () => {
+        try {
+            const divs = await api.getDivisions();
+            const foundDiv = divs.find(d => d.id === divisionId);
             
-            const storedClients = localStorage.getItem('clients');
-            const allClients: Client[] = storedClients ? JSON.parse(storedClients) : [];
-            setClients(allClients.filter(c => c.divisionId === divisionId));
+            if (foundDiv) {
+                setDivision(foundDiv);
+                
+                const allClients = await api.getClients();
+                setClients(allClients.filter(c => c.divisionId === divisionId || c.companyId === divisionId));
 
-            const storedProjects = localStorage.getItem('projects');
-            const allProjects: Project[] = storedProjects ? JSON.parse(storedProjects) : [];
-            setProjects(allProjects.filter((p: Project) => p.divisionId === divisionId));
+                const allProjects = await api.getProjects();
+                setProjects(allProjects.filter((p: Project) => p.divisionId === divisionId));
+            }
+        } catch (err) {
+            console.error("Failed to refresh division data from API:", err);
         }
     }, [divisionId]);
 
     useEffect(() => {
         setLoading(true);
-        refreshData();
-        setLoading(false);
+        refreshData().finally(() => setLoading(false));
     }, [refreshData]);
 
-    const handleConfirmProject = (projectId: string) => {
-        const stored = localStorage.getItem('projects');
-        if (!stored) return;
-        const allProjects: Project[] = JSON.parse(stored);
-        const updated = allProjects.map(p => 
-            p.id === projectId 
-            ? { ...p, status: 'confirmed' as const, stage: 'booked' as const } 
-            : p
-        );
-        localStorage.setItem('projects', JSON.stringify(updated));
-        refreshData();
+    const handleConfirmProject = async (projectId: string) => {
+        try {
+            const targetProj = projects.find(p => p.id === projectId);
+            if (targetProj) {
+                await api.saveProject({
+                    ...targetProj,
+                    status: 'confirmed',
+                    stage: 'booked'
+                });
+                await refreshData();
+            }
+        } catch (err) {
+            console.error("Failed to confirm project via API:", err);
+        }
     };
 
     if (loading) return <div className="min-h-screen bg-transparent flex items-center justify-center font-bold uppercase tracking-widest text-xs text-white">Initializing Unit...</div>;

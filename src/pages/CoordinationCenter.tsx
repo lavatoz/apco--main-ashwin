@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, List, Users, Bell,
   AlertTriangle, Clock, CheckCircle2,
@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { type Task, type Client, type Invoice, type CompanyProfile } from '../types';
 import { safeParse } from '../utils/storage';
 import { generateGroupedAlerts, type AlertCategory, type AlertPriority } from '../utils/alertEngine';
+import { api } from '../services/api';
 
 interface CoordinationCenterProps {
   tasks: Task[];
@@ -31,8 +32,22 @@ const CoordinationCenter: React.FC<CoordinationCenterProps> = ({
 
   // Load Staff & Projects
   const users = useMemo(() => safeParse<any[]>('users', []), []);
-  const projects = useMemo(() => safeParse<any[]>('projects', []), []);
+  const [projects, setProjects] = useState<any[]>([]);
   const staff = users.filter(u => u.role === 'Staff');
+
+  useEffect(() => {
+    let active = true;
+    const fetchProjects = async () => {
+      try {
+        const data = await api.getProjects();
+        if (active) setProjects(data);
+      } catch (err) {
+        console.error("Failed to fetch projects in CoordinationCenter:", err);
+      }
+    };
+    fetchProjects();
+    return () => { active = false; };
+  }, []);
 
   // Filter Clients
   const filteredClients = useMemo(() => {

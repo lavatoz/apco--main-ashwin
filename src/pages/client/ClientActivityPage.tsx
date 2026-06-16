@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowLeft, CheckCircle2, Clock, IndianRupee, Package, Users, Video } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Client, Invoice, Booking } from '../../types';
+import ClientPageLoader from './ClientPageLoader';
 
 interface ClientActivityPageProps {
   client: Client | null;
@@ -12,13 +13,7 @@ interface ClientActivityPageProps {
 const ClientActivityPage: React.FC<ClientActivityPageProps> = ({ client, invoices, bookings }) => {
   const navigate = useNavigate();
 
-  if (!client) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <p className="text-zinc-500 font-mono text-xs tracking-widest uppercase">No client data available</p>
-      </div>
-    );
-  }
+  if (!client) return <ClientPageLoader />;
 
   const isQuote = (i: Invoice) => Boolean(i.isQuotation || i.type === 'quotation' || ['Quotation', 'Draft', 'Approved'].includes(i.status) || (i.id && i.id.startsWith('AK-')));
 

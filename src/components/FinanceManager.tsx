@@ -229,35 +229,41 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
       // Advance workflow if this is the advance invoice
       const isAdvance = updatedInvoice.id.toLowerCase().includes('adv') || (updatedInvoice.totalAmount && updatedInvoice.totalAmount > 0);
       if (updatedInvoice.project?.id || updatedInvoice.clientId) {
-        const projectsStr = localStorage.getItem('projects');
-        if (projectsStr) {
-          const projects = JSON.parse(projectsStr);
+        try {
+          const projects = await api.getProjects();
           const proj = projects.find((p: any) => p.id === updatedInvoice.project?.id || p.clientId === updatedInvoice.clientId);
           if (proj && isAdvance) {
             await advanceProjectWorkflow(proj.id, 'Advance Paid', `Payment approved for invoice ${updatedInvoice.id}`);
           }
+        } catch (err) {
+          console.error("Failed to advance project workflow on payment approval:", err);
         }
         
         // Log timeline activity
-        const clientsStr = localStorage.getItem('clients');
-        if (clientsStr) {
-            const clientsArr = JSON.parse(clientsStr);
-            const clientIdx = clientsArr.findIndex((c: any) => c.id === updatedInvoice.clientId);
-            if (clientIdx >= 0) {
-                const c = clientsArr[clientIdx];
-                const timelineEvent = {
-                   id: new Date().getTime().toString(),
-                   title: 'Payment Approved',
-                   description: `Admin approved payment of ₹${updatedInvoice.totalAmount?.toLocaleString('en-IN')} for Invoice ${updatedInvoice.id}`,
-                   date: new Date().toISOString(),
-                   status: 'Completed' as const,
-                   category: 'finance'
-                };
-                c.portal = c.portal || { timeline: [], deliverables: [], internalSpends: [] };
-                c.portal.timeline = [...(c.portal.timeline || []), timelineEvent];
-                clientsArr[clientIdx] = c;
-                localStorage.setItem('clients', JSON.stringify(clientsArr));
-            }
+        try {
+          const clientData = await api.getClientById(updatedInvoice.clientId);
+          if (clientData) {
+            const timelineEvent = {
+               id: new Date().getTime().toString(),
+               title: 'Payment Approved',
+               description: `Admin approved payment of ₹${updatedInvoice.totalAmount?.toLocaleString('en-IN')} for Invoice ${updatedInvoice.id}`,
+               date: new Date().toISOString(),
+               status: 'Completed' as const,
+               category: 'finance'
+            };
+            const updatedClient = {
+               ...clientData,
+               portal: {
+                  ...clientData.portal,
+                  timeline: [...(clientData.portal?.timeline || []), timelineEvent],
+                  deliverables: clientData.portal?.deliverables || [],
+                  internalSpends: clientData.portal?.internalSpends || []
+               }
+            };
+            await api.saveClient(updatedClient);
+          }
+        } catch (err) {
+          console.error("Failed to save timeline activity on payment approval:", err);
         }
       }
 
@@ -279,25 +285,30 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
       await api.saveInvoice(updatedInvoice);
       
       // Log timeline activity
-      const clientsStr = localStorage.getItem('clients');
-      if (clientsStr) {
-          const clientsArr = JSON.parse(clientsStr);
-          const clientIdx = clientsArr.findIndex((c: any) => c.id === updatedInvoice.clientId);
-          if (clientIdx >= 0) {
-              const c = clientsArr[clientIdx];
-              const timelineEvent = {
-                 id: new Date().getTime().toString(),
-                 title: 'Payment Rejected',
-                 description: `Payment verification for Invoice ${updatedInvoice.id} was rejected. Please re-submit.`,
-                 date: new Date().toISOString(),
-                 status: 'Pending' as const,
-                 category: 'finance'
-              };
-              c.portal = c.portal || { timeline: [], deliverables: [], internalSpends: [] };
-              c.portal.timeline = [...(c.portal.timeline || []), timelineEvent];
-              clientsArr[clientIdx] = c;
-              localStorage.setItem('clients', JSON.stringify(clientsArr));
-          }
+      try {
+        const clientData = await api.getClientById(updatedInvoice.clientId);
+        if (clientData) {
+          const timelineEvent = {
+             id: new Date().getTime().toString(),
+             title: 'Payment Rejected',
+             description: `Payment verification for Invoice ${updatedInvoice.id} was rejected. Please re-submit.`,
+             date: new Date().toISOString(),
+             status: 'Pending' as const,
+             category: 'finance'
+          };
+          const updatedClient = {
+             ...clientData,
+             portal: {
+                ...clientData.portal,
+                timeline: [...(clientData.portal?.timeline || []), timelineEvent],
+                deliverables: clientData.portal?.deliverables || [],
+                internalSpends: clientData.portal?.internalSpends || []
+             }
+          };
+          await api.saveClient(updatedClient);
+        }
+      } catch (err) {
+        console.error("Failed to save timeline activity on payment rejection:", err);
       }
       
       showToast("Payment Rejected");
@@ -319,30 +330,30 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
       </div>
 
       {userRole !== 'Staff' && activeTab !== 'approvals' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="glass-panel p-8 squircle-lg bg-white/5 border-white/10 relative overflow-hidden group">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+          <div className="glass-panel p-5 md:p-8 squircle-lg bg-white/5 border-white/10 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl rounded-full group-hover:bg-white/10 transition-all" />
-            <div className="flex justify-between items-start mb-8 relative z-10">
+            <div className="flex justify-between items-start mb-6 md:mb-8 relative z-10">
               <div className="p-3 bg-white/10 rounded-xl text-white shadow-lg shadow-black/50"><TrendingDown className="w-5 h-5 group-hover:rotate-12 transition-transform" /></div>
               <span className="text-[9px] font-black uppercase text-zinc-500 tracking-widest px-3 py-1 bg-white/5 rounded-lg border border-white/10">Gross Revenue</span>
             </div>
-            <h3 className="text-5xl font-black text-white tracking-tighter font-mono"><span className="text-2xl text-zinc-500">₹</span>{(totalRevenue / 100000).toFixed(2)}<span className="text-2xl text-zinc-500">L</span></h3>
+            <h3 className="text-3xl md:text-5xl font-black text-white tracking-tighter font-mono"><span className="text-xl md:text-2xl text-zinc-500">₹</span>{(totalRevenue / 100000).toFixed(2)}<span className="text-xl md:text-2xl text-zinc-500">L</span></h3>
           </div>
-          <div className="glass-panel p-8 squircle-lg bg-red-600/5 border-red-500/10 relative overflow-hidden">
+          <div className="glass-panel p-5 md:p-8 squircle-lg bg-red-600/5 border-red-500/10 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-3xl rounded-full" />
-            <div className="flex justify-between items-start mb-8 relative z-10">
+            <div className="flex justify-between items-start mb-6 md:mb-8 relative z-10">
               <div className="p-3 bg-red-500/10 rounded-xl text-red-500 shadow-lg shadow-red-500/10"><TrendingDown className="w-5 h-5" /></div>
               <span className="text-[9px] font-black uppercase text-red-500 tracking-widest px-3 py-1 bg-red-500/10 rounded-lg">Spend</span>
             </div>
-            <h3 className="text-5xl font-black text-white tracking-tighter font-mono"><span className="text-2xl text-zinc-500">₹</span>{(totalExpenses).toLocaleString('en-IN')}</h3>
+            <h3 className="text-3xl md:text-5xl font-black text-white tracking-tighter font-mono"><span className="text-xl md:text-2xl text-zinc-500">₹</span>{(totalExpenses).toLocaleString('en-IN')}</h3>
           </div>
-          <div className="glass-panel p-8 squircle-lg bg-emerald-600/5 border-primary/10 relative overflow-hidden">
+          <div className="glass-panel p-5 md:p-8 squircle-lg bg-emerald-600/5 border-primary/10 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full" />
-            <div className="flex justify-between items-start mb-8 relative z-10">
+            <div className="flex justify-between items-start mb-6 md:mb-8 relative z-10">
               <div className="p-3 bg-primary/10 rounded-xl text-primary shadow-lg shadow-emerald-500/10"><Calculator className="w-5 h-5" /></div>
               <span className="text-[9px] font-black uppercase text-emerald-400 tracking-widest px-3 py-1 bg-primary/10 rounded-lg">Net</span>
             </div>
-            <h3 className="text-5xl font-black text-white tracking-tighter font-mono"><span className="text-2xl text-zinc-500">₹</span>{(netProfit).toLocaleString('en-IN')}</h3>
+            <h3 className="text-3xl md:text-5xl font-black text-white tracking-tighter font-mono"><span className="text-xl md:text-2xl text-zinc-500">₹</span>{(netProfit).toLocaleString('en-IN')}</h3>
           </div>
         </div>
       )}
@@ -403,18 +414,18 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
         <div className="grid grid-cols-1 gap-4">
           {activeTab === 'approvals' ? 
             approvals.map(app => (
-              <div key={app.id} className="glass-panel p-8 squircle-lg flex flex-col md:flex-row justify-between items-start md:items-center group hover:bg-white/5 transition-all border border-white/5 relative overflow-hidden">
+              <div key={app.id} className="glass-panel p-5 md:p-8 squircle-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0 group hover:bg-white/5 transition-all border border-white/5 relative overflow-hidden">
                 <div className={`absolute top-0 right-0 w-1.5 h-full opacity-30 ${app.status === 'Approved' ? 'bg-primary' : app.status === 'Rejected' ? 'bg-red-500' : 'bg-amber-500'}`} />
-                <div className="flex items-center gap-6">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-lg ${app.status === 'Approved' ? 'bg-primary/10 border-primary/20 text-primary' : app.status === 'Rejected' ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-amber-500/10 border-amber-500/20 text-amber-500'}`}>
-                    <FileQuestion className="w-6 h-6" />
+                <div className="flex items-center gap-4 md:gap-6">
+                  <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center border shadow-lg ${app.status === 'Approved' ? 'bg-primary/10 border-primary/20 text-primary' : app.status === 'Rejected' ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-amber-500/10 border-amber-500/20 text-amber-500'}`}>
+                    <FileQuestion className="w-5 h-5 md:w-6 md:h-6" />
                   </div>
                   <div>
-                    <h4 className="font-black text-lg uppercase tracking-tight text-white">{app.clientName}</h4>
-                    <p className="text-[9px] font-black uppercase text-zinc-600 tracking-widest mt-1.5">{app.type} • {app.brandName}</p>
+                    <h4 className="font-black text-base md:text-lg uppercase tracking-tight text-white">{app.clientName}</h4>
+                    <p className="text-[9px] font-black uppercase text-zinc-600 tracking-widest mt-1">{app.type} • {app.brandName}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-8">
+                <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-8 mt-2 md:mt-0">
                   <div className="text-right">
                     <p className="text-xl font-black text-white font-mono">₹{app.amount.toLocaleString('en-IN')}</p>
                     <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest mt-1">{app.status} • {new Date(app.submissionDate).toLocaleDateString()}</p>
@@ -477,24 +488,24 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
             return (
               <div
                 key={`${record.source}-${record.id}`}
-                className={`glass-panel p-8 squircle-lg flex flex-col md:flex-row justify-between items-start md:items-center group hover:bg-white/5 transition-all border border-white/5 relative overflow-hidden ${fadingId === record.id ? 'animate-fade-out' : ''}`}
+                className={`glass-panel p-5 md:p-8 squircle-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0 group hover:bg-white/5 transition-all border border-white/5 relative overflow-hidden ${fadingId === record.id ? 'animate-fade-out' : ''}`}
               >
                 <div className={`absolute top-0 right-0 w-1.5 h-full opacity-30 ${isExpense ? 'bg-red-500' : isQuote ? 'bg-zinc-500' : isPaid ? 'bg-primary' : 'bg-amber-500'}`} />
 
-                <div className="flex items-center gap-6">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-lg ${isExpense ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                <div className="flex items-center gap-4 md:gap-6">
+                  <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center border shadow-lg ${isExpense ? 'bg-red-500/10 border-red-500/20 text-red-500' :
                     isQuote ? 'bg-zinc-800 border-white/10 text-zinc-400' :
                       'bg-amber-500/10 border-amber-500/20 text-amber-500'
                     }`}>
-                    {isExpense ? <TrendingDown className="w-6 h-6" /> : isQuote ? <FileQuestion className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
+                    {isExpense ? <TrendingDown className="w-5 h-5 md:w-6 md:h-6" /> : isQuote ? <FileQuestion className="w-5 h-5 md:w-6 md:h-6" /> : <FileText className="w-5 h-5 md:w-6 md:h-6" />}
                   </div>
                   <div>
-                    <h4 className="font-black text-lg uppercase tracking-tight text-white">{record.client}</h4>
-                    <p className="text-[9px] font-black uppercase text-zinc-600 tracking-widest mt-1.5">{record.type} • {record.brand}</p>
+                    <h4 className="font-black text-base md:text-lg uppercase tracking-tight text-white">{record.client}</h4>
+                    <p className="text-[9px] font-black uppercase text-zinc-600 tracking-widest mt-1">{record.type} • {record.brand}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-8">
+                <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-8 mt-2 md:mt-0">
                   <div className="text-right">
                     <p className="text-xl font-black text-white font-mono">₹{record.amount.toLocaleString('en-IN')}</p>
                     <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest mt-1">{record.status} • {new Date(record.date).toLocaleDateString()}</p>

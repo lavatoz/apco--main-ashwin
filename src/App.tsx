@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, Navigate, NavLink, useLocation } from 'react-router-dom';
 import type { Client, Invoice, Booking, Division, Task, Expense } from './types';
 import {
   Lock,
   LayoutDashboard, Sparkles, Settings,
-  Package, Wallet, Plus, Users, Command, Briefcase
+  Package, Wallet, Plus, Users, Command, Briefcase, Menu
 } from 'lucide-react';
 import ThemeDiagnosticsPanel from './components/ThemeDiagnosticsPanel';
 import LandingPage from './components/LandingPage';
@@ -14,6 +14,8 @@ import FinanceManager from './components/FinanceManager';
 import ClientPortal from './components/ClientPortal';
 import AIToolsView from './components/AIToolsView';
 import SettingsView from './components/SettingsView';
+import NotificationCenter from './components/NotificationCenter';
+import FallbackWarning from './components/FallbackWarning';
 
 import AuditLogsView from './components/AuditLogsView';
 import ProductionHub from './components/ProductionHub';
@@ -24,6 +26,7 @@ import AnalyticsDashboard from './components/AnalyticsDashboard';
 import PackagesPage from './pages/PackagesPage';
 import LoginPage from './pages/LoginPage';
 import InvitePage from './pages/InvitePage';
+import SetupAccountPage from './pages/SetupAccountPage';
 import TeamPage from './pages/TeamPage';
 import ClientDetailsPage from './pages/ClientDetailsPage';
 import CreateProjectPage from './pages/CreateProjectPage';
@@ -46,6 +49,7 @@ import ClientActivityPage from './pages/client/ClientActivityPage';
 import ClientEvents from './pages/client/ClientEvents';
 import ClientTimeline from './pages/client/ClientTimeline';
 import ClientDeliverables from './pages/client/ClientDeliverables';
+import ClientGallery from './pages/client/ClientGallery';
 import ClientInvoices from './pages/client/ClientInvoices';
 import ClientAgreements from './pages/client/ClientAgreements';
 import ClientMessages from './pages/client/ClientMessages';
@@ -53,7 +57,7 @@ import ClientDirectory from './pages/client/ClientDirectory';
 import ClientSupport from './pages/client/ClientSupport';
 
 import { api } from './services/api';
-import { safeParse, getAuthUser, removeAuthUser } from './utils/storage';
+import { getAuthUser, removeAuthUser } from './utils/storage';
 import { applyTheme } from './utils/themeEngine';
 
 type AuthRole = 'none' | 'Admin' | 'Staff' | 'Client';
@@ -63,24 +67,24 @@ type AuthRole = 'none' | 'Admin' | 'Staff' | 'Client';
 const RoleProtectedRoute = ({ allowedRoles, children }: { allowedRoles: AuthRole[], children: React.ReactNode }) => {
   const user = getAuthUser();
   if (!user) return <Navigate to="/login" replace />;
-  
+
   console.log(`[RoleProtectedRoute] Diagnostic - authUser:`, user, `| authRole:`, user.role);
-  
+
   if (user.role === 'Admin') return <>{children}</>;
   if (allowedRoles.includes(user.role)) return <>{children}</>;
-  
+
   return <Navigate to="/unauthorized" replace />;
 };
 
 const PermissionRoute = ({ permission, children, allowedRoles }: { permission?: UserPermission, children: React.ReactNode, allowedRoles?: AuthRole[] }) => {
   const { hasRoutePermission, user } = usePermissions();
   const location = useLocation();
-  
+
   if (!user) {
     console.log(`[PermissionRoute] Blocked: No User -> Login`);
     return <Navigate to="/login" replace />;
   }
-  
+
   console.log(`[PermissionRoute] Diagnostic - authUser:`, user.email, `| authRole:`, user.role, `| route:`, location.pathname);
 
   // Admins bypass all guards
@@ -91,21 +95,21 @@ const PermissionRoute = ({ permission, children, allowedRoles }: { permission?: 
 
   // Role-based authorization
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-     console.log(`[PermissionRoute] Blocked: Role mismatch for`, location.pathname, `(Expected: ${allowedRoles}, Got: ${user.role})`);
-     if (user.role === 'Client') return <Navigate to="/dashboard" replace />;
-     return <Navigate to="/unauthorized" replace />;
+    console.log(`[PermissionRoute] Blocked: Role mismatch for`, location.pathname, `(Expected: ${allowedRoles}, Got: ${user.role})`);
+    if (user.role === 'Client') return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/unauthorized" replace />;
   }
 
   // Role-based Hard Gate: Block clients from everything except specific routes
   if (user.role === 'Client') {
-    const allowedPaths = ['/dashboard', '/events', '/timeline', '/workflow', '/directory', '/deliverables', '/invoices', '/agreements', '/messages', '/support', '/unauthorized', '/agreement'];
+    const allowedPaths = ['/dashboard', '/events', '/timeline', '/workflow', '/directory', '/gallery', '/deliverables', '/invoices', '/agreements', '/messages', '/support', '/unauthorized', '/agreement'];
     const currentPath = location.pathname;
     const isAllowed = allowedPaths.some(p => currentPath.startsWith(p));
     if (!isAllowed) {
       console.log(`[PermissionRoute] Blocked: Client Hard Gate for`, location.pathname);
       return <Navigate to="/dashboard" replace />;
     }
-    
+
     // Clients bypass explicit permission checks since their access is determined strictly by the hard gate
     console.log(`[PermissionRoute] Authorized (Client Gate) -> Rendering Component for`, location.pathname);
     return <>{children}</>;
@@ -159,26 +163,26 @@ const UserIndicator = ({ authRole, loggedInUserName, handleLogout }: { authRole:
           ({authRole})
         </p>
       </div>
-      <button 
+      <button
         onClick={() => setIsMenuOpen(!isMenuOpen)}
         className="w-10 h-10 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center cursor-pointer hover:bg-white/10 transition-all active:scale-95 group relative"
       >
         <span className="text-xs font-black text-white group-hover:scale-110 transition-transform">{loggedInUserName.charAt(0).toUpperCase()}</span>
         <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-black" />
       </button>
-      
+
       {isMenuOpen && (
         <div className="absolute top-14 right-0 w-56 glass-panel-dark border border-white/10 rounded-[1.5rem] p-2 shadow-2xl animate-ios-slide-up z-[100]">
-           <div className="p-4 border-b border-white/5 mb-2">
-              <p className="text-[9px] font-black uppercase text-zinc-500 tracking-widest mb-1">Session Protocol</p>
-              <p className="text-xs font-bold text-white uppercase">{loggedInUserName} ({authRole})</p>
-           </div>
-           <button className="w-full text-left p-3.5 rounded-xl hover:bg-white/5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white transition-all flex items-center gap-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-primary" /> Setup Profile
-           </button>
-           <button onClick={handleLogout} className="w-full text-left p-3.5 rounded-xl hover:bg-red-500/10 text-[10px] font-black uppercase tracking-widest text-red-500 transition-all flex items-center gap-3">
-              <Lock className="w-3.5 h-3.5" /> Lock Station
-           </button>
+          <div className="p-4 border-b border-white/5 mb-2">
+            <p className="text-[9px] font-black uppercase text-zinc-500 tracking-widest mb-1">Session Protocol</p>
+            <p className="text-xs font-bold text-white uppercase">{loggedInUserName} ({authRole})</p>
+          </div>
+          <button className="w-full text-left p-3.5 rounded-xl hover:bg-white/5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white transition-all flex items-center gap-3">
+            <div className="w-1.5 h-1.5 rounded-full bg-primary" /> Setup Profile
+          </button>
+          <button onClick={handleLogout} className="w-full text-left p-3.5 rounded-xl hover:bg-red-500/10 text-[10px] font-black uppercase tracking-widest text-red-500 transition-all flex items-center gap-3">
+            <Lock className="w-3.5 h-3.5" /> Lock Station
+          </button>
         </div>
       )}
     </div>
@@ -187,12 +191,12 @@ const UserIndicator = ({ authRole, loggedInUserName, handleLogout }: { authRole:
 
 const CompanySelector = ({ authRole, selectedCompanyId, setSelectedCompanyId, companies }: { authRole: AuthRole, selectedCompanyId: string, setSelectedCompanyId: (id: string) => void, companies: CompanyProfile[] }) => {
   if (authRole === 'none' || authRole === 'Client') return null;
-  
+
   return (
     <div className="hidden lg:flex items-center gap-3 bg-white/5 border border-white/5 px-4 py-2 rounded-2xl">
       <p className="text-[9px] font-black uppercase text-zinc-500 tracking-widest border-r border-white/10 pr-3 mr-1">Brand Portal</p>
-      <select 
-        value={selectedCompanyId} 
+      <select
+        value={selectedCompanyId}
         onChange={(e) => setSelectedCompanyId(e.target.value)}
         className="bg-transparent border-none outline-none text-[10px] font-black text-white uppercase tracking-widest cursor-pointer"
       >
@@ -213,8 +217,14 @@ const App: React.FC = () => {
     return user ? (user.role as AuthRole) : 'none';
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(() => {
+    const user = getAuthUser();
+    return user ? true : false;
+  });
   const [error, setError] = useState<string | null>(null);
-  
+  const [hasFetched, setHasFetched] = useState(false);
+  const fetchInitiated = useRef(false);
+
   const { hasPermission } = usePermissions();
   const { companies, settings, selectedCompanyId, setSelectedCompanyId, globalSettings } = useCompanySettings();
   const [isFABOpen, setIsFABOpen] = useState(false);
@@ -257,12 +267,9 @@ const App: React.FC = () => {
       console.error("Critical Registry desync:", err);
     } finally {
       if (!silent) setIsLoading(false);
+      setIsInitialLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchData(); // Initial load should show spinner
-  }, []);
 
   useEffect(() => {
     const handleSync = () => {
@@ -274,91 +281,41 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (authRole !== 'none') fetchData(true);
-  }, [authRole]);
+    if (authRole !== 'none') {
+      if (!fetchInitiated.current) {
+        fetchInitiated.current = true;
+        fetchData(false);
+        setHasFetched(true);
+      }
+    } else {
+      setIsInitialLoading(false);
+      setHasFetched(false);
+      fetchInitiated.current = false;
+    }
+  }, [authRole, hasFetched]);
 
   // Theme Engine Application
   useEffect(() => {
     const themePreset = settings.themePreset || 'artisans-noir';
     const graphicsPreset = settings.graphicsPreset || 'classic';
     const typographyPreset = settings.typographyPreset || 'executive';
-    
+
     applyTheme(themePreset, graphicsPreset, typographyPreset, globalSettings.customThemes || []);
   }, [settings, globalSettings.customThemes]);
 
-  // Seed Default Admin if missing
-  useEffect(() => {
-    const users = safeParse<any[]>('users', []);
-    const adminExists = users.some((u: any) => u.id === 'admin_root' || u.email === 'admin@artisans.os');
-    
-    // Seed Default Admin if missing
-    if (!adminExists) {
-      const defaultAdmin = {
-        id: 'admin_root',
-        email: 'admin@artisans.os',
-        password: 'admin',
-        role: 'Admin',
-        permissions: ['dashboard', 'clients', 'tasks', 'finance', 'ai', 'analytics', 'system', 'workflow'],
-        isActive: true,
-        name: 'System Admin'
-      };
-      const updatedUsers = [...users, defaultAdmin];
-      localStorage.setItem('users', JSON.stringify(updatedUsers));
-      console.log('Infrastructure check: Root admin deployed.');
+  // Seeding removed for security compliance
+
+
+
+
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch (err) {
+      console.warn("Logout request failed", err);
     }
-
-    // Seed Mock Staff Data for Team Assignment demonstration
-    const currentUsers = safeParse<any[]>('users', []);
-    const mockStaff = [
-      { id: "s1", name: "Roshan", email: "roshan@apco.com", staffRole: "photographer" },
-      { id: "s2", name: "Arun", email: "arun@apco.com", staffRole: "photographer" },
-      { id: "s3", name: "Snehal", email: "snehal@apco.com", staffRole: "photographer" },
-      { id: "s4", name: "Ishan", email: "ishan@apco.com", staffRole: "videographer" },
-      { id: "s5", name: "Jay", email: "jay@apco.com", staffRole: "editor" },
-      { id: "s6", name: "Salim", email: "salim@apco.com", staffRole: "assistant" }
-    ];
-
-    let usersUpdated = false;
-    const finalUsers = [...currentUsers];
-    
-    mockStaff.forEach(staff => {
-      if (!finalUsers.some(u => u.email === staff.email)) {
-        finalUsers.push({
-          ...staff,
-          password: 'staff',
-          role: 'Staff',
-          permissions: ['dashboard', 'tasks'],
-          isActive: true,
-          createdAt: new Date().toISOString()
-        });
-        usersUpdated = true;
-      }
-    });
-
-    if (usersUpdated) {
-      localStorage.setItem('users', JSON.stringify(finalUsers));
-      console.log('Infrastructure check: Mock staff registry synchronized.');
-    }
-  }, []);
-
-
-  useEffect(() => {
-    const user = getAuthUser();
-    if (user) {
-      try {
-        setLoggedInUserName(user.name || user.email.split('@')[0]);
-        setAuthRole(user.role);
-        console.log(`[App Init] Diagnostic - Found authUser:`, user, `| authRole:`, user.role);
-      } catch (e) {
-        removeAuthUser();
-      }
-    } else {
-      console.log(`[App Init] Diagnostic - No active user found for this context.`);
-    }
-  }, []);
-
-  const handleLogout = () => {
     removeAuthUser();
+    fetchInitiated.current = false;
     setAuthRole('none');
     navigate('/login');
   };
@@ -366,9 +323,10 @@ const App: React.FC = () => {
 
 
   const handleAuthLogin = (user: any) => {
+    setIsInitialLoading(true);
     setAuthRole(user.role as AuthRole);
     setLoggedInUserName(user.name || user.email.split('@')[0]);
-    
+
     if (user.role === 'Client') {
       // Handled by global resolution logic below
     }
@@ -376,7 +334,7 @@ const App: React.FC = () => {
     // Manual Redirect calculation to avoid hook race conditions
     let destination = '/dashboard';
     if (user.role === 'Client') {
-       destination = '/client-dashboard';
+      destination = '/dashboard';
     } else if (user.role === 'Staff') {
       destination = '/workspace';
     } else if (user.permissions.includes('dashboard')) {
@@ -393,11 +351,30 @@ const App: React.FC = () => {
     console.log("- User:", user.email);
     console.log("- Permissions:", user.permissions);
     console.log("- Calculated Destination:", destination);
-    
+
+    console.log("LOGIN ROLE:", user.role);
+    console.log("LOGIN USER OBJECT:", user);
+
     navigate(destination);
   };
 
   // Auth Handling Wrapper
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-10 font-sans">
+        <div className="flex flex-col items-center gap-6 animate-pulse">
+          <div className="w-16 h-16 bg-white text-black rounded-3xl flex items-center justify-center font-bold text-2xl font-serif shadow-[0_0_30px_rgba(255,255,255,0.15)]">
+            {settings.companyName ? settings.companyName.charAt(0).toUpperCase() : 'A'}
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Initializing System</p>
+            <p className="text-[8px] font-mono uppercase tracking-[0.2em] text-zinc-500">Securing environment & hydrating registry...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (authRole === 'none') {
     return (
       <>
@@ -405,6 +382,8 @@ const App: React.FC = () => {
           <Route path="/" element={<LandingPage onLogin={() => navigate('/login')} />} />
           <Route path="/packages" element={<PackagesPage onLogin={() => navigate('/login')} />} />
           <Route path="/invite/:token" element={<InvitePage onLogin={handleAuthLogin} />} />
+          <Route path="/setup-account" element={<SetupAccountPage />} />
+          <Route path="/setup-account/:token" element={<SetupAccountPage />} />
           <Route path="/login" element={<LoginPage onLogin={handleAuthLogin} />} />
           <Route path="/unauthorized" element={<div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10"><h1 className="text-4xl font-black text-white mb-4">RESTRICTED ACCESS</h1><p className="text-zinc-500 font-mono text-xs mb-8">Permission Profile Conflict Detected</p><button onClick={() => navigate('/')} className="px-6 py-2 bg-white text-black text-[10px] font-black uppercase rounded-full">Return Base</button></div>} />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -416,7 +395,7 @@ const App: React.FC = () => {
   // Step 1: Base Client Data Isolation
   const authUser = getAuthUser() || {};
   const isClient = authUser.role === 'Client';
-  
+
   // Find the exact client record linked to this user login
   const activeClient = (isClient ? clients.find(
     c => c.email && authUser.email && c.email.trim().toLowerCase() === (authUser.email as string).trim().toLowerCase()
@@ -447,29 +426,32 @@ const App: React.FC = () => {
   const baseBookings = isClient && linkedClientId ? bookings.filter(b => b.clientId === linkedClientId) : bookings;
 
   // Step 2: Company/Division Filtering
-  const selectedCompany = companies.find(comp => comp.id === selectedCompanyId);
-  
-  const filteredClients = selectedCompanyId === 'All' ? baseClients : baseClients.filter(c => 
-    c.companyId === selectedCompanyId || 
-    c.brandId === selectedCompanyId || 
+  const selectedCompany =
+    selectedCompanyId === 'All'
+      ? companies.find(c => c.isDefault) || companies[0]
+      : companies.find(c => c.id === selectedCompanyId);
+
+  const filteredClients = selectedCompanyId === 'All' ? baseClients : baseClients.filter(c =>
+    c.companyId === selectedCompanyId ||
+    c.brandId === selectedCompanyId ||
     c.divisionId === selectedCompanyId ||
     (selectedCompany && c.brand === selectedCompany.companyName)
   );
 
-  const filteredInvoices = selectedCompanyId === 'All' ? baseInvoices : baseInvoices.filter(i => 
-    i.brandId === selectedCompanyId || 
+  const filteredInvoices = selectedCompanyId === 'All' ? baseInvoices : baseInvoices.filter(i =>
+    i.brandId === selectedCompanyId ||
     (i as any).companyId === selectedCompanyId ||
     (selectedCompany && i.brand === selectedCompany.companyName)
   );
 
-  const filteredTasks = selectedCompanyId === 'All' ? baseTasks : baseTasks.filter(t => 
-    (t as any).companyId === selectedCompanyId || 
+  const filteredTasks = selectedCompanyId === 'All' ? baseTasks : baseTasks.filter(t =>
+    (t as any).companyId === selectedCompanyId ||
     t.brand === selectedCompanyId ||
     (selectedCompany && t.brand === selectedCompany.companyName)
   );
 
-  const filteredBookings = selectedCompanyId === 'All' ? baseBookings : baseBookings.filter(b => 
-    (b as any).companyId === selectedCompanyId || 
+  const filteredBookings = selectedCompanyId === 'All' ? baseBookings : baseBookings.filter(b =>
+    (b as any).companyId === selectedCompanyId ||
     b.brand === selectedCompanyId ||
     (selectedCompany && b.brand === selectedCompany.companyName)
   );
@@ -479,46 +461,59 @@ const App: React.FC = () => {
   console.log("Selected Project", null);
   console.log("Clients Found", filteredClients);
   console.log(`[App Render] Diagnostic - authUser:`, authUser, `| authRole:`, authRole, `| activeClient:`, activeClient);
-
+  // console.log("Selected Company", selectedCompany);
+  // console.log("Selected Project", null);
+  // console.log("Clients Found", filteredClients);
+  // console.log("[App Render] Diagnostic - authUser:", authUser, `| authRole:`, authRole, `| activeClient:`, activeClient);
   return (
     <div className="min-h-screen bg-transparent text-white flex flex-col font-sans selection-primary">
-      {authRole !== 'Client' && (
-        <header className="px-6 py-4 flex flex-col gap-4 glass-panel-dark z-50 pt-safe font-sans sticky top-0 lg:hidden">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div onClick={() => setIsMobileOpen(true)} className="w-10 h-10 bg-white text-black squircle-sm flex items-center justify-center font-bold text-lg font-serif shadow-[0_0_20px_rgba(255,255,255,0.15)] cursor-pointer overflow-hidden">
-                {settings.logo ? (
-                  <img src={settings.logo} alt="Logo" className="w-full h-full object-cover" />
-                ) : (
-                  settings.companyName ? settings.companyName.charAt(0).toUpperCase() : 'A'
-                )}
-              </div>
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500 leading-none mb-1">Workspace</p>
-                <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                  <p className="text-xs font-black uppercase text-white tracking-wide leading-none">{settings.companyName || 'Artisans'}</p>
-                </div>
+      <header className="px-6 py-4 flex flex-col gap-4 glass-panel-dark z-50 pt-safe font-sans sticky top-0 lg:hidden">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsMobileOpen(true)}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-zinc-400 hover:text-white active:scale-95 transition-all lg:hidden"
+              aria-label="Open navigation menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="w-10 h-10 bg-white text-black squircle-sm flex items-center justify-center font-bold text-lg font-serif shadow-[0_0_20px_rgba(255,255,255,0.15)] overflow-hidden">
+              {settings.logo ? (
+                <img src={settings.logo} alt="Logo" className="w-full h-full object-cover" />
+              ) : (
+                settings.companyName ? settings.companyName.charAt(0).toUpperCase() : 'A'
+              )}
+            </div>
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500 leading-none mb-1">Workspace</p>
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                <p className="text-xs font-black uppercase text-white tracking-wide leading-none">{settings.companyName || 'Artisans'}</p>
               </div>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <NotificationCenter />
             <button onClick={handleLogout} className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-zinc-400 hover:text-white hover:bg-red-500/10 hover:border-red-500/20 active:scale-95 transition-all">
               <Lock className="w-4 h-4" />
             </button>
           </div>
+        </div>
+        {authRole !== 'Client' && (
           <div className="flex bg-white/5 p-1 rounded-xl">
-             <select 
-               value={selectedCompanyId} 
-               onChange={(e) => setSelectedCompanyId(e.target.value)}
-               className="w-full bg-transparent border-none outline-none text-[9px] font-black text-white uppercase tracking-[0.2em] px-4 py-2 cursor-pointer"
-             >
-               <option value="All" className="bg-zinc-950 text-white">All Entities</option>
-               {companies.map(c => (
-                 <option key={c.id} value={c.id} className="bg-zinc-950 text-white">{c.companyName}</option>
-               ))}
-             </select>
+            <select
+              value={selectedCompanyId}
+              onChange={(e) => setSelectedCompanyId(e.target.value)}
+              className="w-full bg-transparent border-none outline-none text-[9px] font-black text-white uppercase tracking-[0.2em] px-4 py-2 cursor-pointer"
+            >
+              <option value="All" className="bg-zinc-950 text-white">All Entities</option>
+              {companies.map(c => (
+                <option key={c.id} value={c.id} className="bg-zinc-950 text-white">{c.companyName}</option>
+              ))}
+            </select>
           </div>
-        </header>
-      )}
+        )}
+      </header>
 
       <div className="flex flex-1 relative font-sans">
         {/* Main Sidebar (Responsive) - Dynamic based on Permissions */}
@@ -528,11 +523,11 @@ const App: React.FC = () => {
           onLogout={handleLogout}
         />
 
-        <main className="flex-1 lg:pl-72 overflow-y-auto pb-safe relative">
+        <main className="flex-1 lg:pl-72 overflow-y-auto overflow-x-hidden pb-safe relative">
           {/* Matte Glass Noise Texture Background */}
           <div className="fixed inset-0 pointer-events-none bg-noise z-0 opacity-50" />
 
-          <div className="max-w-none p-8 md:p-14 animate-ios-slide-up relative z-10">
+          <div className="max-w-none p-4 md:p-14 animate-ios-slide-up relative z-10">
             {isLoading && (
               <div className="fixed top-20 right-10 z-[100] flex items-center gap-2 bg-white/5 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-[9px] font-black uppercase tracking-widest text-zinc-400">
                 <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
@@ -552,6 +547,9 @@ const App: React.FC = () => {
               <div className="flex items-center gap-4">
                 <CompanySelector authRole={authRole} selectedCompanyId={selectedCompanyId} setSelectedCompanyId={setSelectedCompanyId} companies={companies} />
                 <div className="hidden lg:block">
+                  <NotificationCenter />
+                </div>
+                <div className="hidden lg:block">
                   <UserIndicator authRole={authRole} loggedInUserName={loggedInUserName} handleLogout={handleLogout} />
                 </div>
               </div>
@@ -559,20 +557,33 @@ const App: React.FC = () => {
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/login" element={<Navigate to="/" replace />} />
-              
+              <Route path="/setup-account" element={<Navigate to="/" replace />} />
+              <Route path="/setup-account/:token" element={<Navigate to="/" replace />} />
+
               <Route path="/workspace" element={<PermissionRoute allowedRoles={['Staff']}><StaffPortal /></PermissionRoute>} />
 
               {/* Management Routes - Admin, Staff, and Client substitution */}
               <Route path="/dashboard" element={<PermissionRoute allowedRoles={['Admin', 'Client']} permission="dashboard">
-                {authRole === 'Client' ? <ClientDashboard client={activeClient} invoices={invoices} bookings={bookings} /> : <Dashboard invoices={filteredInvoices} clients={filteredClients} bookings={filteredBookings} tasks={filteredTasks} selectedBrand={selectedCompanyId} userRole={authRole} divisions={divisions} addDivision={async (d) => { await api.saveDivision(d); fetchData(true); }} deleteDivision={async (id) => { 
-                setDivisions(prev => prev.filter(div => div.id !== id));
-                await api.deleteDivision(id); 
-                fetchData(true); 
-              }} addClient={async (c) => { 
-                setClients(prev => [c, ...prev]);
-                await api.saveClient(c); 
-                fetchData(true); 
-              }} />}
+                {authRole === 'Client' ? <ClientDashboard client={activeClient} invoices={invoices} bookings={bookings} /> : <Dashboard invoices={filteredInvoices} clients={filteredClients} bookings={filteredBookings} tasks={filteredTasks} selectedBrand={selectedCompanyId} userRole={authRole} divisions={divisions} addDivision={async (d) => { await api.saveDivision(d); fetchData(true); }} deleteDivision={async (id) => {
+                  setDivisions(prev => prev.filter(div => div.id !== id));
+                  await api.deleteDivision(id);
+                  fetchData(true);
+                }} addClient={async (c) => {
+                  const isEditing = clients.some(client => client.id === c.id || (client._id && c._id && client._id === c._id));
+                  if (isEditing) {
+                    setClients(prev => prev.map(item => (item.id === c.id || (item._id && c._id && item._id === c._id)) ? c : item));
+                    const saved = await api.updateClient(c.id, c);
+                    setClients(prev => prev.map(item => (item.id === c.id || (item._id && c._id && item._id === c._id)) ? saved : item));
+                    fetchData(true);
+                    return saved;
+                  } else {
+                    setClients(prev => [c, ...prev]);
+                    const saved = await api.createClient(c);
+                    setClients(prev => prev.map(item => (item.id === c.id || (item._id && c._id && item._id === c._id)) ? saved : item));
+                    fetchData(true);
+                    return saved;
+                  }
+                }} />}
               </PermissionRoute>} />
               <Route path="/project/:id" element={<PermissionRoute allowedRoles={['Admin']}><ProjectDetailsPage /></PermissionRoute>} />
               <Route path="/staff-dashboard" element={<Navigate to="/workspace" replace />} />
@@ -591,25 +602,36 @@ const App: React.FC = () => {
               <Route path="/client" element={<Navigate to="/directory" replace />} />
               <Route path="/client/:id" element={<PermissionRoute allowedRoles={['Admin']} permission="clients"><ClientDetailsPage /></PermissionRoute>} />
               <Route path="/directory" element={<PermissionRoute allowedRoles={['Admin', 'Client']} permission="clients">
-                {authRole === 'Client' ? <ClientDirectory client={activeClient} /> : <ClientManager clients={filteredClients} divisions={divisions} addClient={async (c) => { 
-                setClients(prev => [c, ...prev]);
-                await api.saveClient(c); 
-                fetchData(true); 
-              }} deleteClient={async (id) => { 
-                setClients(prev => prev.filter(cl => cl.id !== id));
-                await api.deleteClient(id); 
-                fetchData(true);
-              }} selectedDivisionId={selectedCompanyId} onOpenPortal={(client) => navigate(`/client/${client.id}`)} userRole={authRole} userId={getAuthUser()?.id} />}
+                {authRole === 'Client' ? <ClientDirectory client={activeClient} /> : <ClientManager clients={filteredClients} divisions={divisions} addClient={async (c) => {
+                  const isEditing = clients.some(client => client.id === c.id || (client._id && c._id && client._id === c._id));
+                  if (isEditing) {
+                    setClients(prev => prev.map(item => (item.id === c.id || (item._id && c._id && item._id === c._id)) ? c : item));
+                    const saved = await api.updateClient(c.id, c);
+                    setClients(prev => prev.map(item => (item.id === c.id || (item._id && c._id && item._id === c._id)) ? saved : item));
+                    fetchData(true);
+                    return saved;
+                  } else {
+                    setClients(prev => [c, ...prev]);
+                    const saved = await api.createClient(c);
+                    setClients(prev => prev.map(item => (item.id === c.id || (item._id && c._id && item._id === c._id)) ? saved : item));
+                    fetchData(true);
+                    return saved;
+                  }
+                }} deleteClient={async (id) => {
+                  setClients(prev => prev.filter(cl => cl.id !== id));
+                  await api.deleteClient(id);
+                  fetchData(true);
+                }} selectedDivisionId={selectedCompanyId} onOpenPortal={(client) => navigate(`/client/${client.id}`)} userRole={authRole} userId={getAuthUser()?.id} />}
               </PermissionRoute>} />
               <Route path="/ecosystem" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><SettingsView onOpenTeam={() => navigate('/team')} isAdmin={authRole === 'Admin'} /></PermissionRoute>} />
               <Route path="/ecosystem/brand/:brandId" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><BrandDetailPage /></PermissionRoute>} />
               <Route path="/system" element={<Navigate to="/ecosystem" replace />} />
               <Route path="/team" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><TeamPage /></PermissionRoute>} />
               <Route path="/logs" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><AuditLogsView /></PermissionRoute>} />
-              <Route path="/calendar" element={<PermissionRoute allowedRoles={['Admin', 'Client']} permission="tasks"><CoordinationCenter tasks={filteredTasks} clients={filteredClients} invoices={filteredInvoices} onSaveTask={async (t) => { await api.saveTask(t); fetchData(true); }} onDeleteTask={async (id) => { 
+              <Route path="/calendar" element={<PermissionRoute allowedRoles={['Admin', 'Client']} permission="tasks"><CoordinationCenter tasks={filteredTasks} clients={filteredClients} invoices={filteredInvoices} onSaveTask={async (t) => { await api.saveTask(t); fetchData(true); }} onDeleteTask={async (id) => {
                 setTasks(prev => prev.filter(task => task.id !== id));
-                await api.deleteTask(id); 
-                fetchData(true); 
+                await api.deleteTask(id);
+                fetchData(true);
               }} companies={companies} selectedBrand={selectedCompanyId} /></PermissionRoute>} />
               <Route path="/settings" element={<PermissionRoute allowedRoles={['Admin']}><CompanySettingsPage /></PermissionRoute>} />
               <Route path="/alerts" element={<PermissionRoute allowedRoles={['Admin']}><AlertsPage /></PermissionRoute>} />
@@ -620,6 +642,7 @@ const App: React.FC = () => {
 
               {/* Deliverables Top-level route for client */}
               <Route path="/deliverables" element={<PermissionRoute allowedRoles={['Admin', 'Client']}><ClientDeliverables client={activeClient} /></PermissionRoute>} />
+              <Route path="/gallery" element={<PermissionRoute allowedRoles={['Admin', 'Client']}><ClientGallery client={activeClient} /></PermissionRoute>} />
 
               {/* Client Restricted Top-level Routes */}
               <Route path="/events" element={<PermissionRoute allowedRoles={['Client']}><ClientEvents client={activeClient} /></PermissionRoute>} />
@@ -630,7 +653,7 @@ const App: React.FC = () => {
               <Route path="/support" element={<PermissionRoute allowedRoles={['Client']}><ClientSupport client={activeClient} /></PermissionRoute>} />
 
               {/* Legacy portal route for backward compatibility / staff view */}
-              <Route path="/portal/:clientId" element={<RoleProtectedRoute allowedRoles={['Client', 'Admin', 'Staff']}><ClientPortal client={activeClient || {} as Client} onUpdateClient={() => {}} onBack={() => navigate('/login')} userRole={authRole} /></RoleProtectedRoute>} />
+              <Route path="/portal/:clientId" element={<RoleProtectedRoute allowedRoles={['Client', 'Admin', 'Staff']}><ClientPortal client={activeClient || {} as Client} onUpdateClient={() => { }} onBack={() => navigate('/login')} userRole={authRole} /></RoleProtectedRoute>} />
               <Route path="/agreement/:quoteId" element={<RoleProtectedRoute allowedRoles={['Client']}><AgreementPage /></RoleProtectedRoute>} />
 
               <Route path="/unauthorized" element={<div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10"><h1 className="text-4xl font-black text-white mb-4">RESTRICTED ACCESS</h1><p className="text-zinc-500 font-mono text-xs mb-8">Permission Profile Conflict Detected</p><button onClick={() => navigate('/')} className="px-6 py-2 bg-white text-black text-[10px] font-black uppercase rounded-full">Return Base</button></div>} />
@@ -702,8 +725,8 @@ const App: React.FC = () => {
       )}
 
       {/* Theme Diagnostics Panel */}
-      <ThemeDiagnosticsPanel />
-
+      {import.meta.env.DEV && <ThemeDiagnosticsPanel />}
+      <FallbackWarning />
     </div>
   );
 };

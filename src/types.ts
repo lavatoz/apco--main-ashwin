@@ -257,6 +257,7 @@ export interface Client {
   assignedVideographerId?: string;
   assignedEditorId?: string;
   companyId?: string;
+  companyName?: string;
   createdAt?: string;
 }
 
@@ -294,7 +295,7 @@ export interface Gallery {
   updatedAt: string;
 }
 
-export type ProjectStatus = 'pending' | 'confirmed';
+export type ProjectStatus = 'pending' | 'confirmed' | 'Completed';
 export type NewProjectStage = 'Booked' | 'Agreement Signed' | 'Advance Paid' | 'Team Assigned' | 'Shoot Completed' | 'Selection Received' | 'Editing' | 'Delivery Ready' | 'Delivered';
 export type LegacyProjectStage = 'booked' | 'event_done' | 'selection' | 'editing' | 'delivery' | 'Planning' | 'Shoot' | 'Delivery';
 export type ProjectStage = NewProjectStage | LegacyProjectStage;
@@ -346,12 +347,16 @@ export interface Project {
   date: string;
   status: ProjectStatus;
   stage?: ProjectStage;
+  vaultId?: string;
+  driveFolderId?: string;
   workflowTrigger?: {
     event: string;
     timestamp: string;
   };
   totalAmount?: number; // Legacy
   team?: any; // Can be ProjectTeam or array based on new logic
+  teamSnapshot?: any;
+  staffAssignments?: any[];
   services?: InvoiceItem[];
   financials?: {
     total: number;
@@ -377,6 +382,11 @@ export interface Project {
       notes?: string;
       attachments?: string[];
     }
+  };
+  portal?: {
+    timeline: TimelineItem[];
+    deliverables: Deliverable[];
+    internalSpends: InternalSpend[];
   };
 }
 
@@ -455,6 +465,7 @@ export interface Invoice {
   // Template version persistence — set at generation time, never changed after
   templateId?: string;       // e.g. 'aaha_i_v1'
   templateVersion?: string;  // e.g. '1.0.0'
+  generatedPdf?: string;
 }
 
 export interface Expense {
@@ -542,10 +553,18 @@ export interface CompanyProfile {
 
 export interface GlobalSettings {
   pdfOwnerPassword?: string;
+  /** Open-password shown to clients when opening the PDF. Only active when pdfPasswordMode is 'open-password'. */
+  pdfUserPassword?: string;
+  /**
+   * 'owner-only'   — PDF opens without a password but editing/copying are restricted (default).
+   * 'open-password' — PDF requires the user password to open; owner password still controls permissions.
+   */
+  pdfPasswordMode?: 'owner-only' | 'open-password';
   pdfWatermarkEnabled?: boolean;
   pdfQrEnabled?: boolean;
   pdfHashEnabled?: boolean;
   pdfSecureRenderEnabled?: boolean;
+  pdfVerifyLinkEnabled?: boolean;
   pdfSecretSalt?: string;
   customThemes?: CustomThemeConfig[];
   // future global settings here

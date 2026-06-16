@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mail, Phone, Calendar, User, Briefcase, RefreshCw, AlertTriangle, Edit2, X, Check, LayoutDashboard, ChevronRight } from 'lucide-react';
-import { api } from '../services/api';
+import { api, fetchApi } from '../services/api';
 
 const ClientDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,14 +27,7 @@ const ClientDetails: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`http://localhost:5000/api/clients/${id}`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        
-        if (!res.ok) throw new Error("Client not found");
-        
-        const data = await res.json();
+        const data = await fetchApi(`/clients/${id}`);
         setClient(data);
         setEditForm({
           name: data.name || data.projectName || '',
@@ -44,16 +36,15 @@ const ClientDetails: React.FC = () => {
           eventDate: data.eventDate ? new Date(data.eventDate).toISOString().split('T')[0] : ''
         });
 
-        const projRes = await fetch(`http://localhost:5000/api/projects`, {
-            headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (projRes.ok) {
-            const projects = await projRes.json();
-            const found = projects.find((p: any) => 
-               p.client?._id === id || 
-               (typeof p.client === 'string' && p.client === id)
-            );
-            setProject(found);
+        try {
+          const projects = await fetchApi(`/projects`);
+          const found = projects.find((p: any) => 
+             p.client?._id === id || 
+             (typeof p.client === 'string' && p.client === id)
+          );
+          setProject(found);
+        } catch (projErr) {
+          console.warn("Failed loading projects in client details:", projErr);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Client not found");

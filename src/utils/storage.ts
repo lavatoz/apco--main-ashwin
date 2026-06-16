@@ -9,16 +9,20 @@ export const safeParse = <T,>(key: string, fallback: T): T => {
 
 export const getAuthUser = () => {
   let activeRole = sessionStorage.getItem('active_role');
-  
+
   if (!activeRole) {
     // Fallback: Infer from URL if opening a new tab
     const path = window.location.pathname;
     if (path.startsWith('/portal') || path.startsWith('/client')) {
       activeRole = 'Client';
-    } else if (path.startsWith('/workspace') || path.startsWith('/staff')) {
-      activeRole = 'Staff';
-    } else if (path !== '/' && path !== '/login' && !path.startsWith('/invite')) {
-      // Default to Admin for app routes if not explicitly client or staff
+    } else if (
+      path !== '/' &&
+      path !== '/login' &&
+      !path.startsWith('/invite') &&
+      !path.startsWith('/setup-account') &&
+      !path.startsWith('/packages') &&
+      path !== '/unauthorized'
+    ) {
       activeRole = 'Admin';
     }
   }
@@ -41,7 +45,7 @@ export const getAuthUser = () => {
 export const setAuthUser = (user: any) => {
   let activeRole = 'Admin';
   let key = 'auth_user_admin';
-  
+
   if (user.role === 'Client') {
     activeRole = 'Client';
     key = 'auth_user_client';

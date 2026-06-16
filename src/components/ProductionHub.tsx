@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { type Client, type Task, TaskStatus, type Project, type ProjectStage, type CompanyProfile } from '../types';
 import { safeParse } from '../utils/storage';
+import { api } from '../services/api';
 
 interface ProductionHubProps {
   clients: Client[];
@@ -40,10 +41,23 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [projectRegistry, setProjectRegistry] = useState<Project[]>(() => {
-    const allProjects = safeParse<Project[]>('projects', []);
-    return allProjects.filter(p => p.status === 'confirmed');
-  });
+  const [projectRegistry, setProjectRegistry] = useState<Project[]>([]);
+
+  const fetchProjects = async () => {
+    try {
+      const allProjects = await api.getProjects();
+      setProjectRegistry(allProjects.filter(p => p.status === 'confirmed'));
+    } catch (err) {
+      console.error("Failed to fetch projects in Operations:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+    const handleSync = () => fetchProjects();
+    window.addEventListener('projects-updated', handleSync);
+    return () => window.removeEventListener('projects-updated', handleSync);
+  }, []);
 
   const [localTasks, setLocalTasks] = useState<Task[]>(initialTasks);
 
@@ -51,17 +65,20 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
     setLocalTasks(initialTasks);
   }, [initialTasks]);
 
-  const handleCreateProject = (e: React.FormEvent) => {
+  const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
+    const matchingClient = allClients.find(c => c.name === newProject.client || c.projectName === newProject.client);
+    const resolvedClientId = matchingClient?.id || newProject.client;
+
     const project: Project = {
        id: `PRJ-${Date.now().toString().slice(-6)}`,
        name: newProject.title,
-       clientId: newProject.client, 
-       brand: newProject.brand,
-       divisionId: (allClients.find(c => c.name === newProject.client)?.divisionId) || 'dev_01',
+       clientId: resolvedClientId, 
+       brand: matchingClient?.brand || newProject.brand,
+       divisionId: matchingClient?.divisionId || 'dev_01',
        type: 'General',
        date: newProject.eventDate,
-       status: 'confirmed',
+       status: 'confirmed' as any,
        stage: 'booked',
        totalAmount: newProject.totalAmount,
        services: [],
@@ -70,21 +87,24 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
        createdAt: new Date().toISOString()
     };
     
-    const allProjects = safeParse<Project[]>('projects', []);
-    const updatedAll = [...allProjects, project];
-    localStorage.setItem('projects', JSON.stringify(updatedAll));
-    setProjectRegistry(updatedAll.filter(p => p.status === 'confirmed'));
-    
-    setIsCreating(false);
-    setShowNewClientInput(false);
-    setNewProject({ 
-        title: '', 
-        client: '', 
-        brand: selectedBrand !== 'All' ? (companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand) : (companies[0]?.companyName || 'Artisans'), 
-        eventDate: '', 
-        stage: 'booked' as any,
-        totalAmount: 0
-    });
+    try {
+      await api.saveProject(project);
+      setIsCreating(false);
+      setShowNewClientInput(false);
+      setNewProject({ 
+          title: '', 
+          client: '', 
+          brand: selectedBrand !== 'All' ? (companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand) : (companies[0]?.companyName || 'Artisans'), 
+          eventDate: '', 
+          stage: 'booked' as any,
+          totalAmount: 0
+      });
+      fetchProjects();
+      window.dispatchEvent(new CustomEvent('projects-updated'));
+    } catch (err) {
+      console.error("Failed to initialize project:", err);
+      alert("Failed to create project on backend.");
+    }
   };
 
   const confirmDelete = async () => {
@@ -92,18 +112,17 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
     const targetId = projectToDelete.id;
 
     setIsDeleting(true);
-    await new Promise(r => setTimeout(r, 450));
-    
     try {
-      const allProjects = safeParse<Project[]>('projects', []);
-      const updated = allProjects.filter(p => p.id !== targetId);
-      localStorage.setItem('projects', JSON.stringify(updated));
-      setProjectRegistry(updated.filter(p => p.status === 'confirmed'));
+      await api.deleteProject(targetId);
+      fetchProjects();
+      window.dispatchEvent(new CustomEvent('projects-updated'));
     } catch (err) {
       console.error("Project Purge Failed", err);
+      alert("Failed to delete project from backend database.");
     } finally {
       setIsDeleting(false);
       setProjectToDelete(null);
+      setIsDeleteModalOpen(false);
     }
   };
 

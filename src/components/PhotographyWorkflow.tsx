@@ -3,6 +3,7 @@ import { safeParse } from '../utils/storage';
 import { api } from '../services/api';
 import { CheckCircle2, FileText, Camera, Edit3, Eye, MessageSquare, Send, Award, BarChart, HardDrive, Link, X } from 'lucide-react';
 import type { Project, Client, CompanyProfile } from '../types';
+import { calculateProjectWorkflowProgress } from '../utils/workflowUtils';
 
 interface PhotographyWorkflowProps {
   selectedBrand: string | 'All';
@@ -29,14 +30,34 @@ const PhotographyWorkflow: React.FC<PhotographyWorkflowProps> = ({ selectedBrand
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
   useEffect(() => {
-    setProjects(safeParse<Project[]>('projects', []));
-    setClients(safeParse<Client[]>('clients', []));
+    // Instantly seed from local caches to prevent blank UI state
     setUsers(safeParse<any[]>('users', []));
     setCompanies(safeParse<CompanyProfile[]>('companies', []));
+
+    // Hydrate state from backend asynchronously
+    const hydrateData = async () => {
+      try {
+        const [backendProjects, backendClients, backendCompanies] = await Promise.all([
+          api.getProjects(),
+          api.getClients(),
+          api.getCompanies()
+        ]);
+        if (backendProjects) setProjects(backendProjects);
+        if (backendClients) setClients(backendClients);
+        if (backendCompanies) setCompanies(backendCompanies);
+      } catch (err) {
+        console.warn("PhotographyWorkflow failed background API hydration, using cache", err);
+      }
+    };
+    hydrateData();
     
-    const handleSync = () => {
-       setProjects(safeParse<Project[]>('projects', []));
-       setClients(safeParse<Client[]>('clients', []));
+    const handleSync = async () => {
+       try {
+         const backendProjects = await api.getProjects();
+         setProjects(backendProjects);
+       } catch (err) {
+         console.warn("PhotographyWorkflow failed background API sync", err);
+       }
     };
     window.addEventListener('projects-updated', handleSync);
     return () => window.removeEventListener('projects-updated', handleSync);
@@ -79,17 +100,22 @@ const PhotographyWorkflow: React.FC<PhotographyWorkflowProps> = ({ selectedBrand
      console.log('Updated Workflow Object:', newTracking);
 
      const updatedProject = { ...activeProject, stageTracking: newTracking };
-     await api.saveProject(updatedProject);
      
-     // Update local state to reflect instantly
-     setProjects(prev => prev.map(p => p.id === activeProject.id ? updatedProject : p));
-     window.dispatchEvent(new CustomEvent('projects-updated'));
+     // 1. Update local state to reflect instantly
+     setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+
+     // 2. Initiate backend call and dispatch projects-updated event when completed
+     try {
+        await api.saveProject(updatedProject);
+        window.dispatchEvent(new CustomEvent('projects-updated'));
+     } catch (err) {
+        console.error("Background project save failed", err);
+        alert("Failed to save stage update to database.");
+     }
   };
 
   const calculateProgress = () => {
-     if (!activeProject || !activeProject.stageTracking) return 0;
-     const completed = STAGES.filter(s => activeProject.stageTracking?.[s.id]?.status === 'Completed').length;
-     return Math.round((completed / STAGES.length) * 100);
+     return calculateProjectWorkflowProgress(activeProject);
   };
 
   return (

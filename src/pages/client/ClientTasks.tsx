@@ -2,13 +2,15 @@ import React from 'react';
 import { CheckCircle2, Circle, Clock } from 'lucide-react';
 import type { Client, Task } from '../../types';
 
+import ClientPageLoader from './ClientPageLoader';
+
 interface ClientTasksProps {
   client: Client | null;
   tasks: Task[];
 }
 
 const ClientTasks: React.FC<ClientTasksProps> = ({ client, tasks }) => {
-  if (!client) return null;
+  if (!client) return <ClientPageLoader />;
 
   // Since tasks are already globally filtered by activeClient.id in App.tsx, we just display them here.
   const pendingTasks = tasks.filter(t => t.status !== 'Done');

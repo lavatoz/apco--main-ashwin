@@ -2,12 +2,14 @@ import React from 'react';
 import { HelpCircle, PhoneCall, Mail, ExternalLink, ArrowRight } from 'lucide-react';
 import type { Client } from '../../types';
 
+import ClientPageLoader from './ClientPageLoader';
+
 interface ClientSupportProps {
   client: Client | null;
 }
 
 const ClientSupport: React.FC<ClientSupportProps> = ({ client }) => {
-  if (!client) return null;
+  if (!client) return <ClientPageLoader />;
 
   return (
     <div className="p-8 md:p-12 animate-ios-slide-up max-w-[1400px] mx-auto">

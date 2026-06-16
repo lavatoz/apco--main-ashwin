@@ -7,8 +7,9 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import type { Project, Client, StaffAssignment } from '../types';
-import { getProjectStageLabel, getProjectStageProgress } from '../utils/projectStages';
-import { safeParse } from '../utils/storage';
+import { getProjectStageLabel } from '../utils/projectStages';
+import { api } from '../services/api';
+import { calculateProjectWorkflowProgress, getTeamFromProjectAssignments } from '../utils/workflowUtils';
 
 const ProjectDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -18,22 +19,20 @@ const ProjectDetailsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Basic local data fetch
-    const fetchProjectData = () => {
+    const fetchProjectData = async () => {
+      setLoading(true);
       try {
-        const storedProjects = safeParse<Project[]>('projects', []);
-        const targetProject = storedProjects.find((p: Project) => p.id === id);
-        
+        const targetProject = await api.getProjectById(id!);
         if (targetProject) {
           setProject(targetProject);
           
-          // Fetch linked client
-          const storedClients = safeParse<Client[]>('clients', []);
-          const targetClient = storedClients.find((c: Client) => String(c.id) === String(targetProject.clientId)) || null;
-          setClient(targetClient);
+          if (targetProject.clientId) {
+            const targetClient = await api.getClientById(targetProject.clientId);
+            setClient(targetClient);
+          }
         }
       } catch (error) {
-        console.error("Error loading project data:", error);
+        console.error("Error loading project data via API:", error);
       } finally {
         setLoading(false);
       }
@@ -103,13 +102,13 @@ const ProjectDetailsPage: React.FC = () => {
                    <h3 className="text-2xl font-black uppercase">{getProjectStageLabel(currentStage)}</h3>
                 </div>
                 <div className="text-right">
-                   <p className="text-3xl font-black">{Math.round(getProjectStageProgress(currentStage))}%</p>
+                   <p className="text-3xl font-black">{calculateProjectWorkflowProgress(project)}%</p>
                 </div>
              </div>
              <div className="h-3 bg-white/5 rounded-full overflow-hidden border border-white/5">
                 <div 
                   className="h-full bg-white ios-transition" 
-                  style={{ width: `${getProjectStageProgress(currentStage)}%` }}
+                  style={{ width: `${calculateProjectWorkflowProgress(project)}%` }}
                 />
              </div>
              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-600">
@@ -177,37 +176,49 @@ const ProjectDetailsPage: React.FC = () => {
               </h3>
               
               <div className="space-y-6">
-                {Object.entries(project.team || {}).map(([role, val]) => {
-                  if (!val || (Array.isArray(val) && val.length === 0)) return null;
-                  
-                  // Handle both singular (legacy) and array (new) formats
-                  const assignments: StaffAssignment[] = Array.isArray(val) ? val : [val as StaffAssignment];
-                  const Icon = role.includes('photo') ? Camera : role.includes('video') ? Video : role.includes('edit') ? Edit3 : Users;
-                  
-                  return assignments.map((staff, index) => (
-                    <div key={`${role}-${index}`} className="flex items-center gap-4 group">
-                      <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 group-hover:bg-white group-hover:text-black transition-all shadow-xl shadow-white/5">
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">{role} {assignments.length > 1 ? `#${index + 1}` : ''}</p>
-                        <div className="flex items-center justify-between">
-                           <p className="text-sm font-semibold uppercase text-white tracking-tight">{staff.name || 'Unassigned'}</p>
-                           <div className="flex flex-wrap gap-1 mt-1.5">
-                              {staff.assigned_dates && staff.assigned_dates.map(d => (
-                                <span key={d} className="px-1.5 py-0.5 bg-white/5 border border-white/5 rounded text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                                  {new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                                </span>
-                              ))}
-                              {staff.type === 'external' && (
-                                <span className="text-[10px] font-bold">Agent</span>
-                              )}
-                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  ));
-                })}
+                 {(() => {
+                    const resolvedTeam = project.status === 'Completed'
+                       ? project.teamSnapshot || project.team
+                       : getTeamFromProjectAssignments(project.staffAssignments);
+                    
+                    return Object.entries(resolvedTeam || {})
+                       .filter(([role]) => role.endsWith('s'))
+                       .map(([role, val]) => {
+                          if (!val || (Array.isArray(val) && val.length === 0)) return null;
+                          
+                          const assignments: StaffAssignment[] = Array.isArray(val) ? val : [val as StaffAssignment];
+                          const Icon = role.includes('photo') ? Camera : role.includes('video') ? Video : role.includes('edit') ? Edit3 : Users;
+                          const rawDisplayName = role.endsWith('s') ? role.slice(0, -1) : role;
+                          const fallbackDisplayName = rawDisplayName.charAt(0).toUpperCase() + rawDisplayName.slice(1);
+                          
+                          return assignments.map((staff: any, index) => {
+                            const roleDisplayName = staff.role || fallbackDisplayName;
+                            return (
+                              <div key={`${role}-${index}`} className="flex items-center gap-4 group">
+                                <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 group-hover:bg-white group-hover:text-black transition-all shadow-xl shadow-white/5">
+                                  <Icon className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">{roleDisplayName} {assignments.length > 1 ? `#${index + 1}` : ''}</p>
+                                  <div className="flex items-center justify-between">
+                                     <p className="text-sm font-semibold uppercase text-white tracking-tight">{staff.name || 'Unassigned'}</p>
+                                     <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {staff.assigned_dates && staff.assigned_dates.map((d: string) => (
+                                          <span key={d} className="px-1.5 py-0.5 bg-white/5 border border-white/5 rounded text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                                            {new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                          </span>
+                                        ))}
+                                        {staff.type === 'external' && (
+                                          <span className="text-[10px] font-bold text-zinc-500 uppercase">Agent</span>
+                                        )}
+                                     </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          });
+                       });
+                 })()}
               </div>
 
               <div className="pt-8 border-t border-white/5 space-y-4">

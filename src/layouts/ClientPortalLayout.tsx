@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, CalendarClock,
-  FolderDown, Receipt, FileSignature, MessageSquare,
+  FolderDown, Image, Receipt, FileSignature, MessageSquare,
   HelpCircle, LogOut, X, Menu, Building2
 } from 'lucide-react';
 import { usePermissions } from '../hooks/usePermissions';
@@ -28,17 +28,19 @@ const ClientPortalLayout: React.FC<ClientPortalLayoutProps> = ({ onLogout }) => 
   }
 
   const allModules = [
-    { path: '/client-portal/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/client-portal/events', label: 'My Event', icon: Calendar },
-    { path: '/client-portal/timeline', label: 'Timeline', icon: CalendarClock },
-    { path: '/client-portal/deliverables', label: 'Deliverables', icon: FolderDown },
-    { path: '/client-portal/invoices', label: 'Invoices', icon: Receipt },
-    { path: '/client-portal/agreements', label: 'Agreements', icon: FileSignature },
-    { path: '/client-portal/messages', label: 'Messages', icon: MessageSquare },
-    { path: '/client-portal/support', label: 'Support', icon: HelpCircle },
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/events', label: 'My Event', icon: Calendar },
+    { path: '/timeline', label: 'Timeline', icon: CalendarClock },
+    { path: '/gallery', label: 'Gallery', icon: Image },
+    { path: '/deliverables', label: 'Deliverables', icon: FolderDown },
+    { path: '/invoices', label: 'Invoices', icon: Receipt },
+    { path: '/agreements', label: 'Agreements', icon: FileSignature },
+    { path: '/messages', label: 'Messages', icon: MessageSquare },
+    { path: '/support', label: 'Support', icon: HelpCircle },
   ];
 
   const visibleModules = allModules;
+
 
   return (
     <div className="min-h-screen bg-transparent text-white flex flex-col font-sans selection-primary">

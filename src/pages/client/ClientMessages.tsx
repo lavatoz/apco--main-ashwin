@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { MessageSquare, Send, ArrowRight } from 'lucide-react';
 import type { Client } from '../../types';
 
+import ClientPageLoader from './ClientPageLoader';
+
 interface ClientMessagesProps {
   client: Client | null;
 }
@@ -9,7 +11,7 @@ interface ClientMessagesProps {
 const ClientMessages: React.FC<ClientMessagesProps> = ({ client }) => {
   const [requestText, setRequestText] = useState('');
 
-  if (!client) return null;
+  if (!client) return <ClientPageLoader />;
 
   const requirements = client.requirements || [];
 

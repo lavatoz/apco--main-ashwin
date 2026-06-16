@@ -2,12 +2,14 @@ import React from 'react';
 import { Calendar, MapPin, Users } from 'lucide-react';
 import type { Client } from '../../types';
 
+import ClientPageLoader from './ClientPageLoader';
+
 interface ClientEventsProps {
   client: Client | null;
 }
 
 const ClientEvents: React.FC<ClientEventsProps> = ({ client }) => {
-  if (!client) return null;
+  if (!client) return <ClientPageLoader />;
 
   const hasEvents = client.events && client.events.length > 0;
 

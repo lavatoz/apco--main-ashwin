@@ -1,12 +1,22 @@
 import React from 'react';
 import { useCompanySettings } from '../hooks/useCompanySettings';
-import { Palette, Monitor, Type, Info, X } from 'lucide-react';
+import { Palette, Monitor, Type, X } from 'lucide-react';
 
 const ThemeDiagnosticsPanel: React.FC = () => {
     const { settings } = useCompanySettings();
-    const [isVisible, setIsVisible] = React.useState(true);
+    const [isVisible, setIsVisible] = React.useState(false);
 
-    if (!isVisible) return null;
+    if (!isVisible) {
+        return (
+            <button
+                onClick={() => setIsVisible(true)}
+                className="fixed bottom-4 left-4 z-[99999] p-3 bg-zinc-900/80 backdrop-blur-md border border-white/10 hover:border-white/20 rounded-full text-zinc-400 hover:text-white transition-all shadow-xl active:scale-95 flex items-center justify-center"
+                title="Open Theme Diagnostics"
+            >
+                <Palette className="w-4 h-4 text-primary" />
+            </button>
+        );
+    }
 
     return (
         <div className="fixed bottom-4 left-4 z-[99999] w-80 bg-black/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden animate-ios-slide-up">
