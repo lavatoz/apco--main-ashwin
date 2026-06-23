@@ -60,6 +60,12 @@ const triggerFallbackWarning = () => {
   }
 };
 
+const clearFallbackWarning = () => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('api-fallback-active', { detail: { active: false } }));
+  }
+};
+
 const delayMs = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 let isRefreshing = false;
@@ -186,6 +192,7 @@ export const fetchApi = async (endpoint: string, options: any = {}): Promise<any
         throw err;
       }
 
+      clearFallbackWarning();
       return await response.json();
     } catch (error: any) {
       lastError = error;

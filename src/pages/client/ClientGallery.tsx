@@ -64,8 +64,24 @@ const ClientGallery: React.FC<ClientGalleryProps> = ({ client }) => {
         const clientProjects = allProjects.filter(p => p.clientId === client.id);
         const mainProject = clientProjects[0];
         if (mainProject) {
-          const filesData = await filesApi.getFilesByProject(mainProject.id, 'Gallery');
-          setFiles(filesData || []);
+          const [rawPhotos, editedPhotos, legacyGallery] = await Promise.all([
+            filesApi.getFilesByProject(mainProject.id, 'Raw Photos').catch(() => []),
+            filesApi.getFilesByProject(mainProject.id, 'Edited Photos').catch(() => []),
+            filesApi.getFilesByProject(mainProject.id, 'Gallery').catch(() => [])
+          ]);
+
+          const merged = [...(rawPhotos || []), ...(editedPhotos || []), ...(legacyGallery || [])];
+
+          const uniqueMap = new Map<string, any>();
+          merged.forEach(f => {
+            if (f && f.id) {
+              uniqueMap.set(f.id, f);
+            }
+          });
+
+          const uniqueFiles = Array.from(uniqueMap.values());
+          uniqueFiles.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+          setFiles(uniqueFiles);
         }
       } catch (err) {
         console.error("Failed to load gallery files", err);

@@ -8,8 +8,12 @@ export const FallbackWarning: React.FC = () => {
   useEffect(() => {
     const handleFallbackEvent = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail && customEvent.detail.active) {
-        setIsActive(true);
+      if (customEvent.detail) {
+        const active = !!customEvent.detail.active;
+        setIsActive(active);
+        if (!active) {
+          setDismissed(false);
+        }
       }
     };
 

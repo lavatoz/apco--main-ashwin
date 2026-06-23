@@ -5,7 +5,39 @@ export const clients = {
   getClients: async (): Promise<Client[]> => {
     const data = await fetchApi('/clients');
     if (Array.isArray(data)) {
-      return data;
+      let companies: any[] = [];
+      try {
+        const stored = localStorage.getItem('artisans_companies');
+        if (stored) {
+          companies = JSON.parse(stored);
+        }
+      } catch (e) {
+        // ignore
+      }
+      if (!companies || companies.length === 0) {
+        companies = [
+          { id: 'comp_1', companyName: 'Aaha Kalyanam', projectType: 'AAHA KALYANAM' },
+          { id: 'comp_2', companyName: 'Tiny Toes', projectType: 'TINY TOES' }
+        ];
+      }
+
+      return data.map((c: any) => {
+        const company = companies.find((comp: any) => 
+          (comp.companyName && c.companyName && comp.companyName.trim().toLowerCase() === c.companyName.trim().toLowerCase()) ||
+          (comp.projectType && c.companyName && comp.projectType.trim().toLowerCase() === c.companyName.trim().toLowerCase())
+        ) || companies[0];
+
+        return {
+          ...c,
+          brand: company?.companyName || c.brand || 'Unknown',
+          brandId: company?.id || c.brandId || '',
+          companyId: company?.id || c.companyId || '',
+          divisionId: company?.id || c.divisionId || '',
+          status: c.status || 'pending',
+          projectName: c.projectName || c.name || 'Unnamed Client',
+          people: c.people || []
+        };
+      });
     }
     throw new Error("Invalid response from server: clients is not an array");
   },
@@ -19,6 +51,7 @@ export const clients = {
       phone: client.phone || null,
       address: client.address || null,
       companyName: client.companyName || client.brand || null,
+      events: client.events || [],
     };
 
     const savedBackendClient = await fetchApi('/clients', {
@@ -36,6 +69,7 @@ export const clients = {
       address: savedBackendClient.address,
       companyId: client.companyId || client.divisionId,
       divisionId: client.divisionId || client.companyId,
+      events: savedBackendClient.events || client.events || [],
     };
   },
 
@@ -48,6 +82,7 @@ export const clients = {
       phone: client.phone || null,
       address: client.address || null,
       companyName: client.companyName || client.brand || null,
+      events: client.events || [],
     };
 
     const savedBackendClient = await fetchApi(`/clients/${id}`, {
@@ -65,6 +100,7 @@ export const clients = {
       address: savedBackendClient.address,
       companyId: client.companyId || client.divisionId,
       divisionId: client.divisionId || client.companyId,
+      events: savedBackendClient.events || client.events || [],
     };
   },
 
@@ -82,6 +118,39 @@ export const clients = {
 
   getClientById: async (id: string): Promise<Client | null> => {
     const data = await fetchApi(`/clients/${id}`);
+    if (data) {
+      let companies: any[] = [];
+      try {
+        const stored = localStorage.getItem('artisans_companies');
+        if (stored) {
+          companies = JSON.parse(stored);
+        }
+      } catch (e) {
+        // ignore
+      }
+      if (!companies || companies.length === 0) {
+        companies = [
+          { id: 'comp_1', companyName: 'Aaha Kalyanam', projectType: 'AAHA KALYANAM' },
+          { id: 'comp_2', companyName: 'Tiny Toes', projectType: 'TINY TOES' }
+        ];
+      }
+
+      const company = companies.find((comp: any) => 
+        (comp.companyName && data.companyName && comp.companyName.trim().toLowerCase() === data.companyName.trim().toLowerCase()) ||
+        (comp.projectType && data.companyName && comp.projectType.trim().toLowerCase() === data.companyName.trim().toLowerCase())
+      ) || companies[0];
+
+      return {
+        ...data,
+        brand: company?.companyName || data.brand || 'Unknown',
+        brandId: company?.id || data.brandId || '',
+        companyId: company?.id || data.companyId || '',
+        divisionId: company?.id || data.divisionId || '',
+        status: data.status || 'pending',
+        projectName: data.projectName || data.name || 'Unnamed Client',
+        people: data.people || []
+      };
+    }
     return data;
   },
 

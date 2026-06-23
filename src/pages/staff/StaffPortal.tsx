@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../../services/api';
+import { useCompanySettings } from '../../hooks/useCompanySettings';
 import { getAuthUser } from '../../utils/storage';
-import { type Task, type Client, type AttendanceRecord, type Equipment } from '../../types';
+import { type Task, type AttendanceRecord, type Equipment } from '../../types';
 import { 
     Calendar, CheckSquare, UploadCloud, Clock, 
     Camera, User, AlertCircle, FileVideo, 
     MapPin, Play, UserCircle, Briefcase,
-    Download, Trash2, FileText, Image, Loader
+    Download, Trash2, FileText, Image, Loader,
+    Phone, X, ChevronRight
 } from 'lucide-react';
 
 const formatBytes = (bytes: number, decimals = 2) => {
@@ -32,14 +35,36 @@ const formatDate = (dateStr: string) => {
     }
 };
 
-const StaffPortal = () => {
+const formatOnlyDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString(undefined, {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        });
+    } catch {
+        return dateStr;
+    }
+};
+
+interface StaffPortalProps {
+    selectedBrand?: string;
+}
+
+const StaffPortal: React.FC<StaffPortalProps> = ({ selectedBrand = 'All' }) => {
     const user = getAuthUser();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [tasks, setTasks] = useState<Task[]>([]);
-    const [clients, setClients] = useState<Client[]>([]);
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
     const [equipment, setEquipment] = useState<Equipment[]>([]);
+    const [selectedTask, setSelectedTask] = useState<any | null>(null);
+    const [modalOpen, setModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+    const [isSavingStatus, setIsSavingStatus] = useState(false);
 
     const [isClockedIn, setIsClockedIn] = useState(false);
     const [currentSession, setCurrentSession] = useState<AttendanceRecord | null>(null);
@@ -47,11 +72,32 @@ const StaffPortal = () => {
     // Upload state
     const [projects, setProjects] = useState<any[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('Gallery');
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+    const [selectedEventId, setSelectedEventId] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('Raw Photos');
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [isDragging, setIsDragging] = useState(false);
+    const [uploadingIndex, setUploadingIndex] = useState(0);
+    const [currentFileProgress, setCurrentFileProgress] = useState(0);
     const [projectFiles, setProjectFiles] = useState<any[]>([]);
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadNotification, setUploadNotification] = useState<{
+        type: 'success' | 'failure';
+        title: string;
+        message: string;
+        project: string;
+        category: string;
+        successCount: number;
+        failedCount: number;
+        failedFiles?: string[];
+    } | null>(null);
+
+    // Client-side local session maps for resolving event & uploader metadata for recent uploads
+    const [localFileEventMap, setLocalFileEventMap] = useState<Record<string, string>>({});
+    const [localFileUploaderMap, setLocalFileUploaderMap] = useState<Record<string, string>>({});
+
+    const selectedProject = projects.find(p => p.id === selectedProjectId);
+    const selectedProjectEvents = selectedProject?.client?.events || [];
+    const selectedEvent = selectedProjectEvents.find((e: any) => e.id === selectedEventId);
 
     const fetchFiles = useCallback(async (projId: string) => {
         if (!projId) return;
@@ -63,35 +109,141 @@ const StaffPortal = () => {
         }
     }, []);
 
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const filesArray = Array.from(e.dataTransfer.files);
+            setSelectedFiles(prev => [...prev, ...filesArray]);
+        }
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setSelectedFile(e.target.files[0]);
+        if (e.target.files && e.target.files.length > 0) {
+            const filesArray = Array.from(e.target.files);
+            setSelectedFiles(prev => [...prev, ...filesArray]);
         }
     };
 
     const handleUpload = async () => {
-        if (!selectedProjectId || !selectedFile) return;
+        if (isUploading) return;
+        if (!selectedProjectId) {
+            alert("No project selected.");
+            return;
+        }
+        if (selectedFiles.length === 0) return;
+        
         setIsUploading(true);
-        setUploadProgress(0);
-        try {
-            await api.uploadProjectFileWithProgress(
-                selectedProjectId,
-                selectedCategory,
-                selectedFile,
-                false,
-                (percent) => {
-                    setUploadProgress(percent);
+        setUploadingIndex(0);
+        setCurrentFileProgress(0);
+
+        let successCount = 0;
+        let failedCount = 0;
+        const failedFiles: string[] = [];
+
+        const targetProjectId = selectedProjectId;
+        const targetCategory = selectedCategory;
+        const targetEventId = selectedEventId;
+        const filesToUpload = [...selectedFiles];
+
+        for (let i = 0; i < filesToUpload.length; i++) {
+            setUploadingIndex(i);
+            setCurrentFileProgress(0);
+
+            // Verify project context before each file upload
+            if (!targetProjectId || !selectedProjectId) {
+                console.error("Upload aborted: No project selected.");
+                const remaining = filesToUpload.length - i;
+                failedCount += remaining;
+                for (let j = i; j < filesToUpload.length; j++) {
+                    failedFiles.push(filesToUpload[j].name);
                 }
-            );
-            setSelectedFile(null);
-            setUploadProgress(null);
-            const fileInput = document.getElementById('file-upload-input') as HTMLInputElement;
-            if (fileInput) fileInput.value = '';
-            fetchFiles(selectedProjectId);
-        } catch (err: any) {
-            console.error("Upload failed", err);
-            alert(err.message || "Upload failed");
-            setUploadProgress(null);
+                break;
+            }
+
+            const file = filesToUpload[i];
+            try {
+                const response = await api.uploadProjectFileWithProgress(
+                    targetProjectId,
+                    targetCategory,
+                    file,
+                    false,
+                    (percent) => {
+                        setCurrentFileProgress(percent);
+                    }
+                );
+
+                if (response && response.id) {
+                    const eventName = selectedProjectEvents.find((e: any) => e.id === targetEventId)?.name || '';
+                    if (eventName) {
+                        setLocalFileEventMap(prev => ({ ...prev, [response.id]: eventName }));
+                    }
+                    if (user?.name) {
+                        setLocalFileUploaderMap(prev => ({ ...prev, [response.id]: user.name }));
+                    }
+                }
+                successCount++;
+            } catch (err: any) {
+                console.error(`Upload failed for file ${file.name}:`, err);
+                failedCount++;
+                failedFiles.push(file.name);
+            }
+        }
+
+        const projectName = projects.find(p => p.id === targetProjectId)?.name || 'Unknown Project';
+
+        if (failedCount === 0) {
+            setUploadNotification({
+                type: 'success',
+                title: 'Upload Complete',
+                message: `${successCount} files uploaded successfully`,
+                project: projectName,
+                category: targetCategory,
+                successCount,
+                failedCount
+            });
+            setTimeout(() => {
+                setUploadNotification(prev => prev?.type === 'success' ? null : prev);
+            }, 5000);
+        } else {
+            setUploadNotification({
+                type: 'failure',
+                title: 'Upload Finished With Errors',
+                message: `Uploaded: ${successCount} Failed: ${failedCount}`,
+                project: projectName,
+                category: targetCategory,
+                successCount,
+                failedCount,
+                failedFiles
+            });
+        }
+
+        setSelectedFiles([]);
+        setUploadingIndex(0);
+        setCurrentFileProgress(0);
+        const fileInput = document.getElementById('file-upload-input') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+
+        try {
+            fetchFiles(targetProjectId);
+            const updatedProjects = await api.getProjects();
+            setProjects(updatedProjects || []);
+            window.dispatchEvent(new CustomEvent('projects-updated'));
+        } catch (refreshErr) {
+            console.error("Failed to refresh data after upload:", refreshErr);
         } finally {
             setIsUploading(false);
         }
@@ -111,15 +263,13 @@ const StaffPortal = () => {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [t, c, a, e, p] = await Promise.all([
+            const [t, a, e, p] = await Promise.all([
                 api.getTasks(),
-                api.getClients(),
                 api.getAttendance(user?.id || ''),
                 api.getEquipment(user?.id || ''),
                 api.getProjects()
             ]);
             setTasks(t);
-            setClients(c);
             setAttendance(a);
             setEquipment(e);
             setProjects(p || []);
@@ -138,24 +288,87 @@ const StaffPortal = () => {
 
     useEffect(() => {
         loadData();
+        const handleSync = () => {
+            loadData();
+        };
+        window.addEventListener('tasks-updated', handleSync);
+        return () => window.removeEventListener('tasks-updated', handleSync);
     }, [loadData]);
 
-    const myTasks = tasks.filter(t => t.assignee === user?.name);
-    const pendingTasks = myTasks.filter(t => t.status !== 'Completed');
+    const { companies } = useCompanySettings();
+    const selectedCompany = selectedBrand === 'All'
+        ? null
+        : companies.find(c => c.id === selectedBrand);
 
-    // Find clients where this user is assigned
-    const myClients = clients.filter(c => 
-        c.assignedCoordinatorId === user?.id ||
-        c.assignedPhotographerId === user?.id ||
-        c.assignedVideographerId === user?.id ||
-        c.assignedEditorId === user?.id ||
-        // Check legacy assignment formats
-        c.people?.some(p => p.loginId === user?.id)
+    const filteredTasks = selectedBrand === 'All' ? tasks : tasks.filter(t => {
+        if ((t as any).companyId === selectedBrand ||
+            t.brand === selectedBrand ||
+            t.divisionId === selectedBrand
+        ) {
+            return true;
+        }
+
+        const taskClient = (t as any).client;
+        if (taskClient) {
+            if (taskClient.companyId === selectedBrand ||
+                taskClient.brandId === selectedBrand ||
+                taskClient.divisionId === selectedBrand
+            ) {
+                return true;
+            }
+            if (selectedCompany) {
+                const companyLower = selectedCompany.companyName.trim().toLowerCase();
+                if ((taskClient.brand || '').trim().toLowerCase() === companyLower ||
+                    (taskClient.companyName || '').trim().toLowerCase() === companyLower
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        if (selectedCompany && (t.brand || '').trim().toLowerCase() === selectedCompany.companyName.trim().toLowerCase()) {
+            return true;
+        }
+
+        return false;
+    });
+
+    const filteredProjects = selectedBrand === 'All' ? projects : projects.filter(p =>
+        (p as any).companyId === selectedBrand ||
+        p.brandId === selectedBrand ||
+        p.divisionId === selectedBrand ||
+        p.brand === selectedBrand ||
+        (selectedCompany && (
+            (p.brand || '').trim().toLowerCase() === selectedCompany.companyName.trim().toLowerCase() ||
+            (p.client?.brand || '').trim().toLowerCase() === selectedCompany.companyName.trim().toLowerCase() ||
+            (p.client?.companyName || '').trim().toLowerCase() === selectedCompany.companyName.trim().toLowerCase()
+        ))
     );
 
-    const myEvents = myClients.flatMap(c => 
-        (c.events || []).map(e => ({ ...e, clientName: c.name, projectName: c.projectName }))
-    ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const myTasks = filteredTasks.filter(t => t.assignedUserId === user?.id);
+    const pendingTasks = myTasks.filter(t => t.status !== 'Completed');
+
+    // Build My Events from the assigned projects
+    const myEvents: any[] = [];
+    filteredProjects.forEach(p => {
+        const myAssignment = p.staffAssignments?.find((a: any) => a.userId === user?.id);
+        if (myAssignment && p.client) {
+            const clientEvents = p.client.events || [];
+            clientEvents.forEach((ev: any) => {
+                if (myAssignment.eventIds?.includes(ev.id)) {
+                    myEvents.push({
+                        ...ev,
+                        clientName: p.client.name,
+                        clientPhone: p.client.phone,
+                        clientAddress: p.client.address,
+                        projectName: p.name,
+                        role: myAssignment.role
+                    });
+                }
+            });
+        }
+    });
+    myEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     const activeEvents = myEvents.filter(e => e.status !== 'Completed' && e.status !== 'Cancelled');
 
@@ -187,6 +400,24 @@ const StaffPortal = () => {
         setIsClockedIn(false);
         setCurrentSession(null);
         loadData();
+    };
+
+    const handleUpdateStatus = async (task: Task, newStatus: string) => {
+        if (isSavingStatus) return;
+        setIsSavingStatus(true);
+        const updated = { ...task, status: newStatus };
+        try {
+            await api.saveTask(updated);
+            setTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...updated } : t));
+            setSelectedTask((prev: any) => prev && prev.id === task.id ? { ...prev, ...updated } : prev);
+            setUpdatingTaskId(null);
+            window.dispatchEvent(new CustomEvent('tasks-updated'));
+        } catch (err) {
+            console.error("Failed to update staff task status:", err);
+            alert("Failed to update task status.");
+        } finally {
+            setIsSavingStatus(false);
+        }
     };
 
     if (loading) {
@@ -283,7 +514,7 @@ const StaffPortal = () => {
                                             </div>
                                             <p className="text-xs text-zinc-400 font-bold mb-3">{ev.clientName} - {ev.projectName}</p>
                                             <div className="flex items-center gap-4 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
-                                                <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3" /> {ev.date}</span>
+                                                <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3" /> {formatOnlyDate(ev.date)}</span>
                                                 {ev.venueLocation && <span className="flex items-center gap-1.5"><MapPin className="w-3 h-3" /> {ev.venueLocation}</span>}
                                             </div>
                                         </div>
@@ -299,13 +530,20 @@ const StaffPortal = () => {
                                 <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em] mb-6">Today's Tasks</h3>
                                 <div className="space-y-4">
                                     {pendingTasks.slice(0, 5).map(task => (
-                                        <div key={task.id} className="p-4 bg-black/50 rounded-2xl border border-white/5 flex items-start gap-4">
+                                        <div 
+                                            key={task.id} 
+                                            onClick={() => {
+                                                setSelectedTask(task);
+                                                setModalOpen(true);
+                                            }}
+                                            className="p-4 bg-black/50 rounded-2xl border border-white/5 flex items-start gap-4 cursor-pointer hover:border-white/10 transition-all"
+                                        >
                                             <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 mt-1">
                                                 <AlertCircle className="w-4 h-4 text-amber-500" />
                                             </div>
                                             <div>
                                                 <h4 className="text-sm font-black text-white uppercase tracking-wider mb-1">{task.title}</h4>
-                                                <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">Priority: {task.priority} • Due: {task.dueDate}</p>
+                                                <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">Priority: {task.priority} • Due: {formatOnlyDate(task.dueDate)}</p>
                                             </div>
                                         </div>
                                     ))}
@@ -322,19 +560,59 @@ const StaffPortal = () => {
                 {activeTab === 'tasks' && (
                     <div className="space-y-6 animate-ios-fade-in">
                         {myTasks.map(task => (
-                            <div key={task.id} className="p-6 glass-panel border border-white/5 squircle-sm flex items-center justify-between">
+                            <div 
+                                key={task.id} 
+                                onClick={() => {
+                                    setSelectedTask(task);
+                                    setModalOpen(true);
+                                }}
+                                className="p-6 glass-panel border border-white/5 squircle-sm flex items-center justify-between cursor-pointer hover:border-white/10 transition-all"
+                            >
                                 <div>
                                     <h4 className="text-sm font-black text-white uppercase tracking-wider mb-2">{task.title}</h4>
                                     <div className="flex items-center gap-4 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
                                         <span className={`px-2 py-1 rounded bg-white/5 ${task.priority === 'High' ? 'text-red-400' : 'text-zinc-400'}`}>{task.priority}</span>
                                         <span>Status: {task.status}</span>
-                                        <span>Due: {task.dueDate}</span>
+                                        <span>Due: {formatOnlyDate(task.dueDate)}</span>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <button className="touch-target px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest text-white transition-all">
-                                        Update
-                                    </button>
+                                <div className="text-right flex items-center gap-2">
+                                    {updatingTaskId === task.id ? (
+                                        <div className="flex gap-2 animate-ios-slide-up">
+                                            <button 
+                                                disabled={isSavingStatus}
+                                                onClick={() => handleUpdateStatus(task, 'In Progress')}
+                                                className="touch-target px-3 py-2 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                In Progress
+                                            </button>
+                                            <button 
+                                                disabled={isSavingStatus}
+                                                onClick={() => handleUpdateStatus(task, 'Completed')}
+                                                className="touch-target px-3 py-2 bg-primary/20 text-primary hover:bg-primary/30 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Completed
+                                            </button>
+                                            <button 
+                                                disabled={isSavingStatus}
+                                                onClick={() => setUpdatingTaskId(null)}
+                                                className="touch-target px-3 py-2 bg-white/5 hover:bg-white/10 text-zinc-400 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedTask(task);
+                                                setModalOpen(true);
+                                            }}
+                                            className="touch-target px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest text-white transition-all"
+                                        >
+                                            Update
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -351,18 +629,81 @@ const StaffPortal = () => {
                 {activeTab === 'events' && (
                     <div className="space-y-6 animate-ios-fade-in">
                         {myEvents.map(ev => (
-                            <div key={ev.id} className="p-6 glass-panel border border-white/5 squircle-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                <div>
-                                    <h4 className="text-sm font-black text-white uppercase tracking-wider mb-2">{ev.name}</h4>
-                                    <p className="text-xs text-zinc-400 font-bold mb-3">{ev.clientName} - {ev.projectName}</p>
-                                    <div className="flex flex-wrap items-center gap-4 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
-                                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {ev.date}</span>
-                                        {ev.startTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {ev.startTime}</span>}
-                                        {ev.venueLocation && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {ev.venueLocation}</span>}
+                            <div key={ev.id} className="p-6 glass-panel border border-white/5 squircle-sm hover:border-white/10 transition-all flex flex-col gap-4 bg-white/[0.01]">
+                                <div className="flex justify-between items-start border-b border-white/5 pb-3">
+                                    <div>
+                                        <h4 className="text-base font-black text-white uppercase tracking-wider">{ev.name}</h4>
+                                        {ev.eventType && (
+                                            <span className="inline-block mt-1 text-[9px] font-bold uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+                                                {ev.eventType}
+                                            </span>
+                                        )}
                                     </div>
+                                    <span className={`px-2.5 py-1.5 rounded text-[10px] font-black uppercase tracking-widest ${
+                                        ev.status === 'Completed' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
+                                        ev.status === 'In Progress' ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' :
+                                        'bg-white/5 border border-white/10 text-white'
+                                    }`}>
+                                        {ev.status}
+                                    </span>
                                 </div>
-                                <div className="shrink-0">
-                                    <span className="px-3 py-1.5 bg-white/5 text-white rounded text-[10px] font-black uppercase tracking-widest">{ev.status}</span>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 py-2">
+                                    <div className="space-y-4">
+                                        <div>
+                                            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Client</span>
+                                            <p className="text-sm font-bold text-zinc-200 uppercase tracking-wide">{ev.clientName}</p>
+                                            {ev.clientPhone && (
+                                                <p className="text-xs text-zinc-400 font-bold font-mono mt-1 flex items-center gap-1.5">
+                                                    <Phone className="w-3.5 h-3.5 text-zinc-500" /> {ev.clientPhone}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Project</span>
+                                            <p className="text-xs font-bold text-zinc-300 uppercase tracking-wide">{ev.projectName}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Date & Time</span>
+                                            <p className="text-xs font-bold text-zinc-200 flex items-center gap-1.5 uppercase tracking-wider">
+                                                <Calendar className="w-3.5 h-3.5 text-zinc-400" /> {formatOnlyDate(ev.date)}
+                                            </p>
+                                            {ev.startTime && (
+                                                <p className="text-xs text-zinc-300 font-medium flex items-center gap-1.5 mt-2">
+                                                    <Clock className="w-3.5 h-3.5 text-zinc-500" /> {ev.startTime} {ev.endTime ? ` - ${ev.endTime}` : ''}
+                                                </p>
+                                            )}
+                                        </div>
+                                        {ev.reportingTime && (
+                                            <div>
+                                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Reporting Time</span>
+                                                <p className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                                                    <Clock className="w-3.5 h-3.5 text-amber-500/70" /> {ev.reportingTime}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-4 col-span-1 sm:col-span-2 md:col-span-1">
+                                        <div>
+                                            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Location</span>
+                                            <p className="text-xs text-zinc-300 font-medium leading-relaxed flex items-start gap-2 mt-1">
+                                                <MapPin className="w-4 h-4 text-zinc-500 shrink-0 mt-0.5" />
+                                                <span>{ev.venueLocation || ev.clientAddress || 'No Address Specified'}</span>
+                                            </p>
+                                        </div>
+                                        {ev.role && (
+                                            <div>
+                                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Role</span>
+                                                <span className="inline-block mt-1 px-3 py-1 bg-white/5 border border-white/10 rounded-full font-bold text-[9px] uppercase tracking-widest text-zinc-200">
+                                                    {ev.role}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -387,7 +728,7 @@ const StaffPortal = () => {
                                 </div>
 
                                 <div className="space-y-6 bg-black/50 p-8 rounded-3xl border border-white/5">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                         <div className="space-y-2">
                                             <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Select Project</label>
                                             <select 
@@ -396,12 +737,28 @@ const StaffPortal = () => {
                                                 onChange={e => {
                                                     const val = e.target.value;
                                                     setSelectedProjectId(val);
+                                                    setSelectedEventId('');
                                                     fetchFiles(val);
                                                 }}
                                             >
                                                 <option value="" className="bg-zinc-900">-- Choose Project --</option>
-                                                {projects.map(p => (
+                                                {filteredProjects.map(p => (
                                                     <option key={p.id} value={p.id} className="bg-zinc-900">{p.name} ({p.status})</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Select Event</label>
+                                            <select 
+                                                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all appearance-none disabled:opacity-50 disabled:cursor-not-allowed" 
+                                                value={selectedEventId} 
+                                                disabled={!selectedProjectId}
+                                                onChange={e => setSelectedEventId(e.target.value)}
+                                            >
+                                                <option value="" className="bg-zinc-900">-- Choose Event --</option>
+                                                {selectedProjectEvents.map((ev: any) => (
+                                                    <option key={ev.id} value={ev.id} className="bg-zinc-900">{ev.name}</option>
                                                 ))}
                                             </select>
                                         </div>
@@ -413,65 +770,163 @@ const StaffPortal = () => {
                                                 value={selectedCategory} 
                                                 onChange={e => setSelectedCategory(e.target.value)}
                                             >
-                                                {['Gallery', 'Deliverables', 'Agreements', 'Invoices', 'Quotations', 'Raw Uploads'].map(cat => (
+                                                {['Raw Photos', 'Raw Videos', 'Edited Photos', 'Edited Videos', 'Deliverables'].map(cat => (
                                                     <option key={cat} value={cat} className="bg-zinc-900">{cat}</option>
                                                 ))}
                                             </select>
                                         </div>
                                     </div>
 
-                                    {/* Custom Drag & Drop / Selection UI */}
-                                    <div 
-                                        onClick={() => document.getElementById('file-upload-input')?.click()}
-                                        className="border-2 border-dashed border-white/10 hover:border-indigo-500/50 rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all cursor-pointer bg-white/[0.01] hover:bg-white/[0.03]"
-                                    >
-                                        <input 
-                                            type="file" 
-                                            id="file-upload-input" 
-                                            className="hidden" 
-                                            onChange={handleFileChange}
-                                        />
-                                        <FileVideo className="w-10 h-10 text-zinc-500 mb-4" />
-                                        {selectedFile ? (
-                                            <div className="space-y-1">
-                                                <p className="text-sm font-black text-white">{selectedFile.name}</p>
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{formatBytes(selectedFile.size)}</p>
+                                    {isUploading ? (
+                                        <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 space-y-6 animate-ios-fade-in text-left">
+                                            <div className="flex items-center justify-between">
+                                                <h3 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-2">
+                                                    <Loader className="w-4 h-4 animate-spin text-indigo-400" />
+                                                    Uploading {uploadingIndex + 1} of {selectedFiles.length}
+                                                </h3>
+                                                <span className="text-[10px] font-mono text-zinc-500 bg-white/5 px-2 py-1 rounded">
+                                                    Remaining: {selectedFiles.length - (uploadingIndex + 1)} files
+                                                </span>
                                             </div>
-                                        ) : (
-                                            <>
-                                                <p className="text-sm font-bold text-white mb-1">Click to browse or drop file here</p>
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Max size: 100MB</p>
-                                            </>
-                                        )}
-                                    </div>
 
-                                    {isUploading && uploadProgress !== null && (
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                                                <span>Uploading to Google Drive...</span>
-                                                <span>{uploadProgress}%</span>
+                                            <div className="space-y-1.5 border-b border-white/5 pb-4">
+                                                <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Current File</span>
+                                                <p className="text-xs font-mono font-bold text-indigo-400 truncate uppercase">
+                                                    {selectedFiles[uploadingIndex]?.name || 'Initializing...'}
+                                                </p>
+                                                <span className="text-[9px] text-zinc-500 font-mono">
+                                                    Size: {selectedFiles[uploadingIndex] ? formatBytes(selectedFiles[uploadingIndex].size) : '0 Bytes'}
+                                                </span>
                                             </div>
-                                            <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
-                                                <div 
-                                                    className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300" 
-                                                    style={{ width: `${uploadProgress}%` }}
+
+                                            {/* Overall Progress */}
+                                            {(() => {
+                                                const overallPercent = selectedFiles.length > 0
+                                                    ? Math.round(((uploadingIndex + (currentFileProgress / 100)) / selectedFiles.length) * 100)
+                                                    : 0;
+                                                return (
+                                                    <div className="space-y-2">
+                                                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                            <span>Overall Progress</span>
+                                                            <span className="font-mono text-white">{overallPercent}%</span>
+                                                        </div>
+                                                        <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
+                                                            <div 
+                                                                className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-300" 
+                                                                style={{ width: `${overallPercent}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            {/* Current File Progress */}
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                    <span>Current File Progress</span>
+                                                    <span className="font-mono text-white">{currentFileProgress}%</span>
+                                                </div>
+                                                <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden border border-white/5">
+                                                    <div 
+                                                        className="bg-emerald-500 h-full rounded-full transition-all duration-300" 
+                                                        style={{ width: `${currentFileProgress}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* Custom Drag & Drop / Selection UI */}
+                                            <div 
+                                                onClick={() => document.getElementById('file-upload-input')?.click()}
+                                                onDragOver={handleDragOver}
+                                                onDragLeave={handleDragLeave}
+                                                onDrop={handleDrop}
+                                                className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all cursor-pointer bg-white/[0.01] hover:bg-white/[0.03] ${
+                                                    isDragging ? 'border-indigo-500 bg-indigo-500/5' : 'border-white/10 hover:border-indigo-500/50'
+                                                }`}
+                                            >
+                                                <input 
+                                                    type="file" 
+                                                    id="file-upload-input" 
+                                                    className="hidden" 
+                                                    multiple
+                                                    onChange={handleFileChange}
                                                 />
+                                                <FileVideo className="w-10 h-10 text-zinc-500 mb-4 animate-pulse-subtle" />
+                                                <p className="text-sm font-bold text-white mb-1">Click to browse or drop files here</p>
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Max size: 100MB per file</p>
                                             </div>
+
+                                            {/* Selected Files List */}
+                                            {selectedFiles.length > 0 && (
+                                                <div className="space-y-3 bg-white/[0.01] border border-white/5 rounded-2xl p-5 text-left">
+                                                    <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                                        <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">
+                                                            Selected Files ({selectedFiles.length})
+                                                        </span>
+                                                        <button 
+                                                            onClick={() => setSelectedFiles([])}
+                                                            className="text-[9px] font-black uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors"
+                                                        >
+                                                            Clear All
+                                                        </button>
+                                                    </div>
+                                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                                                        {selectedFiles.map((file, idx) => (
+                                                            <div key={idx} className="flex items-center justify-between p-3 bg-black/30 border border-white/5 rounded-xl text-xs gap-3">
+                                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                                    <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
+                                                                    <span className="text-zinc-200 font-bold truncate uppercase tracking-wider block max-w-[200px]" title={file.name}>
+                                                                        {file.name}
+                                                                    </span>
+                                                                    <span className="text-[9px] text-zinc-500 shrink-0 font-mono">({formatBytes(file.size)})</span>
+                                                                </div>
+                                                                <button 
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setSelectedFiles(prev => prev.filter((_, i) => i !== idx));
+                                                                    }}
+                                                                    className="text-zinc-500 hover:text-red-400 p-1 rounded-lg transition-all shrink-0"
+                                                                    title="Remove file"
+                                                                >
+                                                                    <X className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/* Upload Destination Preview */}
+                                    {selectedProject && (
+                                        <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-white/[0.02] border border-white/5 px-4 py-3 rounded-2xl mb-2">
+                                            <span>{selectedProject.brand || selectedProject.client?.companyName || 'Unknown Brand'}</span>
+                                            <ChevronRight className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
+                                            <span>{selectedProject.name}</span>
+                                            <ChevronRight className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
+                                            <span className={selectedEvent ? 'text-indigo-400' : 'text-amber-500'}>
+                                                {selectedEvent ? selectedEvent.name : 'Select Event'}
+                                            </span>
+                                            <ChevronRight className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
+                                            <span className="text-emerald-400">{selectedCategory}</span>
                                         </div>
                                     )}
 
                                     <button 
-                                        disabled={!selectedProjectId || !selectedFile || isUploading} 
+                                        disabled={!selectedProjectId || !selectedEventId || !selectedCategory || selectedFiles.length === 0 || isUploading} 
                                         onClick={handleUpload}
                                         className="touch-target w-full py-4 bg-white text-black rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-zinc-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {isUploading ? (
                                             <>
                                                 <Loader className="w-4 h-4 animate-spin" />
-                                                Uploading...
+                                                Upload in Progress...
                                             </>
                                         ) : (
-                                            'Start Upload'
+                                            `Start Upload (${selectedFiles.length} file${selectedFiles.length === 1 ? '' : 's'})`
                                         )}
                                     </button>
                                 </div>
@@ -481,13 +936,16 @@ const StaffPortal = () => {
                         {selectedProjectId && (
                             <div className="glass-panel p-8 squircle-md border border-white/5 space-y-6">
                                 <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                                    <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.2em]">Project Uploads Registry</h3>
+                                    <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.2em]">Recent Uploads</h3>
                                     <span className="text-[10px] font-mono text-zinc-500">{projectFiles.length} files total</span>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {projectFiles.map((file: any) => {
                                         const isImage = file.mimeType?.startsWith('image/');
+                                        const fileEventName = localFileEventMap[file.id] || selectedProjectEvents[0]?.name || 'General';
+                                        const fileUploadedBy = localFileUploaderMap[file.id] || user?.name || 'Staff';
+
                                         return (
                                             <div key={file.id} className="p-4 bg-black/50 rounded-2xl border border-white/5 flex items-center justify-between gap-4">
                                                 <div className="flex items-center gap-4 min-w-0">
@@ -500,18 +958,23 @@ const StaffPortal = () => {
                                                     </div>
                                                     <div className="min-w-0">
                                                         <h4 className="text-xs font-black text-white truncate uppercase tracking-wider mb-1" title={file.fileName}>{file.fileName}</h4>
-                                                        <div className="flex flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-widest">
+                                                        <div className="flex flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-widest text-zinc-500">
+                                                            <span className="text-zinc-300">{fileEventName}</span>
+                                                            <span className="text-zinc-600">•</span>
                                                             <span className={`px-2 py-0.5 rounded text-[8px] ${
-                                                                file.category === 'Gallery' ? 'bg-purple-500/10 text-purple-400' :
-                                                                file.category === 'Deliverables' ? 'bg-emerald-500/10 text-emerald-400' :
-                                                                file.category === 'Agreements' ? 'bg-blue-500/10 text-blue-400' :
-                                                                file.category === 'Invoices' || file.category === 'Quotations' ? 'bg-amber-500/10 text-amber-400' :
-                                                                'bg-zinc-500/10 text-zinc-400'
+                                                                file.category === 'Raw Photos' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/10' :
+                                                                file.category === 'Raw Videos' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/10' :
+                                                                file.category === 'Edited Photos' ? 'bg-pink-500/10 text-pink-400 border border-pink-500/10' :
+                                                                file.category === 'Edited Videos' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/10' :
+                                                                file.category === 'Deliverables' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10' :
+                                                                'bg-zinc-500/10 text-zinc-400 border border-zinc-500/10'
                                                             }`}>
                                                                 {file.category}
                                                             </span>
                                                             <span className="text-zinc-600">•</span>
-                                                            <span className="text-zinc-500">{formatDate(file.uploadedAt)}</span>
+                                                            <span>By: {fileUploadedBy}</span>
+                                                            <span className="text-zinc-600">•</span>
+                                                            <span>{formatDate(file.uploadedAt)}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -646,6 +1109,248 @@ const StaffPortal = () => {
                     </div>
                 )}
             </div>
+
+            {/* TASK DETAILS MODAL */}
+            {modalOpen && selectedTask && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-ios-fade-in" onClick={() => setModalOpen(false)}>
+                    <div 
+                        className="w-full max-w-xl bg-zinc-950 border border-white/10 rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-2xl animate-ios-slide-up max-h-[90vh] overflow-y-auto" 
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="flex justify-between items-start border-b border-white/5 pb-4">
+                            <div>
+                                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${
+                                    selectedTask.priority === 'High' ? 'bg-rose-500/10 border border-rose-500/20 text-rose-400' : 'bg-white/5 border border-white/10 text-white'
+                                }`}>
+                                    {selectedTask.priority} Priority
+                                </span>
+                                <h3 className="text-xl font-black text-white uppercase tracking-tight mt-2 leading-tight">{selectedTask.title}</h3>
+                            </div>
+                            <button 
+                                onClick={() => setModalOpen(false)}
+                                className="p-1 rounded-full text-zinc-500 hover:text-white hover:bg-white/5 transition-all"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Content Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs leading-relaxed">
+                            {/* Task details */}
+                            <div className="space-y-4">
+                                <div>
+                                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Status</span>
+                                    <span className={`inline-block px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-full ${
+                                        selectedTask.status === 'Completed' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
+                                        selectedTask.status === 'In Progress' ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' :
+                                        'bg-white/5 border border-white/10 text-white'
+                                    }`}>
+                                        {selectedTask.status}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Due Date</span>
+                                    <p className="font-bold text-zinc-200 flex items-center gap-1.5 mt-0.5">
+                                        <Calendar className="w-3.5 h-3.5 text-zinc-400" /> {formatOnlyDate(selectedTask.dueDate)}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Client Information */}
+                            <div className="space-y-4">
+                                <div>
+                                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Client Profile</span>
+                                    <p className="font-bold text-zinc-200 uppercase tracking-wide">{selectedTask.client?.name || 'N/A'}</p>
+                                    {selectedTask.client?.phone && (
+                                        <p className="text-zinc-400 font-bold font-mono mt-1 flex items-center gap-1.5">
+                                            <Phone className="w-3.5 h-3.5 text-zinc-500" /> {selectedTask.client.phone}
+                                        </p>
+                                    )}
+                                </div>
+                                <div>
+                                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Project</span>
+                                    <p className="font-bold text-zinc-300 uppercase tracking-wide">{selectedTask.project?.name || 'N/A'}</p>
+                                </div>
+                            </div>
+
+                            {/* Related Event Information */}
+                            {selectedTask.event && (
+                                <div className="space-y-4 col-span-1 sm:col-span-2 border-t border-white/5 pt-4">
+                                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Related Event Info</span>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white/[0.01] p-4 rounded-2xl border border-white/5">
+                                        <div>
+                                            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest block">Event Name</span>
+                                            <p className="font-bold text-zinc-200 uppercase mt-0.5">{selectedTask.event.name}</p>
+                                            {selectedTask.event.status && (
+                                                <span className="inline-block mt-1.5 px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded font-bold text-[8px] uppercase tracking-widest">
+                                                    {selectedTask.event.status}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest block">Event Date & Time</span>
+                                            <p className="font-bold text-zinc-200 flex items-center gap-1.5 mt-1 uppercase tracking-wider">
+                                                <Calendar className="w-3.5 h-3.5 text-zinc-400" /> {formatOnlyDate(selectedTask.event.date)}
+                                            </p>
+                                            {selectedTask.event.startTime && (
+                                                <p className="text-zinc-300 font-medium flex items-center gap-1.5 mt-1">
+                                                    <Clock className="w-3.5 h-3.5 text-zinc-500" /> {selectedTask.event.startTime} {selectedTask.event.endTime ? ` - ${selectedTask.event.endTime}` : ''}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Location & Optional Fields */}
+                            <div className="space-y-4 col-span-1 sm:col-span-2 border-t border-white/5 pt-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Location Address</span>
+                                        <p className="text-zinc-300 font-medium leading-relaxed flex items-start gap-2 mt-1">
+                                            <MapPin className="w-4 h-4 text-zinc-500 shrink-0 mt-0.5" />
+                                            <span>{selectedTask.event?.venueLocation || selectedTask.client?.address || 'No location address specified'}</span>
+                                        </p>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {selectedTask.project?.staffAssignments && (
+                                            <div>
+                                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Assigned Role</span>
+                                                {(() => {
+                                                    const role = selectedTask.project.staffAssignments.find((sa: any) => sa.userId === user?.id)?.role;
+                                                    return role ? (
+                                                        <span className="inline-block mt-1 px-3 py-1 bg-white/5 border border-white/10 rounded-full font-bold text-[9px] uppercase tracking-widest text-zinc-200">
+                                                            {role}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-zinc-500 font-bold uppercase text-[10px]">Unassigned</span>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
+                                        {selectedTask.event?.reportingTime && (
+                                            <div>
+                                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Reporting Time</span>
+                                                <p className="font-bold text-amber-400 flex items-center gap-1.5">
+                                                    <Clock className="w-3.5 h-3.5 text-amber-500/70" /> {selectedTask.event.reportingTime}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {selectedTask.event?.notes && (
+                                    <div className="border-t border-white/5 pt-4">
+                                        <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Notes / Description</span>
+                                        <p className="text-zinc-300 font-medium leading-relaxed bg-white/[0.01] p-3 border border-white/5 rounded-xl">
+                                            {selectedTask.event.notes}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="border-t border-white/5 pt-4 flex flex-wrap gap-3 justify-end mt-2">
+                            <button 
+                                disabled={isSavingStatus}
+                                onClick={() => handleUpdateStatus(selectedTask, 'Pending')}
+                                className="touch-target px-4 py-2.5 bg-white/5 text-zinc-400 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                            >
+                                Mark Pending
+                            </button>
+                            <button 
+                                disabled={isSavingStatus}
+                                onClick={() => handleUpdateStatus(selectedTask, 'In Progress')}
+                                className="touch-target px-4 py-2.5 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border border-amber-500/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                            >
+                                Mark In Progress
+                            </button>
+                            <button 
+                                disabled={isSavingStatus}
+                                onClick={() => handleUpdateStatus(selectedTask, 'Completed')}
+                                className="touch-target px-4 py-2.5 bg-primary/20 text-primary hover:bg-primary/30 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                            >
+                                Mark Completed
+                            </button>
+                            <button 
+                                onClick={() => setModalOpen(false)}
+                                className="touch-target px-5 py-2.5 bg-white hover:bg-zinc-200 text-black rounded-xl text-[10px] font-black uppercase tracking-widest transition-all font-bold"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {uploadNotification && createPortal(
+                <div className="fixed bottom-8 right-8 z-[10000] flex flex-col gap-3 pointer-events-none max-w-md w-[380px]">
+                    {uploadNotification.type === 'success' ? (
+                        <div className="pointer-events-auto bg-zinc-950/95 border border-emerald-500/30 rounded-3xl p-5 flex flex-col gap-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-ios-slide-up backdrop-blur-2xl border-l-4 border-l-emerald-500 animate-ios-slide-up">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-emerald-400 text-sm font-black">✓</span>
+                                    <span className="text-xs font-black uppercase tracking-[0.2em] text-white">Upload Complete</span>
+                                </div>
+                                <button 
+                                    onClick={() => setUploadNotification(null)}
+                                    className="p-1 bg-white/5 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[11px] font-bold text-zinc-300">{uploadNotification.message}</p>
+                            </div>
+                            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-3 space-y-1.5 text-[10px] uppercase font-black tracking-wider text-zinc-400">
+                                <div className="flex justify-between"><span className="text-zinc-500">Project:</span><span className="text-white truncate max-w-[200px]">{uploadNotification.project}</span></div>
+                                <div className="flex justify-between"><span className="text-zinc-500">Category:</span><span className="text-white">{uploadNotification.category}</span></div>
+                                <div className="flex justify-between"><span className="text-zinc-500">Uploaded:</span><span className="text-emerald-400">{uploadNotification.successCount}</span></div>
+                                <div className="flex justify-between"><span className="text-zinc-500">Failed:</span><span className="text-red-400">{uploadNotification.failedCount}</span></div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="pointer-events-auto bg-zinc-950/95 border border-red-500/30 rounded-3xl p-5 flex flex-col gap-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-ios-slide-up backdrop-blur-2xl border-l-4 border-l-red-500 animate-ios-slide-up">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-red-400 text-sm font-black">⚠</span>
+                                    <span className="text-xs font-black uppercase tracking-[0.2em] text-white">Upload Finished With Errors</span>
+                                </div>
+                                <button 
+                                    onClick={() => setUploadNotification(null)}
+                                    className="p-1 bg-white/5 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[11px] font-bold text-red-400">{uploadNotification.message}</p>
+                            </div>
+                            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-3 space-y-1.5 text-[10px] uppercase font-black tracking-wider text-zinc-400">
+                                <div className="flex justify-between"><span className="text-zinc-500">Project:</span><span className="text-white truncate max-w-[200px]">{uploadNotification.project}</span></div>
+                                <div className="flex justify-between"><span className="text-zinc-500">Category:</span><span className="text-white">{uploadNotification.category}</span></div>
+                                <div className="flex justify-between"><span className="text-zinc-500">Uploaded:</span><span className="text-emerald-400">{uploadNotification.successCount}</span></div>
+                                <div className="flex justify-between"><span className="text-zinc-500">Failed:</span><span className="text-red-400">{uploadNotification.failedCount}</span></div>
+                            </div>
+                            {uploadNotification.failedFiles && uploadNotification.failedFiles.length > 0 && (
+                                <div className="space-y-1.5 border-t border-white/5 pt-3">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Failed Filenames:</p>
+                                    <div className="max-h-24 overflow-y-auto pr-1 custom-scrollbar space-y-1">
+                                        {uploadNotification.failedFiles.map((name, idx) => (
+                                            <p key={idx} className="text-[10px] font-mono text-red-300 truncate uppercase" title={name}>
+                                                • {name}
+                                            </p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>,
+                document.body
+            )}
         </div>
     );
 };

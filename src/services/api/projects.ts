@@ -45,13 +45,83 @@ export const projects = {
   getProjects: async (): Promise<Project[]> => {
     const data = await fetchApi('/projects');
     if (Array.isArray(data)) {
-      return data;
+      let companies: any[] = [];
+      try {
+        const stored = localStorage.getItem('artisans_companies');
+        if (stored) {
+          companies = JSON.parse(stored);
+        }
+      } catch (e) {
+        // ignore
+      }
+      if (!companies || companies.length === 0) {
+        companies = [
+          { id: 'comp_1', companyName: 'Aaha Kalyanam', projectType: 'AAHA KALYANAM' },
+          { id: 'comp_2', companyName: 'Tiny Toes', projectType: 'TINY TOES' }
+        ];
+      }
+
+      return data.map((p: any) => {
+        if (p.client) {
+          const company = companies.find((comp: any) => 
+            (comp.companyName && p.client.companyName && comp.companyName.trim().toLowerCase() === p.client.companyName.trim().toLowerCase()) ||
+            (comp.projectType && p.client.companyName && comp.projectType.trim().toLowerCase() === p.client.companyName.trim().toLowerCase())
+          ) || companies[0];
+
+          p.client = {
+            ...p.client,
+            brand: company?.companyName || p.client.brand || 'Unknown',
+            brandId: company?.id || p.client.brandId || '',
+            companyId: company?.id || p.client.companyId || '',
+            divisionId: company?.id || p.client.divisionId || '',
+          };
+          p.brand = p.client.brand;
+          p.brandId = p.client.brandId;
+          p.companyId = p.client.companyId;
+          p.divisionId = p.client.divisionId;
+        }
+        return p;
+      });
     }
     throw new Error("Invalid response from server: projects is not an array");
   },
 
   getProjectById: async (id: string): Promise<Project | null> => {
     const data = await fetchApi(`/projects/${id}`);
+    if (data && data.client) {
+      let companies: any[] = [];
+      try {
+        const stored = localStorage.getItem('artisans_companies');
+        if (stored) {
+          companies = JSON.parse(stored);
+        }
+      } catch (e) {
+        // ignore
+      }
+      if (!companies || companies.length === 0) {
+        companies = [
+          { id: 'comp_1', companyName: 'Aaha Kalyanam', projectType: 'AAHA KALYANAM' },
+          { id: 'comp_2', companyName: 'Tiny Toes', projectType: 'TINY TOES' }
+        ];
+      }
+
+      const company = companies.find((comp: any) => 
+        (comp.companyName && data.client.companyName && comp.companyName.trim().toLowerCase() === data.client.companyName.trim().toLowerCase()) ||
+        (comp.projectType && data.client.companyName && comp.projectType.trim().toLowerCase() === data.client.companyName.trim().toLowerCase())
+      ) || companies[0];
+
+      data.client = {
+        ...data.client,
+        brand: company?.companyName || data.client.brand || 'Unknown',
+        brandId: company?.id || data.client.brandId || '',
+        companyId: company?.id || data.client.companyId || '',
+        divisionId: company?.id || data.client.divisionId || '',
+      };
+      data.brand = data.client.brand;
+      data.brandId = data.client.brandId;
+      data.companyId = data.client.companyId;
+      data.divisionId = data.client.divisionId;
+    }
     return data;
   },
 
@@ -117,6 +187,14 @@ export const projects = {
     });
   },
 
+  updateStaffAssignedEvents: async (projectId: string, userId: string, eventIds: string[]) => {
+    checkClientBlock("Update Staff Assigned Events");
+    return fetchApi(`/projects/${projectId}/staff/${userId}/events`, {
+      method: 'PUT',
+      body: JSON.stringify({ eventIds })
+    });
+  },
+
   updateProjectStatus: async (id: string, status: string) => {
     checkClientBlock("Update Project Status");
     return fetchApi(`/projects/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) });
@@ -156,8 +234,9 @@ export const projects = {
       brand: task.brand || 'AAHA Kalyanam',
       priority: task.priority || 'High',
       clientId: task.client || null,
-      projectId: task.eventId || null,
+      projectId: task.projectId || null,
       eventId: task.eventId || null,
+      assignedUserId: task.assignedUserId || null,
     };
 
     let result;
@@ -176,7 +255,10 @@ export const projects = {
       ...task,
       id: result.id,
       client: result.clientId || task.client,
-      eventId: result.projectId || result.eventId || task.eventId
+      projectId: result.projectId || task.projectId,
+      eventId: result.eventId || task.eventId,
+      assignedUserId: result.assignedUserId || task.assignedUserId,
+      assignee: result.assignee || task.assignee
     };
   },
   deleteTask: async (id: string): Promise<void> => {

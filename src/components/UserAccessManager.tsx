@@ -77,8 +77,8 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
   const currentUser = getAuthUser();
   const isAdmin = currentUser?.role === "Admin";
 
-  const staffUsers = users.filter(u => u.role === "Staff" || u.role === "Admin");
-  const clientUsers = users.filter(u => u.role === "Client");
+  const staffUsers = users.filter(u => (u.role === "Staff" || u.role === "Admin") && u.isActive);
+  const clientUsers = users.filter(u => u.role === "Client" && u.isActive);
 
   const [staffForm, setStaffForm] = useState<any>({
     name: "",
@@ -127,8 +127,6 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
     setIsLoading(true);
     try {
       const dbUsers = await api.getUsers();
-      console.log("DB USERS:", dbUsers);
-
 
       if (Array.isArray(dbUsers)) {
         const mapped = dbUsers.map((u: any) => {
@@ -290,20 +288,22 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
     const targetId = userToDelete.id;
 
     setIsDeleting(true);
-    await new Promise(r => setTimeout(r, 150));
-
-    setFadingId(targetId);
-    setIsDeleteModalOpen(false);
-    setUserToDelete(null);
-    setIsDeleting(false);
-
     try {
       await api.deleteStaff(targetId);
+
+      setFadingId(targetId);
+      // Wait a moment for fade-out animation
+      await new Promise(r => setTimeout(r, 150));
+
       showSuccess("Identity Protocol Revoked");
       await loadData();
+      setIsDeleteModalOpen(false);
+      setUserToDelete(null);
     } catch (err: any) {
+      console.error("[DELETE] Failed to delete user:", err);
       alert(err.message || "Failed to delete user.");
     } finally {
+      setIsDeleting(false);
       setFadingId(null);
     }
   };
@@ -397,8 +397,9 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
   }, {} as Record<string, number>);
 
   const filteredStaff = staffUsers.filter(u =>
-  (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
+    u.isActive &&
+    (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const staffGroups = [
@@ -441,7 +442,6 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
 
   const clientActiveItems = filteredClients.filter(u => getClientStatus(u) === 'ACTIVE');
   const clientPendingItems = filteredClients.filter(u => getClientStatus(u) === 'PENDING');
-  const clientRevokedItems = filteredClients.filter(u => getClientStatus(u) === 'REVOKED');
 
   return (
     <>
@@ -690,39 +690,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                     </div>
                   )}
 
-                  {/* REVOKED CLIENTS */}
-                  {clientRevokedItems.length > 0 && (
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-2 px-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                        <h4 className="text-xs font-bold uppercase text-zinc-500 tracking-widest">Revoked ({clientRevokedItems.length})</h4>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {clientRevokedItems.map(user => (
-                          <div key={user.id} onClick={() => { setSelectedClientUser(user); setIsClientPanelOpen(true); }} className={`glass-panel p-6 border border-white/5 rounded-3xl cursor-pointer hover:bg-white/5 transition-all group relative ${fadingId === user.id ? 'animate-fade-out' : ''}`}>
-                            <div className="absolute top-0 right-0 w-1.5 h-full bg-red-500 opacity-40" />
 
-                            {isAdmin && user.email !== currentUser?.email && user.id !== 'admin_root' && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setUserToDelete(user); setIsDeleteModalOpen(true); }}
-                                className="absolute top-4 right-4 p-2 bg-black/40 text-zinc-500 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-500/20 hover:text-red-500 transition-all z-10"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-
-                            <h4 className="text-sm font-bold text-white truncate max-w-[85%]">{user.name || 'Client User'}</h4>
-                            <p className="text-xs font-medium text-zinc-400 truncate mb-4">{user.email}</p>
-                            <div className="flex items-center gap-2">
-                              <span className="px-2 py-1 rounded text-xs font-bold uppercase tracking-widest bg-red-500/10 text-red-500">
-                                Revoked
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                   {filteredClients.length === 0 && !searchQuery && (
                     <div className="p-8 border border-dashed border-white/5 rounded-[2rem] text-center col-span-full">
@@ -852,7 +820,8 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                   });
                   showSuccess("Access Revoked");
                   await loadData();
-                  setSelectedClientUser(prev => prev ? { ...prev, inviteToken: undefined, inviteLink: undefined, password: undefined, isActive: false } : null);
+                  setIsClientPanelOpen(false);
+                  setSelectedClientUser(null);
                 } catch (err: any) {
                   alert(err.message || "Failed to revoke access.");
                 }
@@ -912,6 +881,18 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
                     onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest px-1">Security Token (Password)</label>
+                <input
+                  required
+                  type="password"
+                  className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-white/20 transition-all"
+                  placeholder="MINIMUM 12 CHARS, UPPER, LOWER, DIGIT, SPECIAL"
+                  value={staffForm.password}
+                  onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
+                />
               </div>
 
               <div className="space-y-2">

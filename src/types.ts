@@ -77,6 +77,8 @@ export interface Task {
   priority: string;
   client?: string;
   eventId?: string;
+  projectId?: string;
+  assignedUserId?: string | null;
 }
 
 export interface Division {
@@ -424,6 +426,7 @@ export interface Invoice {
   _id?: string;
   id: string;
   clientId: string;
+  projectId?: string;
   client?: any;
   project?: any;
   amount?: number;
@@ -634,3 +637,64 @@ export interface ApprovalRecord {
   metadata?: any; // To store screenshots, utr numbers, etc.
   auditTrail: ApprovalAuditTrail;
 }
+
+export interface StandaloneAgreementTemplate {
+  id: string;
+  name: string;
+  version: string;
+  content: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StandaloneAgreement {
+  id: string;
+  clientId: string;
+  templateId: string;
+  title: string;
+  status: 'PENDING' | 'SIGNED' | 'REVOKED';
+  generatedContent: string;
+  assignedAt: string;
+  signedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  template?: {
+    id: string;
+    name: string;
+    version: string;
+    isActive: boolean;
+  };
+  signatures?: Array<{
+    id: string;
+    agreementId: string;
+    signerName: string;
+    signatureImageUrl: string;
+    signedAt: string;
+  }>;
+  documents?: Array<{
+    id: string;
+    agreementId: string;
+    documentType: string;
+    fileUrl: string;
+    uploadedAt: string;
+  }>;
+}
+
+export interface StandaloneAgreementSignature {
+  id: string;
+  agreementId: string;
+  signerName: string;
+  signatureImageUrl: string;
+  signedAt: string;
+}
+
+export interface StandaloneAgreementDocument {
+  id: string;
+  agreementId: string;
+  documentType: 'AADHAAR' | 'DRIVING_LICENSE' | 'PASSPORT' | 'PAN' | 'OTHER';
+  fileUrl: string;
+  uploadedAt: string;
+}
+
+

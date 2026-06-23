@@ -40,7 +40,7 @@ import CoordinationCenter from './pages/CoordinationCenter';
 import BrandDetailPage from './pages/BrandDetailPage';
 import SecurityHubPage from './pages/SecurityHubPage';
 import StaffPortal from './pages/staff/StaffPortal';
-import { useCompanySettings } from './hooks/useCompanySettings';
+import { useCompanySettings, clearCompanySettingsCache } from './hooks/useCompanySettings';
 import { type UserPermission, type CompanyProfile } from './types';
 import { usePermissions } from './hooks/usePermissions';
 
@@ -68,8 +68,6 @@ const RoleProtectedRoute = ({ allowedRoles, children }: { allowedRoles: AuthRole
   const user = getAuthUser();
   if (!user) return <Navigate to="/login" replace />;
 
-  console.log(`[RoleProtectedRoute] Diagnostic - authUser:`, user, `| authRole:`, user.role);
-
   if (user.role === 'Admin') return <>{children}</>;
   if (allowedRoles.includes(user.role)) return <>{children}</>;
 
@@ -81,21 +79,16 @@ const PermissionRoute = ({ permission, children, allowedRoles }: { permission?: 
   const location = useLocation();
 
   if (!user) {
-    console.log(`[PermissionRoute] Blocked: No User -> Login`);
     return <Navigate to="/login" replace />;
   }
 
-  console.log(`[PermissionRoute] Diagnostic - authUser:`, user.email, `| authRole:`, user.role, `| route:`, location.pathname);
-
   // Admins bypass all guards
   if (user.role === 'Admin') {
-    console.log(`[PermissionRoute] Authorized (Admin Bypass) -> Rendering Component for`, location.pathname);
     return <>{children}</>;
   }
 
   // Role-based authorization
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    console.log(`[PermissionRoute] Blocked: Role mismatch for`, location.pathname, `(Expected: ${allowedRoles}, Got: ${user.role})`);
     if (user.role === 'Client') return <Navigate to="/dashboard" replace />;
     return <Navigate to="/unauthorized" replace />;
   }
@@ -106,28 +99,23 @@ const PermissionRoute = ({ permission, children, allowedRoles }: { permission?: 
     const currentPath = location.pathname;
     const isAllowed = allowedPaths.some(p => currentPath.startsWith(p));
     if (!isAllowed) {
-      console.log(`[PermissionRoute] Blocked: Client Hard Gate for`, location.pathname);
       return <Navigate to="/dashboard" replace />;
     }
 
     // Clients bypass explicit permission checks since their access is determined strictly by the hard gate
-    console.log(`[PermissionRoute] Authorized (Client Gate) -> Rendering Component for`, location.pathname);
     return <>{children}</>;
   }
 
   // Permission Check using the new normalized mapping
   if (!hasRoutePermission(location.pathname)) {
-    console.log(`[PermissionRoute] Blocked: Missing mapped permission for`, location.pathname);
     return <Navigate to="/unauthorized" replace />;
   }
 
   // Secondary explicit permission check if provided
   if (permission && !user.permissions.includes(permission)) {
-    console.log(`[PermissionRoute] Blocked: Missing explicit permission '${permission}' for`, location.pathname);
     return <Navigate to="/unauthorized" replace />;
   }
 
-  console.log(`[PermissionRoute] Authorized (Standard Rules) -> Rendering Component for`, location.pathname);
   return <>{children}</>;
 };
 
@@ -273,11 +261,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleSync = () => {
-      console.log("[SYNC] Finance update detected. Re-fetching data...");
       fetchData(true);
     };
     window.addEventListener('finance-updated', handleSync);
     return () => window.removeEventListener('finance-updated', handleSync);
+  }, []);
+
+  useEffect(() => {
+    const handleSync = () => {
+      fetchData(true);
+    };
+    window.addEventListener('tasks-updated', handleSync);
+    return () => window.removeEventListener('tasks-updated', handleSync);
   }, []);
 
   useEffect(() => {
@@ -314,6 +309,19 @@ const App: React.FC = () => {
     } catch (err) {
       console.warn("Logout request failed", err);
     }
+    
+    // Clear hook caches and settings from local storage
+    clearCompanySettingsCache();
+
+    // Reset React data states to clear stale client/user data
+    setClients([]);
+    setInvoices([]);
+    setTasks([]);
+    setBookings([]);
+    setExpenses([]);
+    setDivisions([]);
+    setSelectedCompanyId('All'); // Safeguard workspace selection
+
     removeAuthUser();
     fetchInitiated.current = false;
     setAuthRole('none');
@@ -346,14 +354,6 @@ const App: React.FC = () => {
       const map: Record<string, string> = { clients: '/directory', tasks: '/tasks', ai: '/copilot', workflow: '/workflow' };
       destination = map[user.permissions[0]] || '/dashboard';
     }
-
-    console.log("Login Redirection Log:");
-    console.log("- User:", user.email);
-    console.log("- Permissions:", user.permissions);
-    console.log("- Calculated Destination:", destination);
-
-    console.log("LOGIN ROLE:", user.role);
-    console.log("LOGIN USER OBJECT:", user);
 
     navigate(destination);
   };
@@ -435,7 +435,10 @@ const App: React.FC = () => {
     c.companyId === selectedCompanyId ||
     c.brandId === selectedCompanyId ||
     c.divisionId === selectedCompanyId ||
-    (selectedCompany && c.brand === selectedCompany.companyName)
+    (selectedCompany && (
+      (c.brand || '').trim().toLowerCase() === selectedCompany.companyName.trim().toLowerCase() ||
+      (c.companyName || '').trim().toLowerCase() === selectedCompany.companyName.trim().toLowerCase()
+    ))
   );
 
   const filteredInvoices = selectedCompanyId === 'All' ? baseInvoices : baseInvoices.filter(i =>
@@ -456,15 +459,7 @@ const App: React.FC = () => {
     (selectedCompany && b.brand === selectedCompany.companyName)
   );
 
-  // App Level Diagnostic
-  console.log("Selected Company", selectedCompany);
-  console.log("Selected Project", null);
-  console.log("Clients Found", filteredClients);
-  console.log(`[App Render] Diagnostic - authUser:`, authUser, `| authRole:`, authRole, `| activeClient:`, activeClient);
-  // console.log("Selected Company", selectedCompany);
-  // console.log("Selected Project", null);
-  // console.log("Clients Found", filteredClients);
-  // console.log("[App Render] Diagnostic - authUser:", authUser, `| authRole:`, authRole, `| activeClient:`, activeClient);
+
   return (
     <div className="min-h-screen bg-transparent text-white flex flex-col font-sans selection-primary">
       <header className="px-6 py-4 flex flex-col gap-4 glass-panel-dark z-50 pt-safe font-sans sticky top-0 lg:hidden">
@@ -560,7 +555,7 @@ const App: React.FC = () => {
               <Route path="/setup-account" element={<Navigate to="/" replace />} />
               <Route path="/setup-account/:token" element={<Navigate to="/" replace />} />
 
-              <Route path="/workspace" element={<PermissionRoute allowedRoles={['Staff']}><StaffPortal /></PermissionRoute>} />
+              <Route path="/workspace" element={<PermissionRoute allowedRoles={['Staff']}><StaffPortal selectedBrand={selectedCompanyId} /></PermissionRoute>} />
 
               {/* Management Routes - Admin, Staff, and Client substitution */}
               <Route path="/dashboard" element={<PermissionRoute allowedRoles={['Admin', 'Client']} permission="dashboard">
@@ -628,11 +623,7 @@ const App: React.FC = () => {
               <Route path="/system" element={<Navigate to="/ecosystem" replace />} />
               <Route path="/team" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><TeamPage /></PermissionRoute>} />
               <Route path="/logs" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><AuditLogsView /></PermissionRoute>} />
-              <Route path="/calendar" element={<PermissionRoute allowedRoles={['Admin', 'Client']} permission="tasks"><CoordinationCenter tasks={filteredTasks} clients={filteredClients} invoices={filteredInvoices} onSaveTask={async (t) => { await api.saveTask(t); fetchData(true); }} onDeleteTask={async (id) => {
-                setTasks(prev => prev.filter(task => task.id !== id));
-                await api.deleteTask(id);
-                fetchData(true);
-              }} companies={companies} selectedBrand={selectedCompanyId} /></PermissionRoute>} />
+              <Route path="/calendar" element={<PermissionRoute allowedRoles={['Admin', 'Client']} permission="tasks"><CoordinationCenter clients={filteredClients} invoices={filteredInvoices} companies={companies} selectedBrand={selectedCompanyId} /></PermissionRoute>} />
               <Route path="/settings" element={<PermissionRoute allowedRoles={['Admin']}><CompanySettingsPage /></PermissionRoute>} />
               <Route path="/alerts" element={<PermissionRoute allowedRoles={['Admin']}><AlertsPage /></PermissionRoute>} />
               <Route path="/coordination" element={<PermissionRoute allowedRoles={['Admin']}>
