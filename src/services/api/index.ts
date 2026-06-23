@@ -9,6 +9,7 @@ import { quotations } from './quotations';
 import { files } from './files';
 import { notifications } from './notifications';
 import { workflow } from './workflow';
+import { agreementsV2 } from './agreementsV2';
 
 export const api = {
   ...auth,
@@ -21,6 +22,7 @@ export const api = {
   ...files,
   ...notifications,
   ...workflow,
+  ...agreementsV2,
   setAccessToken
 };
 

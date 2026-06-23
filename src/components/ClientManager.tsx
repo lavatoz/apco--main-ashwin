@@ -21,7 +21,7 @@ interface ClientManagerProps {
 const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divisions, addClient, deleteClient, selectedDivisionId: preselectedId, userDivisionIds, onOpenPortal, userRole, userId }) => {
   const { companies } = useCompanySettings();
   const [selectedDivId, setSelectedDivId] = useState<string>('All');
-  
+
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -83,10 +83,10 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
 
     setFadingId(targetId);
     setIsDeleteModalOpen(false);
-    
+
     // Wait for fade-out animation
     await new Promise(r => setTimeout(r, 300));
-    
+
     try {
       await deleteClient(targetId);
     } catch (err) {
@@ -114,10 +114,29 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
     if (userDivisionIds && userDivisionIds.length > 0) {
       if (!userDivisionIds.includes(c.divisionId || '')) return false;
     }
-    if (selectedDivId !== 'All' && c.divisionId !== selectedDivId && c.brandId !== selectedDivId) return false;
+    if (selectedDivId !== 'All') {
+      const selectedDivision = divisions.find(d => d.id === selectedDivId);
+      const selectedCompany = companies.find(comp => comp.id === selectedDivId);
+      const selectedName = (selectedDivision?.name || selectedCompany?.companyName)?.trim().toLowerCase();
+      const clientCompany = (c.companyName || '').trim().toLowerCase();
+      const clientBrand = (c.brand || '').trim().toLowerCase();
+
+      const matchesDivision =
+        c.divisionId === selectedDivId ||
+        c.brandId === selectedDivId ||
+        c.companyId === selectedDivId;
+
+      const matchesName =
+        (selectedName && clientCompany === selectedName) ||
+        (selectedName && clientBrand === selectedName);
+
+      if (!matchesDivision && !matchesName) {
+        return false;
+      }
+    }
     return (
-      (c.projectName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (c.projectName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (c.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (c.phone || '').includes(searchTerm)
     );
@@ -147,52 +166,52 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
 
               {isDivDropdownOpen && (
                 <div className="absolute top-full mt-2 right-0 md:left-0 w-64 glass-panel rounded-2xl shadow-2xl z-[9999] overflow-hidden animate-ios-fade-in backdrop-blur-xl">
-                   <div className="p-3 border-b border-white/5 bg-white/2">
-                      <div className="relative">
-                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
-                          <input 
-                            type="text"
-                            autoFocus
-                            placeholder="Search registry..." 
-                            className="w-full bg-black/50 border border-white/5 rounded-lg py-2 pl-9 pr-3 text-[10px] font-bold text-white outline-none focus:border-white/20"
-                            value={divSearch}
-                            onChange={(e) => setDivSearch(e.target.value)}
-                          />
-                      </div>
-                   </div>
-                   
-                   <div className="max-h-60 overflow-y-auto p-1 no-scrollbar">
-                      <div className="px-3 py-2 text-[8px] font-black text-zinc-600 uppercase tracking-[0.2em]">Operational Projects</div>
-                      
-                      <button
-                        onMouseDown={(e) => { e.preventDefault(); setSelectedDivId('All'); setIsDivDropdownOpen(false); setDivSearch(''); }}
-                        className={`w-full text-left px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${selectedDivId === 'All' ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-stone-400 hover:bg-white/5 hover:text-white'}`}
-                      >
-                        <LayoutGrid className="w-3.5 h-3.5" />
-                        All Projects
-                      </button>
-                      
-                      <div className="h-px bg-white/5 my-1 mx-2" />
-                      
-                      {divisions
-                        .filter(d => d.name.toLowerCase().includes(divSearch.toLowerCase()))
-                        .map(d => (
-                          <button
-                            key={d.id}
-                            onMouseDown={(e) => { e.preventDefault(); setSelectedDivId(d.id); setIsDivDropdownOpen(false); setDivSearch(''); }}
-                            className={`w-full text-left px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${selectedDivId === d.id ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-stone-400 hover:bg-white/5 hover:text-white'}`}
-                          >
-                            <div className={`w-2 h-2 rounded-full ${selectedDivId === d.id ? 'bg-black' : 'bg-primary'} opacity-50 shrink-0`} />
-                            {d.name}
-                          </button>
-                        ))}
+                  <div className="p-3 border-b border-white/5 bg-white/2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
+                      <input
+                        type="text"
+                        autoFocus
+                        placeholder="Search registry..."
+                        className="w-full bg-black/50 border border-white/5 rounded-lg py-2 pl-9 pr-3 text-[10px] font-bold text-white outline-none focus:border-white/20"
+                        value={divSearch}
+                        onChange={(e) => setDivSearch(e.target.value)}
+                      />
+                    </div>
+                  </div>
 
-                      {divisions.filter(d => d.name.toLowerCase().includes(divSearch.toLowerCase())).length === 0 && (
-                         <div className="p-4 text-center">
-                            <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">No Matches</p>
-                         </div>
-                      )}
-                   </div>
+                  <div className="max-h-60 overflow-y-auto p-1 no-scrollbar">
+                    <div className="px-3 py-2 text-[8px] font-black text-zinc-600 uppercase tracking-[0.2em]">Operational Projects</div>
+
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); setSelectedDivId('All'); setIsDivDropdownOpen(false); setDivSearch(''); }}
+                      className={`w-full text-left px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${selectedDivId === 'All' ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-stone-400 hover:bg-white/5 hover:text-white'}`}
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                      All Projects
+                    </button>
+
+                    <div className="h-px bg-white/5 my-1 mx-2" />
+
+                    {divisions
+                      .filter(d => d.name.toLowerCase().includes(divSearch.toLowerCase()))
+                      .map(d => (
+                        <button
+                          key={d.id}
+                          onMouseDown={(e) => { e.preventDefault(); setSelectedDivId(d.id); setIsDivDropdownOpen(false); setDivSearch(''); }}
+                          className={`w-full text-left px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${selectedDivId === d.id ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-stone-400 hover:bg-white/5 hover:text-white'}`}
+                        >
+                          <div className={`w-2 h-2 rounded-full ${selectedDivId === d.id ? 'bg-black' : 'bg-primary'} opacity-50 shrink-0`} />
+                          {d.name}
+                        </button>
+                      ))}
+
+                    {divisions.filter(d => d.name.toLowerCase().includes(divSearch.toLowerCase())).length === 0 && (
+                      <div className="p-4 text-center">
+                        <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">No Matches</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -201,9 +220,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
           {userRole !== 'Client' && (
             <button
               onMouseDown={(e) => {
-                 e.preventDefault();
-                 setEditingClient(null);
-                 setIsAdding(true);
+                e.preventDefault();
+                setEditingClient(null);
+                setIsAdding(true);
               }}
               className="bg-white text-black px-8 py-3.5 rounded-2xl flex items-center gap-3 font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 ios-transition shadow-lg active:scale-95"
             >
@@ -248,17 +267,17 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
               </div>
               {userRole !== 'Client' && (
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleStartEdit(e, client);
-                     }}
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleStartEdit(e, client);
+                    }}
                     className="p-2.5 bg-white/5 text-zinc-700 hover:text-white hover:bg-white/10 rounded-xl border border-white/5 transition-all opacity-0 group-hover:opacity-100"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button 
+                  <button
                     onMouseDown={(e) => handleDeleteClick(e, client)}
                     className="p-2.5 bg-white/5 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-xl border border-white/5 transition-all opacity-0 group-hover:opacity-100"
                   >
@@ -291,12 +310,12 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
             <div className="space-y-3 md:space-y-4 pt-4 md:pt-6 border-t border-white/5 mt-auto">
               <div className="flex items-center justify-between text-sm font-bold text-zinc-500 uppercase tracking-widest mb-4 md:mb-6">
                 <span className="flex items-center gap-3">
-                  <Calendar className="w-4 h-4" /> 
+                  <Calendar className="w-4 h-4" />
                   {client.eventDate ? new Date(client.eventDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : 'No Event Date'}
                 </span>
                 <span className="text-white font-semibold uppercase tracking-wider">{client.projectType}</span>
               </div>
-              
+
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -311,7 +330,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
         ))}
       </div>
 
-      <ClientModal 
+      <ClientModal
         isOpen={isAdding}
         onClose={() => { setIsAdding(false); setEditingClient(null); }}
         onSubmit={addClient}
@@ -322,11 +341,11 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
       />
       {/* DELETE CONFIRMATION MODAL */}
       {isDeleteModalOpen && clientToDelete && createPortal(
-        <div 
+        <div
           className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[9999] animate-modal-overlay"
           onMouseDown={() => { setIsDeleteModalOpen(false); setClientToDelete(null); }}
         >
-          <div 
+          <div
             className="bg-zinc-900 border border-white/10 rounded-3xl md:rounded-[3rem] w-full max-w-[400px] p-6 md:p-12 shadow-2xl text-center animate-modal-content m-4"
             onMouseDown={e => e.stopPropagation()}
           >
@@ -354,10 +373,10 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
                 className="flex-1 py-5 bg-red-600 text-white hover:bg-red-500 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isDeleting ? (
-                   <>
-                     <Loader2 className="w-4 h-4 animate-spin-fast" />
-                     Purging...
-                   </>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin-fast" />
+                    Purging...
+                  </>
                 ) : 'Delete'}
               </button>
             </div>

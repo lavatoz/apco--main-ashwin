@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Mail, Phone, Calendar, Briefcase, Plus, ArrowLeft, FileText, IndianRupee, Activity, X, CheckCircle2, Trash2, Edit2, Copy, Download, CreditCard, ChevronRight, Search, Camera, Video, Edit3, Users, AlertTriangle, Clock, Check, Package, MapPin } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { type Client, type Invoice, type PaymentRecord, type User as UserType, type ClientAgreement, type IdDocument, type Project, type ProjectStage, type AgreementTemplate, type ActiveAgreementSnapshot, type ClientEvent } from '../types';
+import { type Client, type Invoice, type PaymentRecord, type User as UserType, type IdDocument, type Project, type ProjectStage, type ClientEvent, type StandaloneAgreementTemplate, type StandaloneAgreement } from '../types';
 import { api } from '../services/api';
 import { useCompanySettings, useCompanyForClient } from '../hooks/useCompanySettings';
 
@@ -53,6 +53,54 @@ const ROLES = [
 
 
 
+const SecureSignatureImage: React.FC<{ agreementId: string; className?: string }> = ({ agreementId, className }) => {
+   const [src, setSrc] = useState<string>('');
+   const [loading, setLoading] = useState(true);
+
+   useEffect(() => {
+      let active = true;
+      let objectUrl = '';
+      const load = async () => {
+         try {
+            const blob = await api.getStandaloneAgreementSignatureImageBlob(agreementId);
+            if (active) {
+               objectUrl = URL.createObjectURL(blob);
+               setSrc(objectUrl);
+            }
+         } catch (err) {
+            console.error("Failed to load signature image", err);
+         } finally {
+            if (active) setLoading(false);
+         }
+      };
+      load();
+      return () => {
+         active = false;
+         if (objectUrl) {
+            URL.revokeObjectURL(objectUrl);
+         }
+      };
+   }, [agreementId]);
+
+   if (loading) {
+      return (
+         <div className="flex items-center justify-center p-4">
+            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest animate-pulse">Loading Signature...</span>
+         </div>
+      );
+   }
+
+   if (!src) {
+      return (
+         <div className="flex items-center justify-center p-4 border border-white/5 bg-zinc-950/20 rounded-xl">
+            <span className="text-[9px] font-bold text-rose-400 uppercase tracking-widest">Image Unavailable</span>
+         </div>
+      );
+   }
+
+   return <img src={src} alt="Client Digital Signature" className={className} />;
+};
+
 const ClientDetailsPage: React.FC = () => {
    const { id } = useParams<{ id: string }>();
    const navigate = useNavigate();
@@ -70,6 +118,7 @@ const ClientDetailsPage: React.FC = () => {
    const [editProjectForm, setEditProjectForm] = useState<any>({});
    const [editingEvent, setEditingEvent] = useState<ClientEvent | null>(null);
    const [, setTimeCounter] = useState(0);
+   const [isSaving, setIsSaving] = useState(false);
 
    useEffect(() => {
       const interval = setInterval(() => {
@@ -92,6 +141,8 @@ const ClientDetailsPage: React.FC = () => {
    const handleSaveEvent = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!client) return;
+      if (isSaving) return;
+      setIsSaving(true);
 
       const newEvent: ClientEvent = {
          id: `event_${Date.now()}`,
@@ -112,29 +163,38 @@ const ClientDetailsPage: React.FC = () => {
       try {
          await api.saveClient(updatedClient);
          setClient(updatedClient);
-
-         // Automatically create a coordination task
-         await api.saveTask({
-            id: `task_coord_${Date.now()}`,
-            title: `Coordination for ${newEvent.name} - ${client.projectName || client.name}`,
-            assignee: 'Unassigned',
-            dueDate: newEvent.date,
-            status: 'Pending',
-            brand: client.brand || 'Artisans',
-            divisionId: client.divisionId,
-            priority: 'High',
-            client: client.id,
-            eventId: newEvent.id
-         });
-
-         addToast("Event and Coordination Task Created");
          setIsAddEventModalOpen(false);
          setNewEventForm({
             name: '', date: '', startTime: '09:00', endTime: '18:00', brideLocation: '', groomLocation: '', venueLocation: '', notes: '', status: 'Scheduled'
          });
+         setIsSaving(false);
+         addToast("Event Created successfully");
+
+         // Separately attempt coordination task creation if a valid project is available
+         if (project?.id) {
+            try {
+               await api.saveTask({
+                  id: `task_coord_${Date.now()}`,
+                  title: `Coordination for ${newEvent.name} - ${client.projectName || client.name}`,
+                  assignee: 'Unassigned',
+                  dueDate: newEvent.date,
+                  status: 'Pending',
+                  brand: client.brand || 'Artisans',
+                  divisionId: client.divisionId,
+                  priority: 'High',
+                  client: client.id,
+                  eventId: newEvent.id,
+                  projectId: project.id
+               });
+            } catch (taskErr) {
+               console.error("Failed to create coordination task:", taskErr);
+               addToast("Event created, but failed to create Coordination Task");
+            }
+         }
       } catch (err) {
          console.error("Failed to save event:", err);
-         addToast("Failed to create event");
+         addToast(`Error saving event: ${err instanceof Error ? err.message : 'Unknown error'}`);
+         setIsSaving(false);
       }
    };
 
@@ -280,13 +340,13 @@ const ClientDetailsPage: React.FC = () => {
    const getStaffRosterStatus = (staffId: string) => {
       const staff = allStaff.find(s => s.id === staffId);
       if (!staff) return 'Available';
-      
+
       if (!staff.isActive || (staff as any).status === 'On Leave' || (staff as any).isOnLeave) {
          return 'On Leave';
       }
 
       // Check if assigned to this client
-      const isAssignedToCurrent = teamCategories.some(cat => 
+      const isAssignedToCurrent = teamCategories.some(cat =>
          cat.members.some((m: any) => m.memberId === staffId)
       );
       if (isAssignedToCurrent) {
@@ -316,35 +376,14 @@ const ClientDetailsPage: React.FC = () => {
 
 
 
-   // Agreement Templates State
-   const [agreementTemplates, setAgreementTemplates] = useState<AgreementTemplate[]>([]);
-   const [clientAgreement, setClientAgreement] = useState<ClientAgreement | null>(null);
-   const [idDocument, setIdDocument] = useState<IdDocument | null>(null);
+    // Standalone Agreement Templates State
+    const [agreementTemplates, setAgreementTemplates] = useState<StandaloneAgreementTemplate[]>([]);
+    const [clientAgreements, setClientAgreements] = useState<StandaloneAgreement[]>([]);
+    const currentAgreement = clientAgreements[0] || null;
+    const [idDocument, setIdDocument] = useState<IdDocument | null>(null);
 
-   // templates hydration
-   useEffect(() => {
-      const stored = localStorage.getItem('artisans_agreement_templates');
-      if (stored) {
-         setAgreementTemplates(JSON.parse(stored));
-      } else {
-         const defaultTemp: AgreementTemplate = {
-            id: 'v1',
-            version: 1,
-            title: 'Standard Operational Terms',
-            body: "Apex Production Co. Standard Terms of Engagement. By signing, the client agrees to the production timeline and payment schedule outlined in the quotation.",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-         };
-         setAgreementTemplates([defaultTemp]);
-         localStorage.setItem('artisans_agreement_templates', JSON.stringify([defaultTemp]));
-      }
-   }, []);
 
-   // editing state
-   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
-   const [termsEditTitle, setTermsEditTitle] = useState('');
-   const [termsEditText, setTermsEditText] = useState('');
-   const [isAgreed, setIsAgreed] = useState(false);
+
 
    const currentUser = getAuthUser() || {};
    const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
@@ -439,9 +478,9 @@ const ClientDetailsPage: React.FC = () => {
       try {
          const saved = await api.savePersonnel(newPerson);
          setPersonnelRegistry(prev => [...prev, saved]);
-         setCategorizedItems(prev => ({ 
-            ...prev, 
-            team: [...prev.team, { id: saved.id, name: searchQuery, role: newMemberRoleInSearch, cost: Number(newMemberRateInSearch) || 0 }] 
+         setCategorizedItems(prev => ({
+            ...prev,
+            team: [...prev.team, { id: saved.id, name: searchQuery, role: newMemberRoleInSearch, cost: Number(newMemberRateInSearch) || 0 }]
          }));
          setSearchQuery("");
          setNewMemberPhoneInSearch("");
@@ -614,6 +653,8 @@ const ClientDetailsPage: React.FC = () => {
    const [formShippingCost, setFormShippingCost] = useState<number>(0);
    const [formNotes, setFormNotes] = useState('');
    const [formTermsSummary, setFormTermsSummary] = useState('');
+   const [formProjectId, setFormProjectId] = useState<string>('');
+   const [formClientId, setFormClientId] = useState<string>('');
 
    const { companies, settings: currentContextCompany } = useCompanySettings();
    const matchedCompany = useCompanyForClient(client);
@@ -666,6 +707,21 @@ const ClientDetailsPage: React.FC = () => {
 
    const openModal = (type: 'quotation' | 'invoice', existingDoc?: Invoice) => {
       setModalType(type);
+
+      const nextProjectId = existingDoc
+         ? ((existingDoc as any).projectId || existingDoc.project?.id || existingDoc.project || project?.id || '')
+         : (project?.id || '');
+      const nextClientId = existingDoc
+         ? (existingDoc.clientId || existingDoc.client?.id || existingDoc.client || client?.id || '')
+         : (client?.id || '');
+
+      setFormProjectId(nextProjectId);
+      setFormClientId(nextClientId);
+
+      console.log('Active Project:', project);
+      console.log('Active Project ID:', project?.id);
+      console.log('Form Project ID:', nextProjectId);
+
       if (existingDoc) {
          setEditDocId(existingDoc.id);
          setAutoGeneratedId(existingDoc.id);
@@ -748,6 +804,7 @@ const ClientDetailsPage: React.FC = () => {
          ...doc,
          _id: `inv_id_${Date.now()}`,
          id: duplicateId,
+         projectId: doc.projectId || project?.id,
          status: doc.type === 'quotation' ? 'Quotation' : 'Unpaid',
          paidAmount: 0,
          paymentHistory: [],
@@ -798,10 +855,39 @@ const ClientDetailsPage: React.FC = () => {
       }
    };
 
-
    const handleCreateDocument = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!client) return;
+
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const isUuid = (str: string) => uuidRegex.test(str);
+
+      const projectId = formProjectId;
+      if (modalType === 'quotation') {
+         console.log('Quotation Project ID:', projectId);
+      } else {
+         console.log('Invoice Project ID:', projectId);
+      }
+
+      if (!projectId) {
+         alert("Project ID is missing. Please ensure an active project is selected for this client.");
+         return;
+      }
+
+      if (projectId === '00000000-0000-0000-0000-000000000000') {
+         alert("Invalid Project ID: default zero UUID is not allowed. Please select a valid active project.");
+         return;
+      }
+
+      if (!isUuid(projectId)) {
+         alert("Invalid Project ID format. A valid UUID is required.");
+         return;
+      }
+
+      if (!project || projectId !== project.id) {
+         alert(`Project ID mismatch. Expected active project ID: ${project?.id || 'none'}.`);
+         return;
+      }
 
       // Flatten items for document saving
       const allItems = [
@@ -836,8 +922,9 @@ const ClientDetailsPage: React.FC = () => {
          id: docId,
          brand: selectedCompany.companyName,
          brandId: selectedCompany.id,
-         clientId: client.id,
+         clientId: formClientId || client.id,
          client: { id: client.id, name: client.name },
+         projectId: formProjectId,
          amount: calculateSubtotal(),
          totalAmount: totalAmount,
          paidAmount: existingDoc?.paidAmount || 0,
@@ -917,160 +1004,55 @@ const ClientDetailsPage: React.FC = () => {
 
 
 
-   const handleAddNewTemplate = () => {
-      const nextV = agreementTemplates.length > 0 ? Math.max(...agreementTemplates.map(g => g.version)) + 1 : 1;
-      setTermsEditTitle(`V${nextV} - New Agreement`);
-      setTermsEditText("Insert agreement clauses here...");
-      setEditingTemplateId('new');
+   const handleAssignToClient = async (temp: StandaloneAgreementTemplate) => {
+      if (!client) return;
+      if (confirm(`Assign snapshot of ${temp.name} to this client?`)) {
+         try {
+            await api.assignStandaloneAgreement(client.id, temp.id);
+            alert(`Agreement ${temp.name} assigned to client.`);
+            
+            // Re-fetch standalone agreements
+            const res = await api.getClientStandaloneAgreement(client.id);
+            const agreements = Array.isArray(res) ? res : [res];
+            setClientAgreements(agreements);
+         } catch (err: any) {
+            console.error("Failed to assign agreement:", err);
+            const errMsg = err.data?.message || err.message || "";
+            if (errMsg.toLowerCase().includes("already has an active pending agreement")) {
+               addToast("Client already has an active pending agreement");
+            } else {
+               addToast(errMsg || "Failed to assign agreement");
+            }
+         }
+      }
    };
 
-   const handleEditTemplate = (id: string, title: string, text: string) => {
-      setTermsEditTitle(title);
-      setTermsEditText(text);
-      setEditingTemplateId(id);
-   };
-
-    const handleSaveTermsVersion = async () => {
-       try {
-          let payload: any;
-          if (editingTemplateId === 'new') {
-             const nextV = agreementTemplates.length > 0 ? Math.max(...agreementTemplates.map(g => g.version)) + 1 : 1;
-             payload = {
-                title: termsEditTitle,
-                body: termsEditText,
-                version: nextV
-             };
-          } else {
-             const existing = agreementTemplates.find(t => t.id === editingTemplateId);
-             payload = {
-                id: editingTemplateId,
-                title: termsEditTitle,
-                body: termsEditText,
-                version: existing ? existing.version : 1
-             };
-          }
-          const saved = await api.saveAgreementTemplate(payload);
-          if (editingTemplateId === 'new') {
-             setAgreementTemplates(prev => [...prev, saved]);
-          } else {
-             setAgreementTemplates(prev => prev.map(t => t.id === editingTemplateId ? saved : t));
-          }
-          setEditingTemplateId(null);
-          addToast("Agreement template saved");
-       } catch (err) {
-          console.error(err);
-          addToast("Failed to save template");
-       }
-    };
-
-    const handleDeleteTemplate = async (id: string) => {
-       if (confirm("WARNING: This will globally delete this agreement template. Assigned snapshots will remain unaffected. Continue?")) {
-          try {
-             await api.deleteAgreementTemplate(id);
-             setAgreementTemplates(prev => prev.filter(t => t.id !== id));
-             addToast("Agreement template deleted");
-          } catch (err) {
-             console.error(err);
-             addToast("Failed to delete template");
-          }
-       }
-    };
-
-   const handleAssignToClient = (temp: AgreementTemplate) => {
-      if (confirm(`Assign snapshot of ${temp.title} to this client?`)) {
-         const snapshot: ActiveAgreementSnapshot = {
-            templateId: temp.id,
-            version: temp.version,
-            title: temp.title,
-            body: temp.body,
-            assignedAt: new Date().toISOString(),
-            status: 'pending'
-         };
-
-         // Update Client Record
-         if (client) {
-            const uc = { ...client, activeAgreement: snapshot };
-            api.saveClient(uc)
-               .then(saved => setClient(saved))
-               .catch(err => console.error("Failed to assign agreement", err));
+   const handleUploadIdProof = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+         const file = e.target.files[0];
+         if (!project) {
+            alert("A project must be created for this client before uploading identity documents.");
+            return;
          }
 
-         // Update local state UI
-         setClientAgreement({
-            clientId: id!,
-            version: temp.version,
-            status: 'pending',
-            termsText: temp.body,
-            title: temp.title
-         });
+         try {
+            const renamedFile = new File([file], `ID_Proof_${(client?.name || 'Client').replace(/[^a-zA-Z0-9]/g, '_')}_${file.name}`, { type: file.type });
+            const uploadedFile = await api.uploadFile(project.id, 'Agreements', renamedFile, true);
 
-         alert(`Agreement ${temp.title} assigned to client.`);
+            const newDoc: IdDocument = {
+               clientId: id!,
+               type: "id_proof",
+               fileName: file.name,
+               fileUrl: `/files/${uploadedFile.id}/download`
+            };
+            setIdDocument(newDoc);
+            addToast("ID Proof Uploaded & Secured");
+         } catch (err) {
+            console.error("Failed to upload ID proof", err);
+            addToast("Failed to upload ID proof");
+         }
       }
    };
-
-   const handleRevokeAgreement = () => {
-      if (client && confirm("Remove active agreement from client? This will prevent them from accepting until re-assigned.")) {
-         const prev = client.activeAgreement;
-         const uc = { ...client, activeAgreement: prev ? { ...prev, status: 'revoked' as any } : undefined };
-         api.saveClient(uc)
-            .then(saved => setClient(saved))
-            .catch(err => console.error("Failed to revoke agreement", err));
-         setClientAgreement(null);
-      }
-   };
-
-   const handleAcceptAgreement = () => {
-      if (!isAgreed || !clientAgreement || !client) return;
-      const acceptedDate = new Date();
-
-      if (client.activeAgreement) {
-         const uc = {
-            ...client,
-            activeAgreement: {
-               ...client.activeAgreement,
-               status: 'accepted' as any,
-               acceptedAt: acceptedDate.toISOString()
-            }
-         };
-         api.saveClient(uc)
-            .then(saved => setClient(saved))
-            .catch(err => console.error("Failed to accept agreement", err));
-      }
-
-      const ag: ClientAgreement = {
-         ...clientAgreement,
-         status: 'accepted',
-         acceptedAt: acceptedDate.toISOString()
-      };
-      setClientAgreement(ag);
-   };
-
-    const handleUploadIdProof = async (e: React.ChangeEvent<HTMLInputElement>) => {
-       if (e.target.files && e.target.files[0]) {
-          const file = e.target.files[0];
-          if (!project) {
-             alert("A project must be created for this client before uploading identity documents.");
-             return;
-          }
-
-          try {
-             const renamedFile = new File([file], `ID_Proof_${(client?.name || 'Client').replace(/[^a-zA-Z0-9]/g, '_')}_${file.name}`, { type: file.type });
-             const uploadedFile = await api.uploadFile(project.id, 'Agreements', renamedFile, true);
-             
-             const newDoc: IdDocument = {
-                clientId: id!,
-                type: "id_proof",
-                fileName: file.name,
-                fileUrl: `/files/${uploadedFile.id}/download`
-             };
-             setIdDocument(newDoc);
-             addToast("ID Proof Uploaded & Secured");
-          } catch (err) {
-             console.error("Failed to upload ID proof", err);
-             addToast("Failed to upload ID proof");
-          }
-       }
-    };
 
    useEffect(() => {
       let isMounted = true;
@@ -1087,71 +1069,65 @@ const ClientDetailsPage: React.FC = () => {
          }
 
          if (foundClient) {
-             // Hydrate Agreement Templates from backend
-             try {
-                const templates = await api.getAgreementTemplates();
-                if (templates && templates.length > 0) {
-                   setAgreementTemplates(templates);
-                } else {
-                   const defaultTemp = {
-                      title: 'Standard Operational Terms',
-                      body: "Apex Production Co. Standard Terms of Engagement. By signing, the client agrees to the production timeline and payment schedule outlined in the quotation.",
-                      version: 1
-                   };
-                   const created = await api.saveAgreementTemplate(defaultTemp);
-                   setAgreementTemplates([created]);
-                }
-             } catch (err) {
-                console.error("Failed to load templates from backend", err);
-             }
+            // Hydrate Standalone Agreement Templates from backend
+            try {
+               const templates = await api.getStandaloneAgreementTemplates();
+               setAgreementTemplates(templates || []);
+            } catch (err) {
+               console.error("Failed to load standalone templates from backend", err);
+            }
 
-             // Hydrate Personnel Registry from backend
-             try {
-                const registry = await api.getPersonnel();
-                if (registry && isMounted) {
-                   setPersonnelRegistry(registry);
-                }
-             } catch (err) {
-                console.error("Failed to load personnel from backend", err);
-             }
+            // Hydrate Personnel Registry from backend
+            try {
+               const registry = await api.getPersonnel();
+               if (registry && isMounted) {
+                  setPersonnelRegistry(registry);
+               }
+            } catch (err) {
+               console.error("Failed to load personnel from backend", err);
+            }
 
-            // Hydrate Client Agreement from Snapshot
-            if (foundClient.activeAgreement) {
-               const ca = foundClient.activeAgreement;
-               setClientAgreement({
-                  clientId: id!,
-                  version: ca.version,
-                  status: ca.status as any,
-                  acceptedAt: ca.acceptedAt,
-                  termsText: ca.body,
-                  title: ca.title
-               });
+            // Hydrate Client Standalone Agreements from backend
+            try {
+               const res = await api.getClientStandaloneAgreement(id!);
+               if (isMounted) {
+                  const agreements = Array.isArray(res) ? res : [res];
+                  setClientAgreements(agreements);
+               }
+            } catch (err: any) {
+               if (isMounted) {
+                  if (err.status === 404) {
+                     setClientAgreements([]);
+                  } else {
+                     console.error("Failed to fetch client standalone agreements", err);
+                  }
+               }
             }
 
             // Staged files migrated to Google Drive + PostgreSQL.
 
-             let foundProject: Project | null = null;
-             try {
-                const projects = await api.getProjects();
-                foundProject = projects.find(p => p.clientId === id || p.clientId === foundClient?.id || p.clientId === foundClient?._id) || null;
-                if (isMounted) setProject(foundProject);
-                
-                if (foundProject) {
-                   const projectFiles = await api.getFilesByProject(foundProject.id, 'Agreements');
-                   const idFile = projectFiles.find((f: any) => f.fileName.startsWith('ID_Proof_'));
-                   if (idFile && isMounted) {
-                      const cleanName = idFile.fileName.replace(/^ID_Proof_[a-zA-Z0-9_]+?_/, '');
-                      setIdDocument({
-                         clientId: id!,
-                         type: "id_proof",
-                         fileName: cleanName,
-                         fileUrl: `/files/${idFile.id}/download`
-                      });
-                   }
-                }
-             } catch (err) {
-                console.error("Failed to fetch projects or ID document from backend", err);
-             }
+            let foundProject: Project | null = null;
+            try {
+               const projects = await api.getProjects();
+               foundProject = projects.find(p => p.clientId === id || p.clientId === foundClient?.id || p.clientId === foundClient?._id) || null;
+               if (isMounted) setProject(foundProject);
+
+               if (foundProject) {
+                  const projectFiles = await api.getFilesByProject(foundProject.id, 'Agreements');
+                  const idFile = projectFiles.find((f: any) => f.fileName.startsWith('ID_Proof_'));
+                  if (idFile && isMounted) {
+                     const cleanName = idFile.fileName.replace(/^ID_Proof_[a-zA-Z0-9_]+?_/, '');
+                     setIdDocument({
+                        clientId: id!,
+                        type: "id_proof",
+                        fileName: cleanName,
+                        fileUrl: `/files/${idFile.id}/download`
+                     });
+                  }
+               }
+            } catch (err) {
+               console.error("Failed to fetch projects or ID document from backend", err);
+            }
 
             try {
                const allLedger = await api.getInvoices();
@@ -1266,16 +1242,17 @@ const ClientDetailsPage: React.FC = () => {
       return defaultRoles.map(roleName => {
          const cleanRoleName = roleName.replace(/\s/g, '').toLowerCase();
          const dbRole = mapUiRoleToDbRole(roleName);
-         
-         const matchingAssignments = assignments.filter((a: any) => 
+
+         const matchingAssignments = assignments.filter((a: any) =>
             a.role === dbRole
          );
 
-         const members = matchingAssignments.length > 0 
+         const members = matchingAssignments.length > 0
             ? matchingAssignments.map((a: any) => ({
-                 memberId: a.userId,
-                 assigned_dates: a.assignedAt ? [a.assignedAt] : []
-              }))
+               memberId: a.userId,
+               assigned_dates: a.assignedAt ? [a.assignedAt] : [],
+               assigned_events: a.eventIds || []
+            }))
             : [{ memberId: '', assigned_dates: [] }];
 
          return {
@@ -1291,10 +1268,10 @@ const ClientDetailsPage: React.FC = () => {
          addToast("Cannot assign crew: No project exists for this client");
          return;
       }
-      
+
       const category = teamCategories.find(c => c.id === catId);
       if (!category) return;
-      
+
       const oldMemberId = category.members[mIdx]?.memberId;
       const dbRole = mapUiRoleToDbRole(category.name);
 
@@ -1302,7 +1279,7 @@ const ClientDetailsPage: React.FC = () => {
          if (oldMemberId) {
             await api.unassignStaff(project.id, oldMemberId);
          }
-         
+
          if (val) {
             await api.assignStaff(project.id, val, dbRole);
             addToast(`Assigned ${category.name}`);
@@ -1322,33 +1299,64 @@ const ClientDetailsPage: React.FC = () => {
       }
    };
 
-   const handleAddEventToMember = (catId: string, mIdx: number, eventId: string) => {
+   const handleAddEventToMember = async (catId: string, mIdx: number, eventId: string) => {
+      if (!project) return;
+      const category = teamCategories.find(c => c.id === catId);
+      if (!category) return;
+      const userId = category.members[mIdx]?.memberId;
+      if (!userId) return;
+
+      const currentEvents = category.members[mIdx].assigned_events || [];
+      if (currentEvents.includes(eventId)) return;
+      const updatedEvents = [...currentEvents, eventId];
+
       setTeamCategories(prev => {
          return prev.map(cat => {
             if (cat.id !== catId) return cat;
             const nextMembers = [...cat.members];
-            const currentEvents = nextMembers[mIdx].assigned_events || [];
-            if (currentEvents.includes(eventId)) return cat;
             nextMembers[mIdx] = {
                ...nextMembers[mIdx],
-               assigned_events: [...currentEvents, eventId]
+               assigned_events: updatedEvents
             };
             return { ...cat, members: nextMembers };
          });
       });
+
+      try {
+         await api.updateStaffAssignedEvents(project.id, userId, updatedEvents);
+         addToast("Event assignment saved");
+      } catch (err: any) {
+         console.error("Failed to persist event assignment:", err);
+         addToast("Failed to save event assignment: " + (err.message || "Unknown error"));
+      }
    };
 
-   const handleRemoveEvent = (catId: string, mIdx: number, eIdx: number) => {
+   const handleRemoveEvent = async (catId: string, mIdx: number, eIdx: number) => {
+      if (!project) return;
+      const category = teamCategories.find(c => c.id === catId);
+      if (!category) return;
+      const userId = category.members[mIdx]?.memberId;
+      if (!userId) return;
+
+      const nextEvents = [...(category.members[mIdx].assigned_events || [])];
+      nextEvents.splice(eIdx, 1);
+
       setTeamCategories(prev => {
          return prev.map(cat => {
             if (cat.id !== catId) return cat;
             const nextMembers = [...cat.members];
-            const nextEvents = [...(nextMembers[mIdx].assigned_events || [])];
-            nextEvents.splice(eIdx, 1);
             nextMembers[mIdx] = { ...nextMembers[mIdx], assigned_events: nextEvents };
             return { ...cat, members: nextMembers };
          });
       });
+
+      try {
+         await api.updateStaffAssignedEvents(project.id, userId, nextEvents);
+         addToast("Event assignment saved");
+      } catch (err: any) {
+         console.error("Failed to persist event removal:", err);
+         addToast("Failed to save event removal: " + (err.message || "Unknown error"));
+      }
    };
 
    const addMemberRow = (catId: string) => {
@@ -1565,7 +1573,7 @@ const ClientDetailsPage: React.FC = () => {
                               <p className="text-sm font-bold text-white whitespace-pre-wrap">{client.notes || 'Not Provided'}</p>
                            </div>
                         </div>
-                        
+
                         <div className="col-span-1 sm:col-span-2 md:col-span-4 border-t border-white/5 pt-4 mt-2 space-y-4">
                            <p className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em]">Logistics & Addresses</p>
                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
@@ -1799,15 +1807,15 @@ const ClientDetailsPage: React.FC = () => {
                                        <div className="flex items-center gap-2 absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-900 shrink-0 pl-6 drop-shadow-2xl z-10 hidden md:flex">
                                           {!isPaid && (
                                              <button data-action-button onClick={(e) => {
-                                                if (clientAgreement?.status !== 'accepted') { e.stopPropagation(); alert("Cannot log payment. Agreement pending or expired."); return; }
+                                                if (currentAgreement?.status !== 'SIGNED') { e.stopPropagation(); alert("Cannot log payment. Agreement pending or expired."); return; }
                                                 markAsPaid(e, invoice);
-                                             }} className={`text-[9px] font-black uppercase tracking-widest py-2 px-3 rounded mr-2 transition-all ${clientAgreement?.status !== 'accepted' ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed' : 'bg-primary/10 text-primary hover:bg-primary/20 active:scale-95'}`}>Mark Paid</button>
+                                             }} className={`text-[9px] font-black uppercase tracking-widest py-2 px-3 rounded mr-2 transition-all ${currentAgreement?.status !== 'SIGNED' ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed' : 'bg-primary/10 text-primary hover:bg-primary/20 active:scale-95'}`}>Mark Paid</button>
                                           )}
                                           <button data-action-button onClick={(e) => { e.stopPropagation(); openModal('invoice', invoice); }} className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 active:scale-90"><Edit2 className="w-4 h-4" /></button>
                                           <button data-action-button onClick={(e) => {
                                              e.stopPropagation();
-                                             if (clientAgreement?.status !== 'accepted') { alert("Cannot download. Agreement pending or expired."); return; }
-                                          }} className={`p-2 rounded-lg transition-all ${clientAgreement?.status !== 'accepted' ? 'text-zinc-600 cursor-not-allowed' : 'text-zinc-400 hover:text-white hover:bg-white/10 active:scale-90'}`}><Download className="w-4 h-4" /></button>
+                                             if (currentAgreement?.status !== 'SIGNED') { alert("Cannot download. Agreement pending or expired."); return; }
+                                          }} className={`p-2 rounded-lg transition-all ${currentAgreement?.status !== 'SIGNED' ? 'text-zinc-600 cursor-not-allowed' : 'text-zinc-400 hover:text-white hover:bg-white/10 active:scale-90'}`}><Download className="w-4 h-4" /></button>
                                           <button data-action-button onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(invoice.id); }} className="p-2 rounded-lg transition active:scale-90 bg-red-500/10 text-red-400 hover:bg-red-500/30 hover:text-red-300"><Trash2 className="w-4 h-4" /></button>
                                        </div>
                                        <p className="text-lg tracking-tighter font-black text-white group-hover:opacity-0 transition-opacity md:group-hover:opacity-100! flex items-center gap-1">
@@ -1855,64 +1863,119 @@ const ClientDetailsPage: React.FC = () => {
             {activeTab === 'agreements' && (
                <div className="animate-ios-fade-in space-y-6">
 
-                  {/* CLIENT AGREEMENT BLOCK */}
+                  {/* CURRENT STANDALONE AGREEMENT */}
                   <div className="glass-panel p-8 squircle-md border border-white/5 relative overflow-hidden bg-white/[0.01]">
-                     {clientAgreement?.status === 'expired' && <div className="absolute top-0 left-0 w-full h-1 bg-red-500" />}
-                     {clientAgreement?.status === 'accepted' && <div className="absolute top-0 left-0 w-full h-1 bg-primary" />}
-                     {(!clientAgreement || clientAgreement.status === 'pending') && <div className="absolute top-0 left-0 w-full h-1 bg-amber-500" />}
+                     {currentAgreement?.status === 'SIGNED' && <div className="absolute top-0 left-0 w-full h-1 bg-primary" />}
+                     {currentAgreement?.status === 'REVOKED' && <div className="absolute top-0 left-0 w-full h-1 bg-red-500" />}
+                     {(!currentAgreement || currentAgreement.status === 'PENDING') && <div className="absolute top-0 left-0 w-full h-1 bg-amber-500" />}
 
                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-                        <div>
-                           <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Active Agreement Parameters</h3>
-                           <p className="text-[12px] font-black text-zinc-500 uppercase tracking-widest mb-6">Currently Issued Bound To Client Entity</p>
-                           <div className="flex flex-wrap items-center gap-4">
-                              <span className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${clientAgreement?.status === 'accepted' ? 'bg-primary/10 text-primary border-primary/20' :
-                                 clientAgreement?.status === 'expired' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                                    'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                                 }`}>
-                                 Status: {clientAgreement?.status || 'No Assignment'}
-                              </span>
-                              {clientAgreement?.acceptedAt && (
-                                 <span className="text-[12px] font-bold text-zinc-500 uppercase tracking-widest">
-                                    Accepted: {new Date(clientAgreement.acceptedAt).toLocaleDateString()}
-                                 </span>
-                              )}
-                              {clientAgreement?.expiresAt && (
-                                 <span className={`text-[10px] font-bold uppercase tracking-widest ${clientAgreement.status === 'expired' ? 'text-red-400' : 'text-zinc-500'}`}>
-                                    Expires: {new Date(clientAgreement.expiresAt).toLocaleDateString()}
-                                 </span>
-                              )}
-                           </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-3 w-full md:w-auto">
-                           {isAdmin && clientAgreement && (
-                              <div className="flex items-center gap-2">
-                                 <button onClick={handleRevokeAgreement} className="px-6 py-3 bg-red-500/10 text-red-500 hover:bg-red-500/20 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-red-500/20 active:scale-95 text-center">Revoke Map</button>
+                        <div className="w-full">
+                           <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Current Agreement</h3>
+                           <p className="text-[12px] font-black text-zinc-500 uppercase tracking-widest mb-6">Currently Active Standalone Agreement Parameters</p>
+
+                           {currentAgreement ? (
+                              <div className="space-y-6">
+                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6 bg-black/20 rounded-2xl border border-white/5">
+                                    <div>
+                                       <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Template Name</span>
+                                       <span className="text-sm font-bold text-white uppercase">{currentAgreement.title || currentAgreement.template?.name || 'N/A'}</span>
+                                    </div>
+                                    <div>
+                                       <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Version</span>
+                                       <span className="text-sm font-bold text-white font-mono">{currentAgreement.template?.version || 'N/A'}</span>
+                                    </div>
+                                    <div>
+                                       <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Assigned Date</span>
+                                       <span className="text-sm font-bold text-white">{currentAgreement.assignedAt ? new Date(currentAgreement.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</span>
+                                    </div>
+                                    <div>
+                                       <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-1.5">Status</span>
+                                       <span className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
+                                          currentAgreement.status === 'SIGNED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                          currentAgreement.status === 'REVOKED' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                                          'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                                       }`}>
+                                          {currentAgreement.status}
+                                       </span>
+                                    </div>
+                                 </div>
+
+                                 <div className="space-y-2">
+                                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Agreement Document Body</span>
+                                    <div className="p-6 bg-black/30 rounded-2xl text-sm font-mono text-zinc-400 whitespace-pre-wrap border border-white/5 max-h-[300px] overflow-y-auto custom-scrollbar mb-6">
+                                       {currentAgreement.generatedContent}
+                                    </div>
+                                 </div>
+
+                                 {currentAgreement.status === 'SIGNED' && currentAgreement.signatures && currentAgreement.signatures.length > 0 && (
+                                    <div className="p-6 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 space-y-4">
+                                       <div className="flex items-center gap-3">
+                                          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                                          <span className="text-xs font-black text-white uppercase tracking-widest">Digitally Signed & Validated</span>
+                                       </div>
+                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                                          <div>
+                                             <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Signer Name</p>
+                                             <p className="text-sm font-bold text-white uppercase">{currentAgreement.signatures[0].signerName}</p>
+                                             <p className="text-[10px] font-bold text-zinc-400 mt-2">
+                                                Signed: {new Date(currentAgreement.signatures[0].signedAt).toLocaleString('en-GB')}
+                                             </p>
+                                          </div>
+                                          <div className="bg-zinc-950/50 p-4 rounded-xl border border-white/5 inline-block text-center max-w-[200px]">
+                                             <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-2 text-left">Signature Drawing</p>
+                                             <SecureSignatureImage 
+                                                agreementId={currentAgreement.id}
+                                                className="max-h-16 max-w-full mx-auto select-none pointer-events-none filter invert brightness-200" 
+                                             />
+                                          </div>
+                                       </div>
+                                    </div>
+                                 )}
                               </div>
-                           )}
-                           {!isAdmin && clientAgreement && clientAgreement.status !== 'accepted' && (
-                              <div className="flex flex-col items-end gap-3 w-full p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
-                                 <label className="flex items-center gap-3 cursor-pointer">
-                                    <input type="checkbox" className="w-4 h-4 accent-white bg-black/50 border border-white/20 rounded cursor-pointer" checked={isAgreed} onChange={e => setIsAgreed(e.target.checked)} />
-                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">I Agree to Terms & Conditions</span>
-                                 </label>
-                                 <button onClick={handleAcceptAgreement} disabled={!isAgreed} className="px-6 py-3 w-full bg-white text-black font-black uppercase text-[10px] tracking-widest rounded-xl shadow-xl hover:bg-zinc-200 transition-all active:scale-95 disabled:opacity-50">Accept & Continue</button>
+                           ) : (
+                              <div className="text-center py-10 text-xs font-mono text-zinc-500 border border-white/5 border-dashed rounded-2xl bg-black/20">
+                                 NO ACTIVE STANDALONE AGREEMENT ASSIGNED.
                               </div>
                            )}
                         </div>
                      </div>
+                  </div>
 
-                     {/* Render read-only text if assigned */}
-                     {clientAgreement ? (
-                        <div className="mt-8 pt-8 border-t border-white/5 space-y-4">
-                           <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Assigned Contract (V{clientAgreement.version})</h4>
-                           <div className="p-6 bg-black/30 rounded-2xl text-sm font-mono text-zinc-400 whitespace-pre-wrap border border-white/5">
-                              {clientAgreement.termsText}
-                           </div>
+                  {/* AGREEMENT HISTORY SECTION */}
+                  <div className="glass-panel p-8 squircle-md border border-white/5 bg-white/[0.01]">
+                     <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">Agreement History</h3>
+                     <p className="text-[12px] font-black text-zinc-500 uppercase tracking-widest mb-6">Historical Log of Assigned Standalone Agreements</p>
+
+                     {clientAgreements && clientAgreements.length > 0 ? (
+                        <div className="space-y-3">
+                           {clientAgreements.map((agreement) => (
+                              <div key={agreement.id} className="p-5 bg-black/30 border border-white/5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between group hover:bg-white/5 transition-all">
+                                 <div className="mb-4 md:mb-0 space-y-1">
+                                    <div className="flex items-center gap-3">
+                                       <p className="text-sm font-black text-white uppercase tracking-widest">{agreement.title || agreement.template?.name || 'N/A'}</p>
+                                       <span className="text-[10px] font-bold text-zinc-600 uppercase font-mono">v{agreement.template?.version || 'N/A'}</span>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                                       Assigned: {new Date(agreement.assignedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                       {agreement.signedAt && ` • Signed: ${new Date(agreement.signedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
+                                    </p>
+                                 </div>
+                                 <div className="flex items-center gap-4">
+                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
+                                       agreement.status === 'SIGNED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                       agreement.status === 'REVOKED' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                                       'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                                    }`}>
+                                       {agreement.status}
+                                    </span>
+                                 </div>
+                              </div>
+                           ))}
                         </div>
                      ) : (
-                        <div className="mt-8 text-center text-xs font-mono text-zinc-500 border border-white/5 border-dashed p-6 rounded-2xl">
-                           NO AGREEMENT HAS BEEN ASSIGNED YET.
+                        <div className="text-center py-8 text-xs font-mono text-zinc-500 border border-white/5 border-dashed rounded-2xl bg-black/20">
+                           NO STANDALONE AGREEMENT RECORDS IN REGISTER.
                         </div>
                      )}
                   </div>
@@ -1922,53 +1985,45 @@ const ClientDetailsPage: React.FC = () => {
                      <div className="glass-panel p-8 squircle-md border border-white/5 bg-white/[0.01]">
                         <div className="flex items-center justify-between mb-8">
                            <div>
-                              <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Global Templates List</h3>
-                              <p className="text-[12px] font-black text-zinc-500 uppercase tracking-widest">Available map options to assign</p>
+                              <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Standalone Templates</h3>
+                              <p className="text-[12px] font-black text-zinc-500 uppercase tracking-widest">Available templates to assign as a Standalone Agreement</p>
                            </div>
-                           <button onClick={handleAddNewTemplate} className="px-6 py-3 bg-white/5 text-zinc-300 hover:text-white hover:bg-white/10 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 text-center shadow">+ New Template</button>
                         </div>
-
-                        {editingTemplateId && (
-                           <div className="mb-8 p-6 bg-black/50 border border-indigo-500/20 rounded-2xl animate-ios-slide-up">
-                              <h4 className="text-xs font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-indigo-500" /> Editing Logic Sequence</h4>
-                              <input type="text" className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm font-bold text-white focus:outline-none focus:border-white/20 mb-3 font-mono uppercase" placeholder="TEMPLATE TITLE" value={termsEditTitle} onChange={e => setTermsEditTitle(e.target.value)} />
-                              <textarea className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm font-bold text-white focus:outline-none focus:border-white/20 min-h-[150px] mb-4" value={termsEditText} onChange={e => setTermsEditText(e.target.value)} />
-                              <div className="flex justify-end gap-3">
-                                 <button onClick={() => setEditingTemplateId(null)} className="px-6 py-3 bg-white/5 text-zinc-500 hover:text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">Discard</button>
-                                 <button onClick={handleSaveTermsVersion} className="px-6 py-3 bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-xl hover:bg-indigo-600">Save Sequence</button>
-                              </div>
-                           </div>
-                        )}
 
                         <div className="space-y-3">
                            {agreementTemplates.map(temp => {
-                              const isAssigned = clientAgreement?.title === temp.title || (client?.activeAgreement?.templateId === temp.id && client?.activeAgreement?.status !== 'revoked');
+                              const isAssigned = currentAgreement && currentAgreement.templateId === temp.id && currentAgreement.status !== 'REVOKED';
 
                               return (
-                                 <div key={temp.id} className={`p-4 bg-black/30 border shrink-0 rounded-2xl flex flex-col md:flex-row md:items-center justify-between group hover:bg-white/5 transition-all ${isAssigned ? 'border-primary/40 border-l-4 border-l-emerald-500' : 'border-white/5'}`}>
-                                    <div className="mb-4 md:mb-0">
+                                 <div key={temp.id} className={`p-5 bg-black/30 border shrink-0 rounded-2xl flex flex-col md:flex-row md:items-center justify-between group hover:bg-white/5 transition-all ${isAssigned ? 'border-primary/40 border-l-4 border-l-emerald-500' : 'border-white/5'}`}>
+                                    <div className="mb-4 md:mb-0 space-y-1">
                                        <div className="flex items-center gap-3">
-                                          <p className="text-sm font-black text-white uppercase tracking-widest mb-1">{temp.title}</p>
+                                          <p className="text-sm font-black text-white uppercase tracking-widest">{temp.name}</p>
                                           {isAssigned && <span className="bg-primary text-black text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">Assigned</span>}
                                        </div>
-                                       <p className="text-[12px] font-bold text-zinc-500 uppercase tracking-widest font-mono">v{temp.version} • Text Block Length: {temp.body?.length || 0} chars</p>
+                                       <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest font-mono">
+                                          v{temp.version} • Content Length: {temp.content?.length || 0} chars
+                                       </p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                        <button
                                           onMouseDown={(e) => { e.preventDefault(); handleAssignToClient(temp); }}
-                                          className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow border ${isAssigned
+                                          className={`px-4 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow border ${isAssigned
                                              ? 'bg-primary text-black border-primary'
                                              : 'bg-primary/10 text-primary hover:bg-primary/20 border-primary/20'
                                              }`}
                                        >
                                           {isAssigned ? 'Assigned ✓' : 'Assign to Client'}
                                        </button>
-                                       <button onMouseDown={(e) => { e.preventDefault(); handleEditTemplate(temp.id, temp.title, temp.body); }} className="p-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all"><Edit2 className="w-3.5 h-3.5" /></button>
-                                       <button onMouseDown={(e) => { e.preventDefault(); handleDeleteTemplate(temp.id); }} className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-lg transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
                                     </div>
                                  </div>
                               );
                            })}
+                           {agreementTemplates.length === 0 && (
+                              <div className="text-center py-6 text-xs font-mono text-zinc-500 border border-white/5 border-dashed rounded-2xl bg-black/20">
+                                 NO STANDALONE AGREEMENT TEMPLATES FOUND.
+                              </div>
+                           )}
                         </div>
                      </div>
                   )}
@@ -2005,21 +2060,21 @@ const ClientDetailsPage: React.FC = () => {
                               </label>
                            )}
                            {idDocument && (
-                               <button 
-                                  onClick={() => {
-                                     if (idDocument.fileUrl.startsWith('blob:') || idDocument.fileUrl.startsWith('data:')) {
-                                        window.open(idDocument.fileUrl);
-                                     } else {
-                                        const match = idDocument.fileUrl.match(/\/files\/([a-f0-9-]+)\/download/);
-                                        const fileId = match ? match[1] : idDocument.fileUrl;
-                                        api.downloadProjectFile(fileId, idDocument.fileName)
-                                           .catch(err => console.error("Failed to view ID document", err));
-                                     }
-                                  }} 
-                                  className="px-6 py-3 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all text-center"
-                               >
-                                  View Artifact
-                               </button>
+                              <button
+                                 onClick={() => {
+                                    if (idDocument.fileUrl.startsWith('blob:') || idDocument.fileUrl.startsWith('data:')) {
+                                       window.open(idDocument.fileUrl);
+                                    } else {
+                                       const match = idDocument.fileUrl.match(/\/files\/([a-f0-9-]+)\/download/);
+                                       const fileId = match ? match[1] : idDocument.fileUrl;
+                                       api.downloadProjectFile(fileId, idDocument.fileName)
+                                          .catch(err => console.error("Failed to view ID document", err));
+                                    }
+                                 }}
+                                 className="px-6 py-3 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all text-center"
+                              >
+                                 View Artifact
+                              </button>
                            )}
                         </div>
                      </div>
@@ -2112,11 +2167,10 @@ const ClientDetailsPage: React.FC = () => {
                                                    </div>
                                                    <div className="flex items-center gap-3 shrink-0">
                                                       {selectedStaff && staffStatus && (
-                                                         <span className={`text-[8px] px-2 py-0.5 rounded-full uppercase font-black tracking-widest ${
-                                                            staffStatus === 'Available' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
-                                                            staffStatus === 'Assigned' ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' :
-                                                            'bg-rose-500/10 border border-rose-500/20 text-rose-400'
-                                                         }`}>
+                                                         <span className={`text-[8px] px-2 py-0.5 rounded-full uppercase font-black tracking-widest ${staffStatus === 'Available' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
+                                                               staffStatus === 'Assigned' ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' :
+                                                                  'bg-rose-500/10 border border-rose-500/20 text-rose-400'
+                                                            }`}>
                                                             {staffStatus}
                                                          </span>
                                                       )}
@@ -3160,12 +3214,43 @@ const ClientDetailsPage: React.FC = () => {
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-4">
                         {(() => {
                            const browserSearchLower = browserSearch.toLowerCase();
+
+                           // Operational roles: Photographer, Videographer, Editor, Designer, DroneOperator, Assistant, Coordinator
+                           const operationalRoles = ['photographer', 'videographer', 'editor', 'designer', 'droneoperator', 'assistant', 'coordinator'];
+                           const excludedRoles = ['client', 'systemadmin'];
+
                            const filteredRoster = allStaff.filter(s => {
+                              if (!s.isActive) {
+                                 return false;
+                              }
+
+                              const staffRoleLower = s.staffRole?.toLowerCase().replace(/\s/g, '') || '';
+                              const isOperational = operationalRoles.includes(staffRoleLower);
+                              const isExcluded = excludedRoles.includes(staffRoleLower);
+
+                              if (!isOperational || isExcluded) {
+                                 return false;
+                              }
+
                               const nameMatch = s.name?.toLowerCase().includes(browserSearchLower);
                               const roleMatch = s.staffRole?.toLowerCase().includes(browserSearchLower);
                               const contactMatch = s.email?.toLowerCase().includes(browserSearchLower);
                               return nameMatch || roleMatch || contactMatch;
                            });
+
+                           if (filteredRoster.length === 0) {
+                              return (
+                                 <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3 opacity-50">
+                                    <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5">
+                                       <Users className="w-6 h-6 text-zinc-500" />
+                                    </div>
+                                    <div className="text-center">
+                                       <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">No staff members found</p>
+                                       <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-wider mt-1">Try searching another query or add a new person</p>
+                                    </div>
+                                 </div>
+                              );
+                           }
 
                            const targetRole = pendingSelectorAssign.role.toLowerCase();
                            const sortedRoster = [...filteredRoster].sort((a, b) => {
@@ -3180,8 +3265,8 @@ const ClientDetailsPage: React.FC = () => {
                               const isSelected = browserSelectedStaffId === s.id;
                               const status = getStaffRosterStatus(s.id);
                               const badgeClass = status === 'Available' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
-                                                 status === 'Assigned' ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' :
-                                                 'bg-rose-500/10 border border-rose-500/20 text-rose-400';
+                                 status === 'Assigned' ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400' :
+                                    'bg-rose-500/10 border border-rose-500/20 text-rose-400';
 
                               return (
                                  <div
@@ -3191,18 +3276,16 @@ const ClientDetailsPage: React.FC = () => {
                                        handleMemberChange(pendingSelectorAssign.categoryId, pendingSelectorAssign.memberIndex, s.id);
                                        setIsPersonnelBrowserOpen(false);
                                     }}
-                                    className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between group/card ${
-                                       isSelected
+                                    className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between group/card ${isSelected
                                           ? 'bg-indigo-500/10 border-indigo-500/50 shadow-lg shadow-indigo-500/5'
                                           : 'bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
-                                    }`}
+                                       }`}
                                  >
                                     <div className="flex items-center gap-3.5 overflow-hidden">
-                                       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black uppercase shrink-0 transition-all ${
-                                          isSelected 
-                                             ? 'bg-indigo-500 text-white' 
+                                       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black uppercase shrink-0 transition-all ${isSelected
+                                             ? 'bg-indigo-500 text-white'
                                              : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                                       }`}>
+                                          }`}>
                                           {(s.name || s.email || '?').charAt(0)}
                                        </div>
                                        <div className="truncate">
@@ -3222,42 +3305,16 @@ const ClientDetailsPage: React.FC = () => {
                                        <span className={`text-[8px] px-2.5 py-1 rounded-full uppercase font-black tracking-widest ${badgeClass}`}>
                                           {status}
                                        </span>
-                                       <div className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
-                                          isSelected 
-                                             ? 'bg-indigo-500 border-indigo-500 text-white' 
+                                       <div className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${isSelected
+                                             ? 'bg-indigo-500 border-indigo-500 text-white'
                                              : 'border-white/10 text-transparent group-hover/card:border-white/30'
-                                       }`}>
+                                          }`}>
                                           <Check className="w-3 h-3" />
                                        </div>
                                     </div>
                                  </div>
                               );
                            });
-                        })()}
-
-                        {(() => {
-                           const browserSearchLower = browserSearch.toLowerCase();
-                           const hasRecords = allStaff.some(s => {
-                              const nameMatch = s.name?.toLowerCase().includes(browserSearchLower);
-                              const roleMatch = s.staffRole?.toLowerCase().includes(browserSearchLower);
-                              const contactMatch = s.email?.toLowerCase().includes(browserSearchLower);
-                              return nameMatch || roleMatch || contactMatch;
-                           });
-
-                           if (!hasRecords) {
-                              return (
-                                 <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3 opacity-50">
-                                    <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5">
-                                       <Users className="w-6 h-6 text-zinc-500" />
-                                    </div>
-                                    <div className="text-center">
-                                       <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">No staff members found</p>
-                                       <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-wider mt-1">Try searching another query or add a new person</p>
-                                    </div>
-                                 </div>
-                              );
-                           }
-                           return null;
                         })()}
                      </div>
                   </div>
@@ -3297,7 +3354,7 @@ const ClientDetailsPage: React.FC = () => {
                   </div>
                </div>
             </div>
-         , document.body)}
+            , document.body)}
 
          {/* Add Staff Modal */}
          {isAddStaffModalOpen && createPortal(
@@ -3425,8 +3482,12 @@ const ClientDetailsPage: React.FC = () => {
                         <label className="text-[11px] font-black uppercase text-zinc-500 tracking-widest px-1">Notes</label>
                         <textarea className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all min-h-[80px]" placeholder="Any specific requirements or team notes..." value={newEventForm.notes || ''} onChange={e => setNewEventForm({ ...newEventForm, notes: e.target.value })} />
                      </div>
-                     <button type="submit" className="w-full py-5 bg-white text-black font-black rounded-2xl text-[11px] uppercase tracking-widest shadow-2xl hover:bg-zinc-200 transition-all mt-4">
-                        Save Event
+                     <button 
+                        type="submit" 
+                        disabled={isSaving}
+                        className="w-full py-5 bg-white text-black font-black rounded-2xl text-[11px] uppercase tracking-widest shadow-2xl hover:bg-zinc-200 transition-all mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                     >
+                        {isSaving ? 'Saving...' : 'Save Event'}
                      </button>
                   </form>
                </div>

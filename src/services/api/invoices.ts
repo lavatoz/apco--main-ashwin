@@ -10,14 +10,11 @@ export function mapToBackendInvoice(invoice: Invoice) {
   const isQuote = invoice.isQuotation || invoice.type === 'quotation';
   
   let projectId = (invoice as any).projectId || (invoice.project?.id || invoice.project || '');
-  if (!projectId || projectId === 'All' || !isUuid(projectId)) {
-    projectId = '00000000-0000-0000-0000-000000000000';
+  if (projectId === 'All') {
+    projectId = '';
   }
 
   let clientId = invoice.clientId || (invoice.client?.id || invoice.client || '');
-  if (!clientId || !isUuid(clientId)) {
-    clientId = '00000000-0000-0000-0000-000000000000';
-  }
 
   const payload: any = {
     projectId,

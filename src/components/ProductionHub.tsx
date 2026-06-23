@@ -5,8 +5,8 @@ import {
   CheckCircle2, Package, Plus, X, Layers, Trash2, Loader2, Clock, Calendar, AlertCircle, Users, Activity
 } from 'lucide-react';
 import { type Client, type Task, TaskStatus, type Project, type ProjectStage, type CompanyProfile } from '../types';
-import { safeParse } from '../utils/storage';
 import { api } from '../services/api';
+
 
 interface ProductionHubProps {
   clients: Client[];
@@ -60,6 +60,7 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
   }, []);
 
   const [localTasks, setLocalTasks] = useState<Task[]>(initialTasks);
+  const [updatingTaskIds, setUpdatingTaskIds] = useState<string[]>([]);
 
   useEffect(() => {
     setLocalTasks(initialTasks);
@@ -126,16 +127,49 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
     }
   };
 
-  const handleUpdateTaskStatus = (taskId: string, newStatus: string) => {
-     const allTasks = safeParse<Task[]>('tasks', []);
-     const updatedTasks = allTasks.map(t => t.id === taskId ? { ...t, status: newStatus as any } : t);
-     localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-     setLocalTasks(localTasks.map(t => t.id === taskId ? { ...t, status: newStatus as any } : t));
-     window.dispatchEvent(new Event('storage'));
+  const handleUpdateTaskStatus = async (taskId: string, newStatus: string) => {
+     if (updatingTaskIds.includes(taskId)) return;
+     const task = localTasks.find(t => t.id === taskId);
+     if (!task) return;
+     const updatedTask = { ...task, status: newStatus as any };
+     setUpdatingTaskIds(prev => [...prev, taskId]);
+     try {
+        await api.saveTask(updatedTask);
+        setLocalTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+        window.dispatchEvent(new CustomEvent('tasks-updated'));
+     } catch (err) {
+        console.error("Failed to update task status:", err);
+        alert("Failed to save task status update to database.");
+     } finally {
+        setUpdatingTaskIds(prev => prev.filter(id => id !== taskId));
+     }
   };
 
-  const filteredTasks = localTasks.filter(t => (selectedBrand === 'All' || t.brand === selectedBrand));
-  const activeProjects = projectRegistry.filter(p => p.status === 'confirmed' && (selectedBrand === 'All' || p.brand === selectedBrand));
+  const filteredTasks = localTasks.filter(t => {
+     if (selectedBrand === 'All') return true;
+     const taskCompany = companies.find(c => c.id === t.brand || c.companyName === t.brand);
+     const taskBrandId = taskCompany ? taskCompany.id : t.brand;
+     const taskBrandName = taskCompany ? taskCompany.companyName : t.brand;
+
+     const filterCompany = companies.find(c => c.id === selectedBrand || c.companyName === selectedBrand);
+     const filterBrandId = filterCompany ? filterCompany.id : selectedBrand;
+     const filterBrandName = filterCompany ? filterCompany.companyName : selectedBrand;
+
+     return taskBrandId === filterBrandId || taskBrandName === filterBrandName;
+  });
+  const activeProjects = projectRegistry.filter(p => {
+     if (p.status !== 'confirmed') return false;
+     if (selectedBrand === 'All') return true;
+     const projectCompany = companies.find(c => c.id === p.brand || c.companyName === p.brand);
+     const projectBrandId = projectCompany ? projectCompany.id : p.brand;
+     const projectBrandName = projectCompany ? projectCompany.companyName : p.brand;
+
+     const filterCompany = companies.find(c => c.id === selectedBrand || c.companyName === selectedBrand);
+     const filterBrandId = filterCompany ? filterCompany.id : selectedBrand;
+     const filterBrandName = filterCompany ? filterCompany.companyName : selectedBrand;
+
+     return projectBrandId === filterBrandId || projectBrandName === filterBrandName;
+  });
   
   const pendingTasks = filteredTasks.filter(t => t.status !== TaskStatus.Completed);
   const overdueTasks = filteredTasks.filter(t => t.status === TaskStatus.Overdue);
@@ -220,8 +254,9 @@ const ProductionHub: React.FC<ProductionHubProps> = ({ tasks: initialTasks, sele
                     </div>
                     <select
                        value={task.status}
+                       disabled={updatingTaskIds.includes(task.id)}
                        onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)}
-                       className={`bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-white/20 ${
+                       className={`bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-white/20 disabled:opacity-50 ${
                            task.status === TaskStatus.Overdue ? 'text-red-500' :
                            task.status === TaskStatus.InProgress ? 'text-amber-500' :
                            task.status === TaskStatus.Completed ? 'text-primary' :

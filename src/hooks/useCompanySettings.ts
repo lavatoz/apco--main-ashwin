@@ -85,6 +85,16 @@ const notifyListeners = () => {
   listeners.forEach(l => l());
 };
 
+export const clearCompanySettingsCache = () => {
+  cachedCompanies = null;
+  cachedGlobalSettings = null;
+  hydrated = false;
+  hydrationPromise = null;
+  localStorage.removeItem('artisans_companies');
+  localStorage.removeItem('artisans_global_settings');
+  notifyListeners();
+};
+
 export const useCompanySettings = () => {
   const [companies, setCompaniesState] = useState<CompanyProfile[]>(() => {
     if (cachedCompanies) return cachedCompanies;
@@ -125,8 +135,8 @@ export const useCompanySettings = () => {
   // Synchronize internal component state when cache updates
   useEffect(() => {
     const handleUpdate = () => {
-      if (cachedCompanies) setCompaniesState([...cachedCompanies]);
-      if (cachedGlobalSettings) setGlobalSettingsState({ ...cachedGlobalSettings });
+      setCompaniesState(cachedCompanies ? [...cachedCompanies] : DEFAULT_COMPANIES);
+      setGlobalSettingsState(cachedGlobalSettings ? { ...cachedGlobalSettings } : DEFAULT_GLOBAL);
     };
     return addListener(handleUpdate);
   }, []);
@@ -278,12 +288,12 @@ export const useCompanySettings = () => {
     }
   };
 
-  const defaultCompany = companies.find(c => c.isDefault) || companies[0];
+  const defaultCompany = companies.find(c => c.isDefault) || companies[0] || DEFAULT_COMPANIES[0];
 
   // settings behaves like the single source of truth for components that haven't been updated yet
-  const settings = selectedCompanyId === 'All'
+  const settings = (selectedCompanyId === 'All'
     ? defaultCompany
-    : (companies.find(c => c.id === selectedCompanyId) || defaultCompany);
+    : (companies.find(c => c.id === selectedCompanyId) || defaultCompany)) || DEFAULT_COMPANIES[0];
 
   return {
     companies,

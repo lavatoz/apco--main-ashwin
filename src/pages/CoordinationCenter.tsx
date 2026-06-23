@@ -5,35 +5,50 @@ import {
   Search, ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { type Task, type Client, type Invoice, type CompanyProfile } from '../types';
-import { safeParse } from '../utils/storage';
+import { type Client, type Invoice, type CompanyProfile, type Task, type Staff } from '../types';
 import { generateGroupedAlerts, type AlertCategory, type AlertPriority } from '../utils/alertEngine';
 import { api } from '../services/api';
+import TaskManager from '../components/TaskManager';
 
 interface CoordinationCenterProps {
-  tasks: Task[];
   clients: Client[];
   invoices: Invoice[];
   companies: CompanyProfile[];
   selectedBrand: string | 'All';
-  onSaveTask: (task: Task) => void;
-  onDeleteTask: (id: string) => void;
 }
 
 const CoordinationCenter: React.FC<CoordinationCenterProps> = ({
   clients, invoices, companies, selectedBrand
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'calendar' | 'staff' | 'alerts'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'calendar' | 'kanban' | 'staff' | 'alerts'>('overview');
   const navigate = useNavigate();
 
   // Calendar State
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarView, setCalendarView] = useState<'Month' | 'Week' | 'Agenda'>('Month');
 
-  // Load Staff & Projects
-  const users = useMemo(() => safeParse<any[]>('users', []), []);
+  // Load Staff, Projects & Tasks
   const [projects, setProjects] = useState<any[]>([]);
-  const staff = users.filter(u => u.role === 'Staff');
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [staff, setStaff] = useState<Staff[]>([]);
+
+  const fetchTasks = async () => {
+    try {
+      const data = await api.getTasks();
+      setTasks(data);
+    } catch (err) {
+      console.error("Failed to fetch tasks in CoordinationCenter:", err);
+    }
+  };
+
+  const fetchStaff = async () => {
+    try {
+      const data = await api.getStaff();
+      setStaff(data.filter(s => s.isActive));
+    } catch (err) {
+      console.error("Failed to fetch staff in CoordinationCenter:", err);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -46,13 +61,47 @@ const CoordinationCenter: React.FC<CoordinationCenterProps> = ({
       }
     };
     fetchProjects();
-    return () => { active = false; };
+    fetchTasks();
+    fetchStaff();
+
+    const handleSync = () => {
+      fetchProjects();
+      fetchTasks();
+      fetchStaff();
+    };
+
+    window.addEventListener('tasks-updated', handleSync);
+    return () => {
+      active = false;
+      window.removeEventListener('tasks-updated', handleSync);
+    };
   }, []);
+
+  const handleSaveTask = async (task: Task) => {
+     await api.saveTask(task);
+     window.dispatchEvent(new CustomEvent('tasks-updated'));
+  };
+
+  const handleDeleteTask = async (id: string) => {
+     await api.deleteTask(id);
+     window.dispatchEvent(new CustomEvent('tasks-updated'));
+  };
 
   // Filter Clients
   const filteredClients = useMemo(() => {
-     return selectedBrand === 'All' ? clients : clients.filter(c => c.brand === selectedBrand);
-  }, [clients, selectedBrand]);
+     if (selectedBrand === 'All') return clients;
+     const filterCompany = companies.find(c => c.id === selectedBrand || c.companyName === selectedBrand);
+     const filterBrandId = filterCompany ? filterCompany.id : selectedBrand;
+     const filterBrandName = filterCompany ? filterCompany.companyName : selectedBrand;
+
+     return clients.filter(c => {
+        const clientCompany = companies.find(comp => comp.id === c.brand || comp.companyName === c.brand || comp.id === c.brandId);
+        const clientBrandId = clientCompany ? clientCompany.id : c.brandId || c.brand;
+        const clientBrandName = clientCompany ? clientCompany.companyName : c.brand;
+
+        return clientBrandId === filterBrandId || clientBrandName === filterBrandName;
+     });
+  }, [clients, selectedBrand, companies]);
 
   // Alert Filters State
   const [alertSearch, setAlertSearch] = useState('');
@@ -84,7 +133,18 @@ const CoordinationCenter: React.FC<CoordinationCenterProps> = ({
          });
       }
     });
-    return events.filter(e => selectedBrand === 'All' || e.brand === (companies.find(comp => comp.id === selectedBrand)?.companyName));
+    const filterCompany = companies.find(c => c.id === selectedBrand || c.companyName === selectedBrand);
+    const filterBrandId = filterCompany ? filterCompany.id : selectedBrand;
+    const filterBrandName = filterCompany ? filterCompany.companyName : selectedBrand;
+
+    return events.filter(e => {
+      if (selectedBrand === 'All') return true;
+      const eventCompany = companies.find(comp => comp.id === e.brand || comp.companyName === e.brand);
+      const eventBrandId = eventCompany ? eventCompany.id : e.brand;
+      const eventBrandName = eventCompany ? eventCompany.companyName : e.brand;
+
+      return eventBrandId === filterBrandId || eventBrandName === filterBrandName;
+    });
   }, [filteredClients, selectedBrand, companies]);
 
   const thisWeekEvents = useMemo(() => {
@@ -119,7 +179,7 @@ const CoordinationCenter: React.FC<CoordinationCenterProps> = ({
   const teamUtilizationPercent = useMemo(() => {
     if (staff.length === 0) return 0;
     // Mock logic for team utilization based on assignments
-    const assignedStaff = staff.filter(s => s.staffRole !== 'General Staff').length;
+    const assignedStaff = staff.filter(s => (s.role || (s as any).staffRole) !== 'General Staff').length;
     return Math.round((assignedStaff / staff.length) * 100);
   }, [staff]);
 
@@ -265,7 +325,7 @@ const CoordinationCenter: React.FC<CoordinationCenterProps> = ({
                {staff.map((user, idx) => (
                   <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                      <td className="py-4 px-4 text-sm font-bold">{user.name}</td>
-                     <td className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">{user.staffRole || 'General Staff'}</td>
+                     <td className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">{user.role || (user as any).staffRole || 'General Staff'}</td>
                      <td className="py-4 px-4 text-xs font-bold text-zinc-300">0 Events</td>
                      <td className="py-4 px-4">
                         <span className="px-2 py-1 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest rounded-full">Available</span>
@@ -605,6 +665,7 @@ const CoordinationCenter: React.FC<CoordinationCenterProps> = ({
           { id: 'overview', label: 'Overview', icon: List },
           { id: 'events', label: 'Events List', icon: List },
           { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
+          { id: 'kanban', label: 'Kanban Board', icon: List },
           { id: 'staff', label: 'Staff Allocation', icon: Users },
           { id: 'alerts', label: 'Alerts', icon: Bell }
         ].map(tab => {
@@ -633,6 +694,17 @@ const CoordinationCenter: React.FC<CoordinationCenterProps> = ({
         {activeTab === 'overview' && renderOverview()}
         {activeTab === 'events' && renderEventsList()}
         {activeTab === 'calendar' && renderCustomCalendar()}
+        {activeTab === 'kanban' && (
+          <TaskManager 
+            tasks={tasks}
+            onSaveTask={handleSaveTask}
+            onDeleteTask={handleDeleteTask}
+            companies={companies}
+            selectedBrand={selectedBrand}
+            isEmbedded={true}
+            staff={staff}
+          />
+        )}
         {activeTab === 'staff' && renderStaff()}
         {activeTab === 'alerts' && renderAlerts()}
       </div>

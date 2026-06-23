@@ -44,8 +44,18 @@ const ClientDeliverables: React.FC<ClientDeliverablesProps> = ({ client }) => {
         const clientProjects = allProjects.filter(p => p.clientId === client.id);
         const mainProject = clientProjects[0];
         if (mainProject) {
-          const filesData = await api.getFilesByProject(mainProject.id, 'Deliverables');
-          setFiles(filesData || []);
+          const [deliverables, editedVideos] = await Promise.all([
+            api.getFilesByProject(mainProject.id, 'Deliverables').catch(() => []),
+            api.getFilesByProject(mainProject.id, 'Edited Videos').catch(() => [])
+          ]);
+          const merged = [...(deliverables || []), ...(editedVideos || [])];
+          const uniqueMap = new Map<string, any>();
+          merged.forEach(f => {
+            if (f && f.id) uniqueMap.set(f.id, f);
+          });
+          const uniqueFiles = Array.from(uniqueMap.values());
+          uniqueFiles.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+          setFiles(uniqueFiles);
         }
       } catch (err) {
         console.error("Failed to load deliverables", err);

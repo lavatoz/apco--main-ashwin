@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Clock, Trash2, CheckSquare, Layers, Edit2 } from 'lucide-react';
-import { type Task, type CompanyProfile } from '../types';
+import { type Task, type CompanyProfile, type Staff } from '../types';
 import { usePermissions } from '../hooks/usePermissions';
 
 interface CoordinationTask extends Task {
@@ -9,11 +9,12 @@ interface CoordinationTask extends Task {
 
 interface TaskManagerProps {
   tasks: Task[];
-  onSaveTask: (task: Task) => void;
-  onDeleteTask: (id: string) => void;
+  onSaveTask: (task: Task) => Promise<any>;
+  onDeleteTask: (id: string) => Promise<any>;
   companies: CompanyProfile[];
   selectedBrand: string | 'All';
   isEmbedded?: boolean;
+  staff: Staff[];
 }
 
 const STAGES = [
@@ -22,87 +23,123 @@ const STAGES = [
   { id: 'DONE', label: 'Completed', color: 'text-primary' }
 ] as const;
 
-const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTask, selectedBrand, companies, isEmbedded = false }) => {
+const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTask, selectedBrand, companies, isEmbedded = false, staff }) => {
   const { canEdit, canDelete } = usePermissions();
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [fadingId, setFadingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [newTask, setNewTask] = useState<Partial<CoordinationTask>>({ 
     status: 'TODO' as any, 
     priority: 'Medium', 
-    brand: selectedBrand !== 'All' ? (companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand) : (companies[0]?.companyName || 'Artisans') 
+    brand: selectedBrand !== 'All' ? (companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand) : (companies[0]?.companyName || 'Artisans'),
+    assignee: 'Unassigned',
+    assignedUserId: null
   });
 
   const handleStartEdit = (task: CoordinationTask) => {
+    if (isSaving) return;
     setNewTask({
         title: task.title,
         client: task.client,
         dueDate: task.dueDate,
         brand: task.brand,
         priority: task.priority,
-        status: task.status
+        status: task.status,
+        assignee: task.assignee || 'Unassigned',
+        assignedUserId: task.assignedUserId || null
     });
     setEditingTaskId(task.id);
     setIsEditing(true);
     setIsAdding(true);
   };
 
-  const handleCreateTask = (e: React.FormEvent) => {
+  const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (newTask.title) {
-      if (isEditing && editingTaskId) {
-          const t = tasks.find(x => x.id === editingTaskId);
-          if (t) {
-            const updated = {
-              ...t,
+      setIsSaving(true);
+      try {
+        if (isEditing && editingTaskId) {
+            const t = tasks.find(x => x.id === editingTaskId);
+            if (t) {
+              const updated = {
+                ...t,
+                title: newTask.title!,
+                client: newTask.client || 'General',
+                dueDate: newTask.dueDate || new Date().toISOString().split('T')[0],
+                brand: newTask.brand || 'AAHA Kalyanam',
+                priority: newTask.priority || 'Medium',
+                status: newTask.status || t.status,
+                assignee: newTask.assignee || 'Unassigned',
+                assignedUserId: newTask.assignedUserId || null
+              };
+              await onSaveTask(updated);
+            }
+        } else {
+          const task: CoordinationTask = {
+              id: `TSK-${Date.now().toString().slice(-6)}`,
               title: newTask.title!,
               client: newTask.client || 'General',
+              assignee: newTask.assignee || 'Unassigned',
+              assignedUserId: newTask.assignedUserId || null,
               dueDate: newTask.dueDate || new Date().toISOString().split('T')[0],
+              status: 'TODO' as any,
               brand: newTask.brand || 'AAHA Kalyanam',
-              priority: newTask.priority || 'Medium',
-              status: newTask.status || t.status
-            };
-            onSaveTask(updated);
-          }
-      } else {
-        const task: CoordinationTask = {
-            id: `TSK-${Date.now().toString().slice(-6)}`,
-            title: newTask.title!,
-            client: newTask.client || 'General',
-            assignee: newTask.assignee || 'Unassigned',
-            dueDate: newTask.dueDate || new Date().toISOString().split('T')[0],
-            status: 'TODO' as any,
-            brand: newTask.brand || 'AAHA Kalyanam',
-            priority: newTask.priority || 'Medium'
-        };
-        onSaveTask(task);
+              priority: newTask.priority || 'Medium'
+          };
+          await onSaveTask(task);
+        }
+        
+        setIsAdding(false);
+        setIsEditing(false);
+        setEditingTaskId(null);
+        setNewTask({ status: 'TODO' as any, priority: 'Medium', brand: selectedBrand !== 'All' ? (companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand) : (companies[0]?.companyName || 'Artisans'), assignee: 'Unassigned', assignedUserId: null });
+      } catch (err) {
+        console.error("Failed to save task in TaskManager:", err);
+      } finally {
+        setIsSaving(false);
       }
-      
-      setIsAdding(false);
-      setIsEditing(false);
-      setEditingTaskId(null);
-      setNewTask({ status: 'TODO' as any, priority: 'Medium', brand: selectedBrand !== 'All' ? (companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand) : (companies[0]?.companyName || 'Artisans') });
     }
   };
 
-  const updateStatus = (taskId: string, newStatus: string) => {
+  const updateStatus = async (taskId: string, newStatus: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (task) {
-      onSaveTask({ ...task, status: newStatus as any });
+      setIsSaving(true);
+      try {
+        await onSaveTask({ ...task, status: newStatus as any });
+      } catch (err) {
+        console.error("Failed to update task status in TaskManager:", err);
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
   const removeTask = async (taskId: string) => {
-    setFadingId(taskId);
-    await new Promise(r => setTimeout(r, 300));
-    onDeleteTask(taskId);
-    setFadingId(null);
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      setFadingId(taskId);
+      await new Promise(r => setTimeout(r, 300));
+      await onDeleteTask(taskId);
+    } catch (err) {
+      console.error("Failed to delete task in TaskManager:", err);
+    } finally {
+      setFadingId(null);
+      setIsSaving(false);
+    }
   };
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    if (isSaving) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData('taskId', taskId);
     setTimeout(() => {
         (e.target as HTMLElement).classList.add('opacity-40');
@@ -116,6 +153,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTa
 
   const handleDrop = (e: React.DragEvent, status: string) => {
     e.preventDefault();
+    if (isSaving) return;
     const taskId = e.dataTransfer.getData('taskId');
     if (taskId) {
       updateStatus(taskId, status);
@@ -123,7 +161,18 @@ const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTa
     setDragOverColumn(null);
   };
 
-  const filteredTasks = tasks.filter(t => selectedBrand === 'All' || t.brand === selectedBrand);
+  const filteredTasks = tasks.filter(t => {
+     if (selectedBrand === 'All') return true;
+     const taskCompany = companies.find(c => c.id === t.brand || c.companyName === t.brand);
+     const taskBrandId = taskCompany ? taskCompany.id : t.brand;
+     const taskBrandName = taskCompany ? taskCompany.companyName : t.brand;
+
+     const filterCompany = companies.find(c => c.id === selectedBrand || c.companyName === selectedBrand);
+     const filterBrandId = filterCompany ? filterCompany.id : selectedBrand;
+     const filterBrandName = filterCompany ? filterCompany.companyName : selectedBrand;
+
+     return taskBrandId === filterBrandId || taskBrandName === filterBrandName;
+  });
 
   return (
     <div className="space-y-10 pb-24 animate-ios-slide-up">
@@ -141,7 +190,8 @@ const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTa
                 setNewTask({ status: 'TODO' as any, priority: 'Medium', brand: selectedBrand !== 'All' ? (companies.find(c => c.id === selectedBrand)?.companyName || selectedBrand) : (companies[0]?.companyName || 'Artisans') });
                 setIsAdding(true);
             }}
-            className="bg-white text-black px-8 py-3.5 squircle-sm font-black uppercase text-[11px] tracking-widest flex items-center gap-3 hover:bg-zinc-200 ios-transition shadow-2xl shadow-white/10 group"
+            disabled={isSaving}
+            className="bg-white text-black px-8 py-3.5 squircle-sm font-black uppercase text-[11px] tracking-widest flex items-center gap-3 hover:bg-zinc-200 ios-transition shadow-2xl shadow-white/10 group disabled:opacity-50"
           >
             <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
             New Task
@@ -178,7 +228,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTa
                 {stageTasks.map(task => (
                   <div 
                     key={task.id} 
-                    draggable
+                    draggable={!isSaving}
                     onDragStart={(e) => handleDragStart(e, task.id)}
                     onDragEnd={handleDragEnd}
                     className={`glass-panel p-6 border border-white/5 squircle-lg bg-zinc-900/40 hover:bg-zinc-900/60 transition-all cursor-grab active:cursor-grabbing active:scale-95 group relative overflow-hidden ${fadingId === task.id ? 'animate-fade-out' : ''}`}
@@ -192,23 +242,29 @@ const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTa
                           <button 
                               onClick={() => handleStartEdit(task)} 
                               title="Edit Task"
-                              className="p-1 opacity-0 group-hover:opacity-100 text-zinc-800 hover:text-white transition-all"
+                              disabled={isSaving}
+                              className="p-1 opacity-0 group-hover:opacity-100 text-zinc-800 hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                           >
                               <Edit2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                         {canDelete && (
-                          <button onClick={() => removeTask(task.id)} className="p-1 opacity-0 group-hover:opacity-100 text-zinc-800 hover:text-red-500 transition-all">
+                          <button 
+                              onClick={() => removeTask(task.id)} 
+                              disabled={isSaving}
+                              className="p-1 opacity-0 group-hover:opacity-100 text-zinc-800 hover:text-red-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
                               <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
                     </div>
 
-                    <h3 className="text-[12px] font-black tracking-tight mb-2 uppercase text-white truncate">
+                     <h3 className="text-[12px] font-black tracking-tight mb-2 uppercase text-white truncate">
                       {task.title}
                     </h3>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-6">{task.client}</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2">{task.client}</p>
+                    <p className="text-[9px] font-bold text-zinc-400 mb-6 uppercase tracking-wider">Assignee: {task.assignee || 'Unassigned'}</p>
 
                     <div className="flex items-center justify-between pt-4 border-t border-white/5">
                       <div className="flex items-center gap-2">
@@ -242,18 +298,18 @@ const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTa
             <form onSubmit={handleCreateTask} className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1 text-left block">Task Title</label>
-                <input required className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white focus:bg-white/10 outline-none ios-transition" placeholder="e.g. Call client for venue visit" value={newTask.title || ''} onChange={e => setNewTask({ ...newTask, title: e.target.value })} />
+                <input required disabled={isSaving} className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white focus:bg-white/10 outline-none ios-transition disabled:opacity-50" placeholder="e.g. Call client for venue visit" value={newTask.title || ''} onChange={e => setNewTask({ ...newTask, title: e.target.value })} />
               </div>
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1 text-left block">Client Name</label>
-                <input required className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white focus:bg-white/10 outline-none ios-transition" placeholder="e.g. Rahul & Sharma" value={newTask.client || ''} onChange={e => setNewTask({ ...newTask, client: e.target.value })} />
+                <input required disabled={isSaving} className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white focus:bg-white/10 outline-none ios-transition disabled:opacity-50" placeholder="e.g. Rahul & Sharma" value={newTask.client || ''} onChange={e => setNewTask({ ...newTask, client: e.target.value })} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2 text-left">
                   <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Due Date</label>
-                  <input type="date" required className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none focus:bg-white/10" value={newTask.dueDate || ''} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
+                  <input type="date" required disabled={isSaving} className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none focus:bg-white/10 disabled:opacity-50" value={newTask.dueDate || ''} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
                 </div>
                 <div className="space-y-2 text-left">
                   <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Brand</label>
@@ -263,7 +319,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTa
                       <span className="ml-2 text-[8px] opacity-40">(Locked by Global Filter)</span>
                     </div>
                   ) : (
-                    <select className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none" value={newTask.brand} onChange={e => setNewTask({ ...newTask, brand: e.target.value })}>
+                    <select disabled={isSaving} className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" value={newTask.brand} onChange={e => setNewTask({ ...newTask, brand: e.target.value })}>
                       <option value="" disabled className="bg-zinc-900">Select Brand...</option>
                       {companies.map(c => (
                         <option key={c.id} className="bg-zinc-900" value={c.companyName}>{c.companyName.split(' ')[0].toUpperCase()}</option>
@@ -276,7 +332,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTa
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2 text-left">
                   <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Priority</label>
-                  <select className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none" value={newTask.priority} onChange={e => setNewTask({ ...newTask, priority: e.target.value as any })}>
+                  <select disabled={isSaving} className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" value={newTask.priority} onChange={e => setNewTask({ ...newTask, priority: e.target.value as any })}>
                     <option className="bg-zinc-900" value="Low">Low</option>
                     <option className="bg-zinc-900" value="Medium">Medium</option>
                     <option className="bg-zinc-900" value="High">High</option>
@@ -285,21 +341,44 @@ const TaskManager: React.FC<TaskManagerProps> = ({ tasks, onSaveTask, onDeleteTa
                 {isEditing && (
                   <div className="space-y-2 text-left">
                     <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Status</label>
-                    <select className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none" value={newTask.status} onChange={e => setNewTask({ ...newTask, status: e.target.value as any })}>
+                    <select disabled={isSaving} className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" value={newTask.status} onChange={e => setNewTask({ ...newTask, status: e.target.value as any })}>
                       {STAGES.map(s => <option key={s.id} className="bg-zinc-900" value={s.id}>{s.label}</option>)}
                     </select>
                   </div>
                 )}
               </div>
 
+              <div className="space-y-2 text-left">
+                <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest px-1">Assignee</label>
+                <select 
+                  disabled={isSaving} 
+                  className="w-full bg-white/5 border border-white/5 squircle-sm p-4 text-sm font-bold text-white outline-none disabled:opacity-50" 
+                  value={newTask.assignedUserId || ''} 
+                  onChange={e => {
+                    const selectedId = e.target.value;
+                    const selectedStaff = staff.find(s => s.id === selectedId);
+                    setNewTask({ 
+                      ...newTask, 
+                      assignedUserId: selectedId || null, 
+                      assignee: selectedStaff ? selectedStaff.name : 'Unassigned' 
+                    });
+                  }}
+                >
+                  <option value="" className="bg-zinc-900">Unassigned</option>
+                  {staff.map(s => (
+                    <option key={s.id} value={s.id} className="bg-zinc-900">{s.name} ({s.role})</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="flex gap-4 pt-10">
-                <button type="button" onClick={() => {
+                <button type="button" disabled={isSaving} onClick={() => {
                     setIsAdding(false);
                     setIsEditing(false);
                     setEditingTaskId(null);
-                }} className="flex-1 py-4 bg-white/5 text-zinc-500 hover:text-white rounded-2xl font-black uppercase text-[10px] tracking-widest border border-white/5 transition-all">Discard</button>
-                <button type="submit" className="flex-1 py-4 bg-white text-black hover:bg-zinc-200 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl transition-all">
-                    {isEditing ? 'Save Changes' : 'Create Task'}
+                }} className="flex-1 py-4 bg-white/5 text-zinc-500 hover:text-white rounded-2xl font-black uppercase text-[10px] tracking-widest border border-white/5 transition-all disabled:opacity-50">Discard</button>
+                <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-white text-black hover:bg-zinc-200 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                    {isSaving ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Task')}
                 </button>
               </div>
             </form>

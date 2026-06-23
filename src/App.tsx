@@ -40,7 +40,7 @@ import CoordinationCenter from './pages/CoordinationCenter';
 import BrandDetailPage from './pages/BrandDetailPage';
 import SecurityHubPage from './pages/SecurityHubPage';
 import StaffPortal from './pages/staff/StaffPortal';
-import { useCompanySettings } from './hooks/useCompanySettings';
+import { useCompanySettings, clearCompanySettingsCache } from './hooks/useCompanySettings';
 import { type UserPermission, type CompanyProfile } from './types';
 import { usePermissions } from './hooks/usePermissions';
 
@@ -281,6 +281,15 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const handleSync = () => {
+      console.log("[SYNC] Tasks update detected. Re-fetching data...");
+      fetchData(true);
+    };
+    window.addEventListener('tasks-updated', handleSync);
+    return () => window.removeEventListener('tasks-updated', handleSync);
+  }, []);
+
+  useEffect(() => {
     if (authRole !== 'none') {
       if (!fetchInitiated.current) {
         fetchInitiated.current = true;
@@ -314,6 +323,19 @@ const App: React.FC = () => {
     } catch (err) {
       console.warn("Logout request failed", err);
     }
+    
+    // Clear hook caches and settings from local storage
+    clearCompanySettingsCache();
+
+    // Reset React data states to clear stale client/user data
+    setClients([]);
+    setInvoices([]);
+    setTasks([]);
+    setBookings([]);
+    setExpenses([]);
+    setDivisions([]);
+    setSelectedCompanyId('All'); // Safeguard workspace selection
+
     removeAuthUser();
     fetchInitiated.current = false;
     setAuthRole('none');
@@ -435,7 +457,10 @@ const App: React.FC = () => {
     c.companyId === selectedCompanyId ||
     c.brandId === selectedCompanyId ||
     c.divisionId === selectedCompanyId ||
-    (selectedCompany && c.brand === selectedCompany.companyName)
+    (selectedCompany && (
+      (c.brand || '').trim().toLowerCase() === selectedCompany.companyName.trim().toLowerCase() ||
+      (c.companyName || '').trim().toLowerCase() === selectedCompany.companyName.trim().toLowerCase()
+    ))
   );
 
   const filteredInvoices = selectedCompanyId === 'All' ? baseInvoices : baseInvoices.filter(i =>
@@ -560,7 +585,7 @@ const App: React.FC = () => {
               <Route path="/setup-account" element={<Navigate to="/" replace />} />
               <Route path="/setup-account/:token" element={<Navigate to="/" replace />} />
 
-              <Route path="/workspace" element={<PermissionRoute allowedRoles={['Staff']}><StaffPortal /></PermissionRoute>} />
+              <Route path="/workspace" element={<PermissionRoute allowedRoles={['Staff']}><StaffPortal selectedBrand={selectedCompanyId} /></PermissionRoute>} />
 
               {/* Management Routes - Admin, Staff, and Client substitution */}
               <Route path="/dashboard" element={<PermissionRoute allowedRoles={['Admin', 'Client']} permission="dashboard">
@@ -628,11 +653,7 @@ const App: React.FC = () => {
               <Route path="/system" element={<Navigate to="/ecosystem" replace />} />
               <Route path="/team" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><TeamPage /></PermissionRoute>} />
               <Route path="/logs" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><AuditLogsView /></PermissionRoute>} />
-              <Route path="/calendar" element={<PermissionRoute allowedRoles={['Admin', 'Client']} permission="tasks"><CoordinationCenter tasks={filteredTasks} clients={filteredClients} invoices={filteredInvoices} onSaveTask={async (t) => { await api.saveTask(t); fetchData(true); }} onDeleteTask={async (id) => {
-                setTasks(prev => prev.filter(task => task.id !== id));
-                await api.deleteTask(id);
-                fetchData(true);
-              }} companies={companies} selectedBrand={selectedCompanyId} /></PermissionRoute>} />
+              <Route path="/calendar" element={<PermissionRoute allowedRoles={['Admin', 'Client']} permission="tasks"><CoordinationCenter clients={filteredClients} invoices={filteredInvoices} companies={companies} selectedBrand={selectedCompanyId} /></PermissionRoute>} />
               <Route path="/settings" element={<PermissionRoute allowedRoles={['Admin']}><CompanySettingsPage /></PermissionRoute>} />
               <Route path="/alerts" element={<PermissionRoute allowedRoles={['Admin']}><AlertsPage /></PermissionRoute>} />
               <Route path="/coordination" element={<PermissionRoute allowedRoles={['Admin']}>
