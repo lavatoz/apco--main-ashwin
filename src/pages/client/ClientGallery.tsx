@@ -69,35 +69,17 @@ const ClientGallery: React.FC<ClientGalleryProps> = ({ client }) => {
             filesApi.getFilesByProject(mainProject.id, 'Edited Photos').catch(() => []),
             filesApi.getFilesByProject(mainProject.id, 'Gallery').catch(() => [])
           ]);
-          
-          console.log('[DIAGNOSTIC] Raw Photos returned:', rawPhotos.length);
-          console.log('[DIAGNOSTIC] Edited Photos returned:', editedPhotos.length);
-          console.log('[DIAGNOSTIC] Legacy Gallery photos returned:', legacyGallery.length);
 
           const merged = [...(rawPhotos || []), ...(editedPhotos || []), ...(legacyGallery || [])];
-          console.log('[DIAGNOSTIC] Total merged files (pre-filtering):', merged.length);
 
           const uniqueMap = new Map<string, any>();
-          const duplicates: string[] = [];
           merged.forEach(f => {
             if (f && f.id) {
-              if (uniqueMap.has(f.id)) {
-                duplicates.push(f.id);
-              } else {
-                uniqueMap.set(f.id, f);
-              }
-            } else {
-              console.log('[DIAGNOSTIC] File excluded (invalid object or missing ID):', f);
+              uniqueMap.set(f.id, f);
             }
           });
 
           const uniqueFiles = Array.from(uniqueMap.values());
-          console.log('[DIAGNOSTIC] Total files after filtering/deduplication:', uniqueFiles.length);
-          console.log('[DIAGNOSTIC] Excluded/duplicated IDs:', duplicates);
-          
-          const categoriesPresent = Array.from(new Set(uniqueFiles.map(f => f.category)));
-          console.log('[DIAGNOSTIC] Categories present in final list:', categoriesPresent);
-
           uniqueFiles.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
           setFiles(uniqueFiles);
         }

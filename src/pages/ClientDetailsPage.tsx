@@ -603,7 +603,6 @@ const ClientDetailsPage: React.FC = () => {
    };
 
    const handleAddFromSearch = () => {
-      console.log("ADDING:", searchQuery);
       if (!searchQuery.trim()) return;
 
       const newItem = builderCategory === 'team'
@@ -717,10 +716,6 @@ const ClientDetailsPage: React.FC = () => {
 
       setFormProjectId(nextProjectId);
       setFormClientId(nextClientId);
-
-      console.log('Active Project:', project);
-      console.log('Active Project ID:', project?.id);
-      console.log('Form Project ID:', nextProjectId);
 
       if (existingDoc) {
          setEditDocId(existingDoc.id);
@@ -863,11 +858,6 @@ const ClientDetailsPage: React.FC = () => {
       const isUuid = (str: string) => uuidRegex.test(str);
 
       const projectId = formProjectId;
-      if (modalType === 'quotation') {
-         console.log('Quotation Project ID:', projectId);
-      } else {
-         console.log('Invoice Project ID:', projectId);
-      }
 
       if (!projectId) {
          alert("Project ID is missing. Please ensure an active project is selected for this client.");

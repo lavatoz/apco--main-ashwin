@@ -127,8 +127,6 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
     setIsLoading(true);
     try {
       const dbUsers = await api.getUsers();
-      console.log("DB USERS:", dbUsers);
-
 
       if (Array.isArray(dbUsers)) {
         const mapped = dbUsers.map((u: any) => {
@@ -288,12 +286,10 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
     }
 
     const targetId = userToDelete.id;
-    console.log(`[DELETE] Initiating deletion for user ID: ${targetId}`);
 
     setIsDeleting(true);
     try {
       await api.deleteStaff(targetId);
-      console.log(`[DELETE] User ID ${targetId} successfully locked/deleted`);
 
       setFadingId(targetId);
       // Wait a moment for fade-out animation

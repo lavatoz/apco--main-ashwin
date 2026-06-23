@@ -289,7 +289,6 @@ const StaffPortal: React.FC<StaffPortalProps> = ({ selectedBrand = 'All' }) => {
     useEffect(() => {
         loadData();
         const handleSync = () => {
-            console.log("[SYNC] Tasks update event detected in StaffPortal, re-fetching...");
             loadData();
         };
         window.addEventListener('tasks-updated', handleSync);
