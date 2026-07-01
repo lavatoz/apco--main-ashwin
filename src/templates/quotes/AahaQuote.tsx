@@ -27,7 +27,9 @@ export const AahaQuote: React.FC<TemplateProps> = ({ company, client, document }
          
          <div className="flex items-center justify-center gap-4 mt-8">
              <div className="h-[1px] w-12 bg-amber-200" />
-             <h2 className="text-xl uppercase tracking-[0.3em] text-amber-800">Quotation</h2>
+             <h2 className="text-xl uppercase tracking-[0.3em] text-amber-800">
+               {document?.type === 'quotation' ? 'Quotation' : 'Invoice'}
+             </h2>
              <div className="h-[1px] w-12 bg-amber-200" />
          </div>
       </div>
@@ -39,8 +41,27 @@ export const AahaQuote: React.FC<TemplateProps> = ({ company, client, document }
          </div>
          <div className="text-right">
             <p className="text-xs uppercase tracking-widest text-amber-700/60 mb-2">Details</p>
-            <p className="text-sm font-medium text-amber-900">Ref: {document?.id}</p>
-            <p className="text-sm font-medium text-amber-900">Date: {document?.issueDate ? new Date(document.issueDate).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}</p>
+            <p className="text-sm font-medium text-amber-900">
+              {document?.type === 'quotation' ? 'Ref' : 'Invoice No'}: {document?.id}
+            </p>
+            <p className="text-sm font-medium text-amber-900">
+              Date: {document?.issueDate ? new Date(document.issueDate).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}
+            </p>
+            {document?.type !== 'quotation' && document?.dueDate && (
+              <p className="text-sm font-medium text-amber-900">
+                Due Date: {new Date(document.dueDate).toLocaleDateString('en-GB')}
+              </p>
+            )}
+            {document?.type !== 'quotation' && document?.status && (
+              <p className="text-sm font-medium text-amber-900">
+                Payment Status: {document.status}
+              </p>
+            )}
+            {document?.type === 'quotation' && document?.status && (
+              <p className="text-sm font-medium text-amber-900">
+                Quote Status: {document.status}
+              </p>
+            )}
          </div>
       </div>
 

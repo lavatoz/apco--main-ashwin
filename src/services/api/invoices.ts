@@ -111,6 +111,7 @@ export function mapFromBackendInvoice(backend: any): Invoice {
     termsSummary: backend.termsSummary,
     templateId: backend.templateId,
     templateVersion: backend.templateVersion,
+    quotationNumber: backend.quotationNumber,
   };
 }
 

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Mail, Phone, Calendar, Briefcase, Plus, ArrowLeft, FileText, IndianRupee, Activity, X, CheckCircle2, Trash2, Edit2, Copy, Download, CreditCard, ChevronRight, Search, Camera, Video, Edit3, Users, AlertTriangle, Clock, Check, Package, MapPin } from 'lucide-react';
+import { Mail, Phone, Calendar, Briefcase, Plus, ArrowLeft, FileText, IndianRupee, Activity, X, CheckCircle2, Trash2, Edit2, Copy, Download, CreditCard, ChevronRight, Search, Camera, Video, Edit3, Users, AlertTriangle, Clock, Check, Package, MapPin, BookOpen } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { type Client, type Invoice, type PaymentRecord, type User as UserType, type IdDocument, type Project, type ProjectStage, type ClientEvent, type StandaloneAgreementTemplate, type StandaloneAgreement } from '../types';
 import { api } from '../services/api';
@@ -12,9 +12,11 @@ import { getAuthUser } from '../utils/storage';
 
 import { WORKFLOW_STAGES, normalizeWorkflowStage, calculateProjectWorkflowProgress } from '../utils/workflowUtils';
 import { DocumentPreviewModal } from '../components/DocumentPreviewModal';
-import { getBrandQuoteTemplate, getBrandInvoiceTemplate } from '../templates/registry';
+import { QuotationSelectionModal } from '../components/modals/QuotationSelectionModal';
+import { getBrandInvoiceTemplate, getBrandQuoteTemplate } from '../templates/registry';
 import { advanceProjectWorkflow, emergencyOverrideWorkflow } from '../utils/workflowEngine';
 import { calculateEventStatusAndProgress } from '../utils/eventUtils';
+import { replaceAgreementPlaceholders } from '../utils/agreementUtils';
 
 const SUGGESTIONS = {
    physical: [
@@ -329,6 +331,17 @@ const ClientDetailsPage: React.FC = () => {
 
    // Personnel Selector Modal State
    const [isPersonnelBrowserOpen, setIsPersonnelBrowserOpen] = useState(false);
+
+   // Quotation selection modal states
+   const [isQuoteSelectorOpen, setIsQuoteSelectorOpen] = useState(false);
+   const [quoteSelectorContext, setQuoteSelectorContext] = useState<{
+      type: 'assign' | 'link-legacy';
+      template?: StandaloneAgreementTemplate;
+      agreementId?: string;
+   } | null>(null);
+   const [isAssigningQuote, setIsAssigningQuote] = useState(false);
+   const quoteSelectorButtonRef = useRef<HTMLButtonElement | null>(null);
+
    const [pendingSelectorAssign, setPendingSelectorAssign] = useState<{
       categoryId: string;
       memberIndex: number;
@@ -680,7 +693,7 @@ const ClientDetailsPage: React.FC = () => {
 
    // Handle body scroll lock for modals
    useEffect(() => {
-      if (isModalOpen || !!previewDoc || isAddStaffModalOpen) {
+      if (isModalOpen || !!previewDoc || isAddStaffModalOpen || isQuoteSelectorOpen) {
          document.body.style.overflow = 'hidden';
       } else {
          document.body.style.overflow = 'auto';
@@ -688,7 +701,7 @@ const ClientDetailsPage: React.FC = () => {
       return () => {
          document.body.style.overflow = 'auto';
       };
-   }, [isModalOpen, previewDoc, isAddStaffModalOpen]);
+   }, [isModalOpen, previewDoc, isAddStaffModalOpen, isQuoteSelectorOpen]);
 
 
    const calculateSubtotal = () => {
@@ -760,21 +773,25 @@ const ClientDetailsPage: React.FC = () => {
       setIsModalOpen(true);
    };
 
-   const handleDeleteQuote = (quoteId: string) => {
-      requestConfirmation({
-         title: "Delete Quote",
-         message: "Are you sure you want to delete this quotation? This action cannot be undone.",
-         tone: "danger",
-         onConfirm: () => {
-            api.deleteInvoice(quoteId)
-               .then(() => {
-                  setClientQuotes(prev => prev.filter(q => q.id !== quoteId));
-                  window.dispatchEvent(new Event("finance-updated"));
-               })
-               .catch(err => console.error("Failed to delete quotation:", err));
-         }
-      });
-   };
+    const handleDeleteQuote = (quoteId: string) => {
+       requestConfirmation({
+          title: "Delete Quote",
+          message: "Are you sure you want to delete this quotation? This action cannot be undone.",
+          tone: "danger",
+          onConfirm: () => {
+             api.deleteQuote(quoteId)
+                .then(() => {
+                   setClientQuotes(prev => prev.filter(q => q.id !== quoteId));
+                   window.dispatchEvent(new Event("finance-updated"));
+                   addToast("Quotation deleted successfully");
+                })
+                .catch(err => {
+                   console.error("Failed to delete quotation:", err);
+                   addToast("Failed to delete quotation: " + (err instanceof Error ? err.message : "Unknown error"));
+                });
+          }
+       });
+    };
 
    const handleDeleteInvoice = (invoiceId: string) => {
       requestConfirmation({
@@ -938,10 +955,15 @@ const ClientDetailsPage: React.FC = () => {
 
       // Stamp the template version used at generation time
       if (!existingDoc) {
-         const resolver = modalType === 'quotation' ? getBrandQuoteTemplate : getBrandInvoiceTemplate;
-         const resolvedTemplate = resolver(selectedCompany.id || selectedCompany.companyName);
-         newDoc.templateId = resolvedTemplate.metadata.id;
-         newDoc.templateVersion = resolvedTemplate.metadata.version;
+         if (modalType === 'quotation') {
+            const resolvedTemplate = getBrandQuoteTemplate(selectedCompany.id || selectedCompany.companyName);
+            newDoc.templateId = resolvedTemplate.metadata.id;
+            newDoc.templateVersion = resolvedTemplate.metadata.version;
+         } else {
+            const resolvedTemplate = getBrandInvoiceTemplate(selectedCompany.id || selectedCompany.companyName);
+            newDoc.templateId = resolvedTemplate.metadata.id;
+            newDoc.templateVersion = resolvedTemplate.metadata.version;
+         }
       }
 
       if (editDocId && modalType !== 'quotation' && newDoc.status !== 'Draft') {
@@ -957,6 +979,11 @@ const ClientDetailsPage: React.FC = () => {
             : await api.saveInvoice(newDoc);
 
          if (modalType === 'quotation') {
+            // Automatically pre-generate the PDF on the backend
+            api.generateQuotationPDF(savedDoc.id).catch(err => {
+               console.error("Failed to pre-generate quotation PDF on backend:", err);
+            });
+
             setClientQuotes(prev => {
                const idx = prev.findIndex(q => q.id === savedDoc.id);
                if (idx >= 0) { const next = [...prev]; next[idx] = savedDoc; return next; }
@@ -981,9 +1008,8 @@ const ClientDetailsPage: React.FC = () => {
             setSuccessMsg(null);
             setEditDocId(null);
 
-            if (modalType === 'quotation' && !draftState) {
-               navigate(`/agreement/${savedDoc.id}`);
-            }
+            // Removed automatic navigation to agreement/confirmation page
+            // Admins must remain on the client page Quotation section.
          }, 1500);
       } catch (err) {
          console.error(err);
@@ -994,27 +1020,92 @@ const ClientDetailsPage: React.FC = () => {
 
 
 
-   const handleAssignToClient = async (temp: StandaloneAgreementTemplate) => {
+   const handleAssignToClient = async (temp: StandaloneAgreementTemplate, e?: React.MouseEvent<HTMLButtonElement>) => {
       if (!client) return;
-      if (confirm(`Assign snapshot of ${temp.name} to this client?`)) {
-         try {
-            await api.assignStandaloneAgreement(client.id, temp.id);
-            alert(`Agreement ${temp.name} assigned to client.`);
+
+      if (e) {
+         quoteSelectorButtonRef.current = e.currentTarget;
+      }
+
+      setQuoteSelectorContext({
+         type: 'assign',
+         template: temp
+      });
+      setIsQuoteSelectorOpen(true);
+   };
+
+   const handleLinkLegacyAgreement = async (agreementId: string, e?: React.MouseEvent<HTMLButtonElement>) => {
+      if (!clientQuotes || clientQuotes.length === 0) {
+         addToast("No quotations found for this client. Please create a quotation first.");
+         return;
+      }
+
+      if (e) {
+         quoteSelectorButtonRef.current = e.currentTarget;
+      }
+
+      setQuoteSelectorContext({
+         type: 'link-legacy',
+         agreementId: agreementId
+      });
+      setIsQuoteSelectorOpen(true);
+   };
+
+   const handleConfirmQuoteSelection = async (selectedQuoteId: string | null) => {
+      if (!client || !quoteSelectorContext) return;
+
+      setIsAssigningQuote(true);
+      try {
+         if (quoteSelectorContext.type === 'assign') {
+            const temp = quoteSelectorContext.template!;
+            await api.assignStandaloneAgreement(client.id, temp.id, selectedQuoteId || undefined);
+            addToast(`Agreement "${temp.name}" assigned successfully.`);
             
             // Re-fetch standalone agreements
             const res = await api.getClientStandaloneAgreement(client.id);
             const agreements = Array.isArray(res) ? res : [res];
             setClientAgreements(agreements);
-         } catch (err: any) {
-            console.error("Failed to assign agreement:", err);
-            const errMsg = err.data?.message || err.message || "";
-            if (errMsg.toLowerCase().includes("already has an active pending agreement")) {
-               addToast("Client already has an active pending agreement");
-            } else {
-               addToast(errMsg || "Failed to assign agreement");
+         } else if (quoteSelectorContext.type === 'link-legacy') {
+            const agreementId = quoteSelectorContext.agreementId!;
+            if (!selectedQuoteId) {
+               addToast("A quotation must be selected for legacy agreements.");
+               setIsAssigningQuote(false);
+               return;
             }
+            await api.linkStandaloneAgreementToQuotation(agreementId, selectedQuoteId);
+            addToast("Agreement successfully linked to quotation.");
+            
+            // Re-fetch standalone agreements
+            const res = await api.getClientStandaloneAgreement(client.id);
+            const agreements = Array.isArray(res) ? res : [res];
+            setClientAgreements(agreements);
          }
+      } catch (err: any) {
+         console.error("Failed to confirm quotation linkage:", err);
+         const errMsg = err.data?.message || err.message || "";
+         if (errMsg.toLowerCase().includes("already has an active pending agreement")) {
+            addToast("Client already has an active pending agreement");
+         } else {
+            addToast(errMsg || "Failed to link agreement");
+         }
+      } finally {
+         setIsAssigningQuote(false);
+         setIsQuoteSelectorOpen(false);
+         // Restore focus to the button that triggered the modal
+         setTimeout(() => {
+            quoteSelectorButtonRef.current?.focus();
+            quoteSelectorButtonRef.current = null;
+         }, 50);
       }
+   };
+
+   const handleCloseQuoteSelector = () => {
+      setIsQuoteSelectorOpen(false);
+      // Restore focus to the button that triggered the modal
+      setTimeout(() => {
+         quoteSelectorButtonRef.current?.focus();
+         quoteSelectorButtonRef.current = null;
+      }, 50);
    };
 
    const handleUploadIdProof = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1672,7 +1763,7 @@ const ClientDetailsPage: React.FC = () => {
                                        </div>
                                     )}
                                  </div>
-                              )
+                              );
                            })
                         )}
                      </div>
@@ -1891,10 +1982,38 @@ const ClientDetailsPage: React.FC = () => {
                                     </div>
                                  </div>
 
+                                 {!currentAgreement.linkedQuoteId && (
+                                    <div className="p-5 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-4">
+                                       <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                                       <div>
+                                          <h4 className="text-xs font-black uppercase tracking-wider text-rose-400 mb-1">Legacy Agreement Detected</h4>
+                                          <p className="text-[11px] font-medium text-zinc-400 leading-normal mb-3">
+                                             This is a legacy agreement and must be relinked to a quotation before a PDF can be generated.
+                                          </p>
+                                          {isAdmin && (
+                                             <button
+                                                onClick={(e) => handleLinkLegacyAgreement(currentAgreement.id, e)}
+                                                className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                             >
+                                                Link to Quotation
+                                             </button>
+                                          )}
+                                       </div>
+                                    </div>
+                                 )}
+
                                  <div className="space-y-2">
                                     <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">Agreement Document Body</span>
                                     <div className="p-6 bg-black/30 rounded-2xl text-sm font-mono text-zinc-400 whitespace-pre-wrap border border-white/5 max-h-[300px] overflow-y-auto custom-scrollbar mb-6">
-                                       {currentAgreement.generatedContent}
+                                       {(() => {
+                                          const linkedQuote = clientQuotes.find((q: any) => q.id === currentAgreement.linkedQuoteId);
+                                          return replaceAgreementPlaceholders(currentAgreement.generatedContent, {
+                                             client,
+                                             quotation: linkedQuote,
+                                             project: project || linkedQuote?.project,
+                                             agreement: currentAgreement
+                                          });
+                                       })()}
                                     </div>
                                  </div>
 
@@ -1937,9 +2056,9 @@ const ClientDetailsPage: React.FC = () => {
                      <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">Agreement History</h3>
                      <p className="text-[12px] font-black text-zinc-500 uppercase tracking-widest mb-6">Historical Log of Assigned Standalone Agreements</p>
 
-                     {clientAgreements && clientAgreements.length > 0 ? (
+                     {clientAgreements && clientAgreements.length > 1 ? (
                         <div className="space-y-3">
-                           {clientAgreements.map((agreement) => (
+                           {clientAgreements.slice(1).map((agreement) => (
                               <div key={agreement.id} className="p-5 bg-black/30 border border-white/5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between group hover:bg-white/5 transition-all">
                                  <div className="mb-4 md:mb-0 space-y-1">
                                     <div className="flex items-center gap-3">
@@ -1973,11 +2092,17 @@ const ClientDetailsPage: React.FC = () => {
                   {/* MASTER TEMPLATES (ADMIN ONLY) */}
                   {isAdmin && (
                      <div className="glass-panel p-8 squircle-md border border-white/5 bg-white/[0.01]">
-                        <div className="flex items-center justify-between mb-8">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                            <div>
-                              <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Standalone Templates</h3>
-                              <p className="text-[12px] font-black text-zinc-500 uppercase tracking-widest">Available templates to assign as a Standalone Agreement</p>
+                              <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Client Agreement Selection</h3>
+                              <p className="text-[12px] font-black text-zinc-500 uppercase tracking-widest">Select an agreement from the master library to deploy to this client</p>
                            </div>
+                           <a 
+                              href="/settings?tab=agreements"
+                              className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all border border-white/10 flex items-center gap-1.5 shrink-0"
+                           >
+                              <BookOpen className="w-3.5 h-3.5 text-primary" /> Manage Agreement Library
+                           </a>
                         </div>
 
                         <div className="space-y-3">
@@ -1997,7 +2122,7 @@ const ClientDetailsPage: React.FC = () => {
                                     </div>
                                     <div className="flex items-center gap-2">
                                        <button
-                                          onMouseDown={(e) => { e.preventDefault(); handleAssignToClient(temp); }}
+                                          onClick={(e) => handleAssignToClient(temp, e)}
                                           className={`px-4 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow border ${isAssigned
                                              ? 'bg-primary text-black border-primary'
                                              : 'bg-primary/10 text-primary hover:bg-primary/20 border-primary/20'
@@ -3141,6 +3266,18 @@ const ClientDetailsPage: React.FC = () => {
                company={companies.find(c => c.id === previewDoc.brandId) || companies.find(c => c.companyName === previewDoc.brand) || currentContextCompany || companies[0]}
                type={previewDoc.type === 'quotation' ? 'quote' : 'invoice'}
                onClose={() => setPreviewDoc(null)}
+            />
+            , document.body)}
+
+         {isQuoteSelectorOpen && createPortal(
+            <QuotationSelectionModal
+               isOpen={isQuoteSelectorOpen}
+               onClose={handleCloseQuoteSelector}
+               quotations={clientQuotes}
+               onConfirm={handleConfirmQuoteSelection}
+               isLoading={isAssigningQuote}
+               title={quoteSelectorContext?.type === 'link-legacy' ? 'Link Legacy Agreement' : 'Link Agreement Quotation'}
+               confirmLabel={quoteSelectorContext?.type === 'link-legacy' ? 'Link to Quotation' : 'Assign Agreement'}
             />
             , document.body)}
 

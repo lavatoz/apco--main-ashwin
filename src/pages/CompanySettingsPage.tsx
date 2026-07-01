@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import { type CompanyProfile } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -13,9 +14,13 @@ import {
 import { saveCustomTemplate } from '../templates/registry';
 import { TemplateEditor } from '../components/TemplateEditor';
 import { ThemeStudio } from '../components/settings/ThemeStudio';
+import { AgreementTemplateManager } from '../components/settings/AgreementTemplateManager';
 import { THEME_PRESETS, GRAPHICS_PRESETS, TYPOGRAPHY_PRESETS } from '../utils/themeEngine';
 
 const CompanySettingsPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'agreements' ? 'agreements' : 'brands';
+
   const { companies, saveCompanies, globalSettings, saveGlobalSettings } = useCompanySettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyProfile | null>(null);
@@ -196,7 +201,7 @@ const CompanySettingsPage: React.FC = () => {
     <div className="max-w-7xl mx-auto pb-32 animate-ios-fade-in font-sans">
       
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div>
            <h1 className="text-5xl font-black text-white uppercase tracking-tighter mb-3 transition-colors hover:text-blue-400">
               Settings
@@ -213,6 +218,37 @@ const CompanySettingsPage: React.FC = () => {
         )}
       </div>
 
+      {/* Main Settings Navigation Tabs */}
+      <div className="flex items-center gap-4 border-b border-white/5 pb-4 mb-10 overflow-x-auto no-scrollbar">
+        <button
+          onClick={() => setSearchParams({ tab: 'brands' })}
+          className={`flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all ${
+            activeTab === 'brands'
+              ? 'bg-white text-black shadow-xl scale-[1.02]'
+              : 'bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white'
+          }`}
+        >
+          <Building className="w-4 h-4" />
+          <span>Brand Portals & Ecosystem</span>
+        </button>
+
+        <button
+          onClick={() => setSearchParams({ tab: 'agreements' })}
+          className={`flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all ${
+            activeTab === 'agreements'
+              ? 'bg-white text-black shadow-xl scale-[1.02]'
+              : 'bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Agreement Templates</span>
+        </button>
+      </div>
+
+      {activeTab === 'agreements' ? (
+        <AgreementTemplateManager />
+      ) : (
+        <>
       {/* Companies Grid */}
       <section className="space-y-10">
         <div className="flex items-center gap-4 border-b border-white/5 pb-6">
@@ -841,7 +877,9 @@ const CompanySettingsPage: React.FC = () => {
                </div>
             </div>
          </div>
-      </section>
+       </section>
+       </>
+      )}
       {/* Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-12 pt-safe md:pt-12">

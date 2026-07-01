@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
   CheckCircle2, Upload, ArrowLeft, ShieldCheck, 
   Info, AlertCircle
@@ -10,13 +10,33 @@ import { api } from '../services/api';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { agreementTemplates, getTemplate } from '../templates/registry';
+import { replaceAgreementPlaceholders } from '../utils/agreementUtils';
+import { getAuthUser } from '../utils/storage';
 
 const AgreementPage: React.FC = () => {
   const { quoteId } = useParams<{ quoteId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [quote, setQuote] = useState<Invoice | null>(null);
   const [client, setClient] = useState<Client | null>(null);
+
+  const handleBack = () => {
+    if (location.state && (location.state as any).from) {
+      navigate((location.state as any).from, { state: location.state });
+      return;
+    }
+    if (window.history.length > 2 && document.referrer && document.referrer.includes(window.location.host)) {
+      navigate(-1);
+    } else {
+      const user = getAuthUser();
+      if (user?.role === 'Client') {
+        navigate('/invoices');
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  };
   const [isOrphaned, setIsOrphaned] = useState(false);
   const { settings } = useCompanySettings();
   const [isAgreed, setIsAgreed] = useState(false);
@@ -277,7 +297,7 @@ const AgreementPage: React.FC = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
            <div className="flex items-center gap-6">
-              <button onClick={() => navigate(-1)} className="p-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-zinc-500 hover:text-white transition-all active:scale-90">
+              <button onClick={handleBack} className="p-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-zinc-500 hover:text-white transition-all active:scale-90">
                  <ArrowLeft className="w-5 h-5" />
               </button>
               <div className="flex items-center gap-4 border-l border-white/10 pl-6">
@@ -323,19 +343,28 @@ const AgreementPage: React.FC = () => {
 
               {/* Dynamic Template Injection */}
               <div className="relative">
-                {(() => {
-                   const templateId = settings.defaultAgreementTemplate || 'default_v1';
-                   const TemplateComponent = getTemplate(agreementTemplates, templateId, 'default_v1').component;
-                   
-                   return (
-                     <TemplateComponent 
-                        company={settings} 
-                        client={client || undefined} 
-                        document={quote} 
-                        agreement={client?.activeAgreement} 
-                     />
-                   );
-                })()}
+                 {(() => {
+                    const templateId = settings.defaultAgreementTemplate || 'default_v1';
+                    const TemplateComponent = getTemplate(agreementTemplates, templateId, 'default_v1').component;
+                    const processedAgreement = client?.activeAgreement ? {
+                       ...client.activeAgreement,
+                       body: replaceAgreementPlaceholders(client.activeAgreement.body, {
+                          client,
+                          quotation: quote,
+                          agreement: client.activeAgreement,
+                          company: settings
+                       })
+                    } : undefined;
+                    
+                    return (
+                      <TemplateComponent 
+                         company={settings} 
+                         client={client || undefined} 
+                         document={quote} 
+                         agreement={processedAgreement} 
+                      />
+                    );
+                 })()}
               </div>
 
               {/* Checkbox / Status (Business Logic separated from Presentation) */}

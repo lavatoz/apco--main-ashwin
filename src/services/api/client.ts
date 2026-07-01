@@ -1,30 +1,19 @@
-import { safeParse } from '../../utils/storage';
+import { safeParse, getActiveRole } from '../../utils/storage';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-const getActiveRole = (): string => {
-  if (typeof window === 'undefined') return 'Admin';
-  return sessionStorage.getItem('active_role') || 'Admin';
-};
-
 export const getAccessToken = () => {
   const role = getActiveRole();
-  return sessionStorage.getItem(`access_token_${role.toLowerCase()}`) || null;
+  const key = `access_token_${role.toLowerCase()}`;
+  return sessionStorage.getItem(key) || localStorage.getItem(key) || null;
 };
 
 export const setAccessToken = (token: string) => {
   const role = getActiveRole();
+  const key = `access_token_${role.toLowerCase()}`;
 
-  console.log('[AUTH] Saving access token');
-  console.log('[AUTH] Role =', role);
-  console.log('[AUTH] Key =', `access_token_${role.toLowerCase()}`);
-
-  sessionStorage.setItem(`access_token_${role.toLowerCase()}`, token);
-
-  console.log(
-    '[AUTH] Stored value =',
-    sessionStorage.getItem(`access_token_${role.toLowerCase()}`)
-  );
+  sessionStorage.setItem(key, token);
+  localStorage.setItem(key, token);
 };
 
 export const getRefreshToken = () => {
@@ -39,7 +28,9 @@ export const setRefreshToken = (token: string) => {
 
 export const clearTokens = () => {
   const role = getActiveRole();
-  sessionStorage.removeItem(`access_token_${role.toLowerCase()}`);
+  const key = `access_token_${role.toLowerCase()}`;
+  sessionStorage.removeItem(key);
+  localStorage.removeItem(key);
   localStorage.removeItem(`refresh_token_${role.toLowerCase()}`);
 };
 
@@ -83,6 +74,10 @@ const onRefreshed = (token: string) => {
 const handleLogoutRedirect = () => {
   clearTokens();
   if (typeof window !== 'undefined') {
+    localStorage.removeItem('auth_user_admin');
+    localStorage.removeItem('auth_user_client');
+    localStorage.removeItem('auth_user_staff');
+    sessionStorage.removeItem('active_role');
     window.location.href = '/login';
   }
 };

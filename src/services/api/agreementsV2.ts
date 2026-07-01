@@ -6,10 +6,10 @@ export const agreementsV2 = {
     return fetchApi('/standalone-agreement-templates');
   },
 
-  assignStandaloneAgreement: async (clientId: string, templateId: string): Promise<StandaloneAgreement> => {
+  assignStandaloneAgreement: async (clientId: string, templateId: string, linkedQuoteId?: string): Promise<StandaloneAgreement> => {
     return fetchApi('/standalone-agreements/assign', {
       method: 'POST',
-      body: JSON.stringify({ clientId, templateId })
+      body: JSON.stringify({ clientId, templateId, linkedQuoteId })
     });
   },
 
@@ -80,6 +80,13 @@ export const agreementsV2 = {
       throw new Error('Failed to fetch signature image blob');
     }
     return response.blob();
+  },
+
+  linkStandaloneAgreementToQuotation: async (agreementId: string, linkedQuoteId: string): Promise<any> => {
+    return fetchApi(`/standalone-agreements/${agreementId}/link-quotation`, {
+      method: 'POST',
+      body: JSON.stringify({ linkedQuoteId })
+    });
   }
 };
 

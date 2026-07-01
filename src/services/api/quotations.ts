@@ -30,5 +30,32 @@ export const quotations = {
       result = await fetchApi('/quotations', { method: 'POST', body: JSON.stringify(payload) });
     }
     return mapFromBackendInvoice(result);
+  },
+
+  generateQuotationPDF: async (id: string): Promise<{ success: boolean; fileId: string; fileName: string; viewLink: string }> => {
+    checkClientBlock("Generate Quotation PDF");
+    return fetchApi(`/quotations/${id}/generate-pdf`, { method: 'POST' });
+  },
+
+  acceptQuotation: async (id: string, quote?: Invoice): Promise<any> => {
+    checkClientBlock("Accept Quotation");
+    if (isUuid(id)) {
+      return fetchApi(`/quotations/${id}/accept`, { method: 'POST' });
+    }
+    const updatedQuote: any = { ...quote, status: 'ACCEPTED' };
+    try {
+      await quotations.saveQuote(updatedQuote);
+    } catch (err) {
+      console.warn("Save quote fallback failed during acceptQuotation:", err);
+    }
+  },
+
+  deleteQuote: async (id: string): Promise<void> => {
+    checkClientBlock("Delete Quote");
+    if (isUuid(id)) {
+      await fetchApi(`/quotations/${id}`, { method: 'DELETE' });
+    } else {
+      console.warn("Skipping deletion of mock/non-UUID quotation ID:", id);
+    }
   }
 };

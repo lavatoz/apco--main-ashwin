@@ -11,6 +11,8 @@ import {
   RefreshCw,
   Loader2,
   AlertCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { getAuthUser } from "../utils/storage";
 import { type User, type UserPermission } from "../types";
@@ -40,6 +42,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [isClientPanelOpen, setIsClientPanelOpen] = useState(false);
   const [selectedClientUser, setSelectedClientUser] = useState<User | null>(null);
@@ -311,6 +314,7 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
   const openEditModal = (user: User) => {
     setSelectedUser(user);
     setIsModalOpen(true);
+    setShowPassword(false);
   };
 
   const savePermissions = async () => {
@@ -981,13 +985,23 @@ const UserAccessManager: React.FC<UserAccessManagerProps> = () => {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold uppercase text-zinc-400 tracking-[0.2em] px-1">Security Token (Password)</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-xs font-mono text-white outline-none focus:border-white/20 transition-all"
-                  value={selectedUser.password || ""}
-                  onChange={(e) => setSelectedUser({ ...selectedUser, password: e.target.value })}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className="w-full bg-white/5 border border-white/5 rounded-xl p-4 pr-12 text-xs font-mono text-white outline-none focus:border-white/20 transition-all"
+                    value={selectedUser.password || ""}
+                    onChange={(e) => setSelectedUser({ ...selectedUser, password: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white focus:outline-none transition-colors"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">

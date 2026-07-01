@@ -275,6 +275,50 @@ const App: React.FC = () => {
     return () => window.removeEventListener('tasks-updated', handleSync);
   }, []);
 
+  // Cross-tab multi-session synchronization & Tab activation listeners
+  useEffect(() => {
+    const syncAuthState = () => {
+      const currentUser = getAuthUser();
+      if (currentUser) {
+        const newRole = currentUser.role as AuthRole;
+        setAuthRole(prev => (prev !== newRole ? newRole : prev));
+        const newName = currentUser.name || currentUser.email?.split('@')[0] || '';
+        setLoggedInUserName(prev => (prev !== newName ? newName : prev));
+      } else {
+        setAuthRole('none');
+        sessionStorage.removeItem('active_role');
+      }
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (!e.key || e.key.startsWith('auth_user_') || e.key.startsWith('access_token_')) {
+        syncAuthState();
+      }
+    };
+
+    const handleTabReactivation = () => {
+      syncAuthState();
+    };
+
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        syncAuthState();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('visibilitychange', handleTabReactivation);
+    window.addEventListener('focus', handleTabReactivation);
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('visibilitychange', handleTabReactivation);
+      window.removeEventListener('focus', handleTabReactivation);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, []);
+
   useEffect(() => {
     if (authRole !== 'none') {
       if (!fetchInitiated.current) {

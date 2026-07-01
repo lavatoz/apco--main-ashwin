@@ -444,7 +444,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
                                  <span className="text-[9px] font-black uppercase text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md mt-1 inline-block">Review Required</span>
                               </div>
                               <button 
-                                onClick={() => navigate(`/agreement/${quote.id}`)}
+                                onClick={() => navigate('/agreements')}
                                 className="bg-white text-black px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all flex items-center gap-2 group-hover:translate-x-1"
                               >
                                 Approve Quote <ChevronRight className="w-4 h-4" />
