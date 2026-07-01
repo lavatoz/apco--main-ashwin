@@ -50,6 +50,67 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
   // Create Client States
   const [isAddingClient, setIsAddingClient] = useState(false);
 
+  // Ref to track which client IDs have already initiated a backend fetch to avoid duplicates
+  const fetchedClientsRef = useRef<Set<string>>(new Set());
+
+  const navigateToClientProject = async (rawId: string) => {
+    let clientId = rawId;
+    let targetProjectId = '';
+
+    // Step 1: Detect and handle project-prefixed IDs (e.g. "proj-projectId" from deliverables)
+    if (rawId.startsWith('proj-')) {
+      const parsedProjectId = rawId.substring(5);
+      const memProj = projects.find(p => String(p.id) === String(parsedProjectId) || String(p._id) === String(parsedProjectId));
+      if (memProj) {
+        targetProjectId = memProj.id || memProj._id || '';
+        clientId = memProj.clientId;
+      } else {
+        try {
+          const p = await api.getProjectById(parsedProjectId);
+          if (p) {
+            targetProjectId = p.id || p._id || '';
+            clientId = p.clientId;
+          }
+        } catch (e) {
+          console.warn("Failed to fetch project by ID from backend:", e);
+        }
+      }
+    }
+
+    // Step 2: Try resolving from in-memory state using clientId
+    if (!targetProjectId) {
+      const clientProjects = projects.filter(p => String(p.clientId) === String(clientId));
+      if (clientProjects.length > 0) {
+        // Prioritize active (non-Completed) projects
+        const activeProj = clientProjects.find(p => p.status !== 'Completed') || clientProjects[0];
+        targetProjectId = activeProj.id || activeProj._id || '';
+      }
+    }
+
+    // Step 3: Fetch fresh list from backend if still not resolved and not fetched yet
+    if (!targetProjectId && !fetchedClientsRef.current.has(clientId)) {
+      fetchedClientsRef.current.add(clientId);
+      try {
+        const fetchedProjects = await api.getProjects();
+        setProjects(fetchedProjects);
+        const clientProjects = fetchedProjects.filter(p => String(p.clientId) === String(clientId));
+        if (clientProjects.length > 0) {
+          const activeProj = clientProjects.find(p => p.status !== 'Completed') || clientProjects[0];
+          targetProjectId = activeProj.id || activeProj._id || '';
+        }
+      } catch (err) {
+        console.error("Failed to fetch projects from backend for navigation:", err);
+      }
+    }
+
+    // Step 4: Perform final navigation decision
+    if (targetProjectId) {
+      navigate(`/project/${targetProjectId}`);
+    } else {
+      navigate(`/client/${clientId}`);
+    }
+  };
+
   const isAdmin = userRole === 'Admin';
 
   const confirmDelete = async () => {
@@ -387,7 +448,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {todayEvents.map((ev, idx) => (
-              <div key={ev.id || idx} onClick={() => navigate(`/project/${ev.clientId}`)} className="p-4 md:p-6 bg-emerald-950/20 border border-primary/20 rounded-3xl relative overflow-hidden group cursor-pointer hover:bg-emerald-950/40 transition-colors">
+              <div key={ev.id || idx} onClick={() => navigateToClientProject(ev.clientId)} className="p-4 md:p-6 bg-emerald-950/20 border border-primary/20 rounded-3xl relative overflow-hidden group cursor-pointer hover:bg-emerald-950/40 transition-colors">
                 <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
                 <div className="flex items-start justify-between mb-4">
                   <div>
@@ -436,7 +497,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
             {alerts.filter(g => g.highestPriority === 1).slice(0, 3).map((group, idx) => (
                <div 
                   key={idx} 
-                  onClick={() => navigate(`/project/${group.clientId}`)}
+                  onClick={() => navigateToClientProject(group.clientId)}
                   className={`p-4 md:p-6 rounded-3xl border flex flex-col gap-4 group hover:bg-white/10 ios-transition cursor-pointer ${group.highestPriority === 1 ? 'border-red-500/20 bg-red-500/5' : group.highestPriority === 2 ? 'border-amber-500/20 bg-amber-500/5' : 'border-primary/20 bg-primary/5'}`}
                 >
                   <div className="flex items-center gap-3 border-b border-white/5 pb-3">
@@ -486,7 +547,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, tasks, selectedBrand, us
               return (
               <div 
                 key={ev.id || idx} 
-                onClick={() => ev.clientId && navigate(`/project/${ev.clientId}`)}
+                onClick={() => ev.clientId && navigateToClientProject(ev.clientId)}
                 className="p-4 bg-white/5 rounded-2xl flex items-center gap-4 border border-white/5 cursor-pointer hover:bg-white/10 transition-all active:scale-[0.98] group"
               >
                 <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-black transition-all">

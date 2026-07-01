@@ -1,9 +1,19 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { type TemplateProps } from '../types';
 import { Lock, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { replaceAgreementPlaceholders } from '../../utils/agreementUtils';
 
-export const DefaultAgreement: React.FC<TemplateProps> = ({ company, agreement }) => {
+export const DefaultAgreement: React.FC<TemplateProps> = ({ company, client, document, agreement }) => {
   const isAgreed = agreement?.status === 'accepted';
+  const processedBody = useMemo(() => {
+    if (!agreement?.body) return '';
+    return replaceAgreementPlaceholders(agreement.body, {
+      company,
+      client,
+      quotation: document,
+      agreement,
+    });
+  }, [agreement, company, client, document]);
 
   return (
     <div className="glass-panel p-10 squircle-lg border border-white/5 bg-white/[0.01] relative flex flex-col min-h-[600px] w-full max-w-4xl mx-auto">
@@ -18,7 +28,7 @@ export const DefaultAgreement: React.FC<TemplateProps> = ({ company, agreement }
        >
           {agreement?.body ? (
              <div className="whitespace-pre-wrap py-2">
-                {agreement.body}
+                {processedBody}
              </div>
           ) : (
              <div className="py-20 text-center space-y-4 opacity-50">

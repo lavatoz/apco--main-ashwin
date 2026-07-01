@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import {
@@ -101,7 +101,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
   const combinedExpenses = Array.from(new Map([...expenses, ...localExpenses].map(e => [e.id, e])).values());
   const allBrands = Array.from(new Set(companies.map(c => c.companyName)));
 
-  const unifiedRecords = React.useMemo(() => {
+  const unifiedRecords = useMemo(() => {
     const records: FinancialRecord[] = [];
 
     invoices.forEach(inv => {
@@ -145,7 +145,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
     return records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [invoices, combinedExpenses, selectedBrand, clients]);
 
-  const filteredRecords = React.useMemo(() => {
+  const filteredRecords = useMemo(() => {
     return unifiedRecords.filter(r => {
       if (activeTab === 'all') return true;
       if (activeTab === 'unpaid') return r.type === 'income' && r.status.toLowerCase() === 'unpaid';

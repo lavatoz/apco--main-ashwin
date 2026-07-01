@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { type Invoice, type Client, type CompanyProfile } from '../types';
-import { quoteTemplates, invoiceTemplates, getTemplate } from '../templates/registry';
+import { quoteTemplates, invoiceTemplates, getBrandQuoteTemplate, getBrandInvoiceTemplate } from '../templates/registry';
 import { type CustomTemplateMetadata } from '../templates/types';
-import { X, Printer, Download } from 'lucide-react';
+import { X, Printer, Download, Loader2 } from 'lucide-react';
 import { generateInvoicePDF } from '../utils/pdfGenerator';
+import { api } from '../services/api';
 
 interface DocumentPreviewModalProps {
   documentData: Invoice | any;
@@ -15,17 +16,109 @@ interface DocumentPreviewModalProps {
 
 export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ documentData, client, company, type, onClose }) => {
   const registry = type === 'quote' ? quoteTemplates : invoiceTemplates;
-  const templateId = type === 'quote' ? company.defaultQuoteTemplate : company.defaultInvoiceTemplate;
-  const templateDef = getTemplate(registry, templateId || 'default_v1', 'default_v1');
+  const isAaha = (company.companyName || company.id || '').toLowerCase().includes('aaha');
+  const docTemplateId = documentData?.templateId;
+  const companyTemplateId = type === 'quote' ? company.defaultQuoteTemplate : company.defaultInvoiceTemplate;
+  const templateId = isAaha 
+    ? 'apco_master_v1'
+    : ((docTemplateId && registry[docTemplateId]) ? docTemplateId : companyTemplateId);
+    
+  const brandResolver = type === 'quote' ? getBrandQuoteTemplate : getBrandInvoiceTemplate;
+  const resolvedBrandTemplate = brandResolver(company.id || company.companyName);
+  const templateDef = templateId && registry[templateId]
+    ? registry[templateId]
+    : resolvedBrandTemplate;
+
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadPdf = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        if (type === 'quote') {
+          const res = await api.generateQuotationPDF(documentData.id);
+          if (res.success && res.fileId) {
+            const blob = await api.getFileBlob(res.fileId);
+            if (active) {
+              const url = URL.createObjectURL(blob);
+              setPdfUrl(url);
+            }
+          } else {
+            if (active) {
+              setError("Unable to load quotation PDF. Please try again later or contact an administrator.");
+            }
+          }
+        } else {
+          // Generate Invoice PDF on the fly using frontend jsPDF renderer
+          const doc = await generateInvoicePDF(documentData, client, company, false);
+          const blob = doc.output('blob');
+          if (active) {
+            const url = URL.createObjectURL(blob);
+            setPdfUrl(url);
+          }
+        }
+      } catch (err: any) {
+        console.error(`[PREVIEW] Error generating/fetching ${type} PDF:`, err);
+        if (active) {
+          setError(`Unable to load ${type} PDF. Please try again later or contact an administrator.`);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+    loadPdf();
+
+    return () => {
+      active = false;
+    };
+  }, [documentData.id, type, client, company]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+    };
+  }, [pdfUrl]);
 
   const handleDownload = async () => {
-    // Generate PDF using existing pdfGenerator logic
-    // We will update pdfGenerator to handle these new templates natively next.
-    await generateInvoicePDF(documentData, client, company);
+    if (type === 'quote') {
+      try {
+        const res = await api.generateQuotationPDF(documentData.id);
+        if (res.success && res.fileId) {
+          await api.downloadProjectFile(res.fileId, res.fileName || `Quotation_${documentData.id}.pdf`);
+        } else {
+          alert("Failed to generate quotation PDF.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Failed to download backend-generated quotation PDF.");
+      }
+    } else {
+      // Generate PDF using existing pdfGenerator logic
+      await generateInvoicePDF(documentData, client, company);
+    }
   };
 
   const handlePrint = () => {
-    window.print();
+    if (iframeRef.current) {
+      try {
+        iframeRef.current.contentWindow?.focus();
+        iframeRef.current.contentWindow?.print();
+      } catch (err) {
+        console.error("[PREVIEW] Iframe printing failed, falling back to window.print():", err);
+        window.print();
+      }
+    } else {
+      window.print();
+    }
   };
 
   return (
@@ -51,16 +144,25 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-8 print:p-0 flex justify-center bg-zinc-900 print:bg-white print:overflow-visible">
-         <div id="document-preview-container" className="print:w-full print:max-w-none print:shadow-none shadow-2xl relative w-full max-w-[210mm] min-h-[297mm]">
-            {templateDef.metadata.type === 'react' && templateDef.component ? (
-               <templateDef.component company={company} client={client} document={documentData} />
-            ) : templateDef.metadata.type === 'canva_image' ? (
-               <CustomImageRenderer metadata={templateDef.metadata as CustomTemplateMetadata} documentData={documentData} client={client} company={company} />
-            ) : (
-               <div className="p-12 text-center text-zinc-500">
-                  <p>Unsupported template type.</p>
-               </div>
-            )}
+         <div className="w-full max-w-[210mm] min-h-[297mm] flex items-center justify-center">
+           {loading ? (
+             <div className="flex flex-col items-center justify-center text-zinc-400 gap-4">
+               <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+               <p className="text-xs font-black uppercase tracking-[0.2em]">Generating Premium PDF...</p>
+             </div>
+           ) : error ? (
+             <div className="p-12 text-center text-red-400 bg-red-950/20 border border-red-900/30 rounded-2xl max-w-md">
+               <p className="font-black uppercase tracking-wider mb-2">Preview Generation Failed</p>
+               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{error}</p>
+             </div>
+           ) : pdfUrl ? (
+             <iframe
+               ref={iframeRef}
+               src={pdfUrl}
+               className="w-full h-[297mm] border-0 rounded-2xl shadow-2xl bg-zinc-950"
+               title={`${type === 'quote' ? 'Quotation' : 'Invoice'} ${documentData.id}`}
+             />
+           ) : null}
          </div>
       </div>
     </div>
@@ -68,7 +170,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
 };
 
 // Sub-component to render uploaded image with mapped fields
-const CustomImageRenderer: React.FC<{ metadata: CustomTemplateMetadata, documentData: any, client: Client, company: CompanyProfile }> = ({ metadata, documentData, client, company }) => {
+export const CustomImageRenderer: React.FC<{ metadata: CustomTemplateMetadata, documentData: any, client: Client, company: CompanyProfile }> = ({ metadata, documentData, client, company }) => {
    const fields = metadata.fieldMap;
    
    const items = documentData?.items || [];

@@ -6,6 +6,26 @@ const CLOUD_CONFIG_KEY = 'apco_cloud_config';
 const delay = (ms: number = 400) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const workflow = {
+  // Workflow V2 Endpoints
+  getProjectWorkflow: async (projectId: string) => {
+    return fetchApi(`/projects/${projectId}/workflow`);
+  },
+  initializeProjectWorkflow: async (projectId: string) => {
+    return fetchApi(`/projects/${projectId}/workflow`, {
+      method: 'POST'
+    });
+  },
+  updateProjectWorkflowStage: async (
+    projectId: string,
+    stageId: string,
+    payload: { status?: string; ownerId?: string | null; notes?: string }
+  ) => {
+    return fetchApi(`/projects/${projectId}/workflow/${stageId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    });
+  },
+
   // Workflow Timeline Events
   getProjectTimeline: async (projectId: string) => {
     return fetchApi(`/workflow/projects/${projectId}/timeline`);

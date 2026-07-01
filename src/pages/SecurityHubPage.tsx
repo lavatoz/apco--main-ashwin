@@ -76,12 +76,26 @@ export const SecurityHubPage: React.FC = () => {
   };
 
   const handleExportPDF = async (invoice: Invoice) => {
-    const client = clients.find(c => c.id === invoice.clientId) || { id: invoice.clientId, name: 'Private Client', projectName: 'Private Client', notes: '' } as Client;
-    // Get associated company settings or default
-    const matchedCompany = companies.find(comp => comp.companyName === invoice.brand || comp.projectType === client.projectType) || companies[0];
-    
-    // Trigger the pdfGenerator.ts
-    await generateInvoicePDF(invoice, client, matchedCompany);
+    if (invoice.type === 'quotation' || invoice.isQuotation) {
+      try {
+        const res = await api.generateQuotationPDF(invoice.id);
+        if (res.success && res.fileId) {
+          await api.downloadProjectFile(res.fileId, res.fileName || `Quotation_${invoice.id}.pdf`);
+        } else {
+          alert("Failed to generate quotation PDF.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Failed to export backend-generated quotation PDF.");
+      }
+    } else {
+      const client = clients.find(c => c.id === invoice.clientId) || { id: invoice.clientId, name: 'Private Client', projectName: 'Private Client', notes: '' } as Client;
+      // Get associated company settings or default
+      const matchedCompany = companies.find(comp => comp.companyName === invoice.brand || comp.projectType === client.projectType) || companies[0];
+      
+      // Trigger the pdfGenerator.ts
+      await generateInvoicePDF(invoice, client, matchedCompany);
+    }
   };
 
   const filteredInvoices = invoices.filter(inv => {

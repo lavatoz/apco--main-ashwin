@@ -10,6 +10,7 @@ import { ArtisansInvoice } from './invoices/ArtisansInvoice';
 import { AahaInvoice } from './invoices/AahaInvoice';
 import { TinyToesInvoice } from './invoices/TinyToesInvoice';
 import { ArtisansCustomInvoice } from './invoices/ArtisansCustomInvoice';
+import { ApcoMasterTemplate } from './invoices/ApcoMasterTemplate';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STATIC REGISTRIES
@@ -27,6 +28,10 @@ export const agreementTemplates: Record<string, RegistryItem> = {
 };
 
 export const quoteTemplates: Record<string, RegistryItem> = {
+  'apco_master_v1': {
+    metadata: { id: 'apco_master_v1', name: 'APCO Premium Master', description: 'Unified premium master design', version: '1.0.0', type: 'react', documentType: 'quote' },
+    component: ApcoMasterTemplate
+  },
   'artisans_q_v1': {
     metadata: { id: 'artisans_q_v1', name: 'Artisans Premium', description: 'Dark, minimalist design', version: '1.0.0', type: 'react', documentType: 'quote' },
     component: ArtisansQuote
@@ -42,6 +47,10 @@ export const quoteTemplates: Record<string, RegistryItem> = {
 };
 
 export const invoiceTemplates: Record<string, RegistryItem> = {
+  'apco_master_v1': {
+    metadata: { id: 'apco_master_v1', name: 'APCO Premium Master', description: 'Unified premium master design', version: '1.0.0', type: 'react', documentType: 'invoice' },
+    component: ApcoMasterTemplate
+  },
   'artisans_i_v1': {
     metadata: { id: 'artisans_i_v1', name: 'Artisans Premium', description: 'Dark, minimalist design', version: '1.0.0', type: 'react', documentType: 'invoice' },
     component: ArtisansInvoice
@@ -70,21 +79,21 @@ export const proposalTemplates: Record<string, RegistryItem> = {};
 
 /** Canonical brand keyword → template id maps */
 const BRAND_QUOTE_MAP: Record<string, string> = {
-  aaha: 'aaha_q_v1',
-  'aaha kalyanam': 'aaha_q_v1',
-  tinytoes: 'tinytoes_q_v1',
-  'tiny toes': 'tinytoes_q_v1',
-  artisans: 'artisans_q_v1',
-  'artisans production': 'artisans_q_v1',
+  aaha: 'apco_master_v1',
+  'aaha kalyanam': 'apco_master_v1',
+  tinytoes: 'apco_master_v1',
+  'tiny toes': 'apco_master_v1',
+  artisans: 'apco_master_v1',
+  'artisans production': 'apco_master_v1',
 };
 
 const BRAND_INVOICE_MAP: Record<string, string> = {
-  aaha: 'aaha_i_v1',
-  'aaha kalyanam': 'aaha_i_v1',
-  tinytoes: 'tinytoes_i_v1',
-  'tiny toes': 'tinytoes_i_v1',
-  artisans: 'artisans_i_v1',
-  'artisans production': 'artisans_i_v1',
+  aaha: 'apco_master_v1',
+  'aaha kalyanam': 'apco_master_v1',
+  tinytoes: 'apco_master_v1',
+  'tiny toes': 'apco_master_v1',
+  artisans: 'apco_master_v1',
+  'artisans production': 'apco_master_v1',
 };
 
 const BRAND_AGREEMENT_MAP: Record<string, string> = {
@@ -103,7 +112,7 @@ const normalizeBrand = (brand: string): string =>
 /** Load a company profile from localStorage by id */
 const loadCompanyById = (brandId: string): Record<string, any> | null => {
   try {
-    const stored = localStorage.getItem('company_settings');
+    const stored = localStorage.getItem('artisans_companies');
     if (!stored) return null;
     const companies: any[] = JSON.parse(stored);
     return companies.find(c => c.id === brandId || c.companyName === brandId) || null;
@@ -121,11 +130,12 @@ const loadCompanyById = (brandId: string): Record<string, any> | null => {
  */
 export const getBrandQuoteTemplate = (brandId: string): RegistryItem => {
   const company = loadCompanyById(brandId);
-  const stored = company?.defaultQuoteTemplate;
+  const name = normalizeBrand(company?.companyName || brandId);
+  const isAaha = name.includes('aaha');
+  const stored = isAaha ? 'apco_master_v1' : company?.defaultQuoteTemplate;
   if (stored && quoteTemplates[stored]) return quoteTemplates[stored];
 
   // Name-based fallback
-  const name = normalizeBrand(company?.companyName || brandId);
   for (const [keyword, templateId] of Object.entries(BRAND_QUOTE_MAP)) {
     if (name.includes(keyword)) {
       const tmpl = quoteTemplates[templateId];
@@ -142,10 +152,11 @@ export const getBrandQuoteTemplate = (brandId: string): RegistryItem => {
  */
 export const getBrandInvoiceTemplate = (brandId: string): RegistryItem => {
   const company = loadCompanyById(brandId);
-  const stored = company?.defaultInvoiceTemplate;
+  const name = normalizeBrand(company?.companyName || brandId);
+  const isAaha = name.includes('aaha');
+  const stored = isAaha ? 'apco_master_v1' : company?.defaultInvoiceTemplate;
   if (stored && invoiceTemplates[stored]) return invoiceTemplates[stored];
 
-  const name = normalizeBrand(company?.companyName || brandId);
   for (const [keyword, templateId] of Object.entries(BRAND_INVOICE_MAP)) {
     if (name.includes(keyword)) {
       const tmpl = invoiceTemplates[templateId];

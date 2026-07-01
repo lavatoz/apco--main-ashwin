@@ -469,6 +469,7 @@ export interface Invoice {
   templateId?: string;       // e.g. 'aaha_i_v1'
   templateVersion?: string;  // e.g. '1.0.0'
   generatedPdf?: string;
+  quotationNumber?: string;
 }
 
 export interface Expense {
@@ -659,6 +660,7 @@ export interface StandaloneAgreement {
   signedAt?: string;
   createdAt: string;
   updatedAt: string;
+  linkedQuoteId?: string;
   template?: {
     id: string;
     name: string;

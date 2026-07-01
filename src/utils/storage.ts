@@ -7,13 +7,27 @@ export const safeParse = <T,>(key: string, fallback: T): T => {
   }
 };
 
-export const getAuthUser = () => {
+export const getActiveRole = (): string => {
+  if (typeof window === 'undefined') return 'Admin';
   let activeRole = sessionStorage.getItem('active_role');
 
   if (!activeRole) {
-    // Fallback: Infer from URL if opening a new tab
+    // Fallback: Infer from URL if opening a new tab or refreshing
     const path = window.location.pathname;
-    if (path.startsWith('/portal') || path.startsWith('/client')) {
+    if (path.startsWith('/workspace')) {
+      activeRole = 'Staff';
+    } else if (
+      path.startsWith('/portal') || 
+      path.startsWith('/client') || 
+      path.startsWith('/gallery') || 
+      path.startsWith('/deliverables') || 
+      path.startsWith('/events') || 
+      path.startsWith('/timeline') || 
+      path.startsWith('/invoices') || 
+      path.startsWith('/agreements') || 
+      path.startsWith('/messages') || 
+      path.startsWith('/support')
+    ) {
       activeRole = 'Client';
     } else if (
       path !== '/' &&
@@ -25,10 +39,17 @@ export const getAuthUser = () => {
     ) {
       activeRole = 'Admin';
     }
+
+    if (activeRole) {
+      sessionStorage.setItem('active_role', activeRole);
+    }
   }
 
-  // If no active role could be determined and we are at login/root, just return null
-  if (!activeRole) return null;
+  return activeRole || 'Admin';
+};
+
+export const getAuthUser = () => {
+  const activeRole = getActiveRole();
 
   let key = 'auth_user_admin';
   if (activeRole === 'Client') key = 'auth_user_client';
@@ -67,7 +88,6 @@ export const removeAuthUser = () => {
   } else if (activeRole === 'Admin') {
     localStorage.removeItem('auth_user_admin');
   } else {
-    // Fallback if somehow active_role is missing during logout
     localStorage.removeItem('auth_user_admin');
     localStorage.removeItem('auth_user_client');
     localStorage.removeItem('auth_user_staff');
