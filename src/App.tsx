@@ -40,6 +40,7 @@ import CoordinationCenter from './pages/CoordinationCenter';
 import BrandDetailPage from './pages/BrandDetailPage';
 import SecurityHubPage from './pages/SecurityHubPage';
 import StaffPortal from './pages/staff/StaffPortal';
+import ProjectSelectionsPage from './pages/staff/ProjectSelectionsPage';
 import { useCompanySettings, clearCompanySettingsCache } from './hooks/useCompanySettings';
 import { type UserPermission, type CompanyProfile } from './types';
 import { usePermissions } from './hooks/usePermissions';
@@ -600,6 +601,7 @@ const App: React.FC = () => {
               <Route path="/setup-account/:token" element={<Navigate to="/" replace />} />
 
               <Route path="/workspace" element={<PermissionRoute allowedRoles={['Staff']}><StaffPortal selectedBrand={selectedCompanyId} /></PermissionRoute>} />
+              <Route path="/selections" element={<PermissionRoute allowedRoles={['Admin', 'Staff']}><ProjectSelectionsPage /></PermissionRoute>} />
 
               {/* Management Routes - Admin, Staff, and Client substitution */}
               <Route path="/dashboard" element={<PermissionRoute allowedRoles={['Admin', 'Client']} permission="dashboard">

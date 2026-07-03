@@ -1,4 +1,4 @@
-import { fetchApi, checkClientBlock } from './client';
+import { fetchApi, checkClientBlock, getAccessToken, API_URL } from './client';
 import { type Project, type Client, type Task, type Booking, type Division, type Company, type Expense, type Invoice } from '../../types';
 import { safeParse } from '../../utils/storage';
 
@@ -208,12 +208,45 @@ export const projects = {
     });
   },
 
-  uploadImages: async (projectId: string, imageUrls: string[]) => {
-    return fetchApi(`/projects/${projectId}/upload`, { method: 'POST', body: JSON.stringify({ imageUrls }) });
+  getProjectGalleryPhotos: async (projectId: string, page = 1, limit = 40, favoritesOnly = false): Promise<any> => {
+    return fetchApi(`/projects/${projectId}/gallery-photos?page=${page}&limit=${limit}${favoritesOnly ? '&favoritesOnly=true' : ''}`);
   },
 
-  toggleImageSelection: async (projectId: string, imageId: string) => {
-    return fetchApi(`/projects/${projectId}/select`, { method: 'POST', body: JSON.stringify({ imageId }) });
+  togglePhotoReviewState: async (projectId: string, galleryPhotoId: string): Promise<any> => {
+    return fetchApi(`/projects/${projectId}/gallery/${galleryPhotoId}/review`, { method: 'POST' });
+  },
+
+  toggleFavoritePhoto: async (projectId: string, galleryPhotoId: string): Promise<any> => {
+    return fetchApi(`/projects/${projectId}/gallery/${galleryPhotoId}/favorite`, { method: 'POST' });
+  },
+
+  submitPhotoSelection: async (projectId: string): Promise<any> => {
+    return fetchApi(`/projects/${projectId}/gallery/submit`, { method: 'POST' });
+  },
+
+  updateGalleryStatus: async (projectId: string, status: string): Promise<any> => {
+    return fetchApi(`/projects/${projectId}/gallery/status`, { method: 'POST', body: JSON.stringify({ status }) });
+  },
+
+  downloadSelectedPhotosZip: async (projectId: string, projectName: string): Promise<void> => {
+    const token = getAccessToken();
+    const response = await fetch(`${API_URL}/projects/${projectId}/gallery/download-selected`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to download ZIP file');
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectName}-selected-photos.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
   },
 
   // Tasks

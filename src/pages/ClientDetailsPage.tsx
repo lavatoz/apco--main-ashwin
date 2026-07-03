@@ -44,6 +44,17 @@ const CATEGORY_KEYWORDS = {
    digital: ["video", "film", "reel", "cinema", "teaser", "highlight", "edit"],
 };
 
+const formatEventDate = (dateStr: string | Date) => {
+   if (!dateStr) return '';
+   const d = new Date(dateStr);
+   if (isNaN(d.getTime())) return '';
+   const day = String(d.getDate()).padStart(2, '0');
+   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+   const month = months[d.getMonth()];
+   const year = d.getFullYear();
+   return `${day} ${month} ${year}`;
+};
+
 const ROLES = [
    { value: 'photographer', label: 'Photographer' },
    { value: 'videographer', label: 'Videographer' },
@@ -347,8 +358,9 @@ const ClientDetailsPage: React.FC = () => {
       memberIndex: number;
       role: string;
    } | null>(null);
-   const [browserSelectedStaffId, setBrowserSelectedStaffId] = useState<string>('');
-   const [browserSearch, setBrowserSearch] = useState('');
+    const [browserSelectedStaffId, setBrowserSelectedStaffId] = useState<string>('');
+    const [browserSearch, setBrowserSearch] = useState('');
+    const [activeDropdown, setActiveDropdown] = useState<{ catId: string; memberIdx: number } | null>(null);
 
    const getStaffRosterStatus = (staffId: string) => {
       const staff = allStaff.find(s => s.id === staffId);
@@ -1405,7 +1417,16 @@ const ClientDetailsPage: React.FC = () => {
 
       try {
          await api.updateStaffAssignedEvents(project.id, userId, updatedEvents);
-         addToast("Event assignment saved");
+         const assignedEv = client?.events?.find(e => e.id === eventId);
+         const eventName = assignedEv ? assignedEv.name : "Event";
+         addToast(`Event "${eventName}" assigned successfully`);
+
+         const updatedProj = await api.getProjectById(project.id);
+         if (updatedProj) {
+            setProject(updatedProj);
+            const nextCats = getProjectTeamCategories(updatedProj);
+            setTeamCategories(nextCats);
+         }
       } catch (err: any) {
          console.error("Failed to persist event assignment:", err);
          addToast("Failed to save event assignment: " + (err.message || "Unknown error"));
@@ -1420,6 +1441,7 @@ const ClientDetailsPage: React.FC = () => {
       if (!userId) return;
 
       const nextEvents = [...(category.members[mIdx].assigned_events || [])];
+      const eventId = nextEvents[eIdx];
       nextEvents.splice(eIdx, 1);
 
       setTeamCategories(prev => {
@@ -1433,7 +1455,16 @@ const ClientDetailsPage: React.FC = () => {
 
       try {
          await api.updateStaffAssignedEvents(project.id, userId, nextEvents);
-         addToast("Event assignment saved");
+         const assignedEv = client?.events?.find(e => e.id === eventId);
+         const eventName = assignedEv ? assignedEv.name : "Event";
+         addToast(`Event "${eventName}" removed successfully`);
+
+         const updatedProj = await api.getProjectById(project.id);
+         if (updatedProj) {
+            setProject(updatedProj);
+            const nextCats = getProjectTeamCategories(updatedProj);
+            setTeamCategories(nextCats);
+         }
       } catch (err: any) {
          console.error("Failed to persist event removal:", err);
          addToast("Failed to save event removal: " + (err.message || "Unknown error"));
@@ -2295,44 +2326,101 @@ const ClientDetailsPage: React.FC = () => {
                                              </div>
 
                                              <div className="space-y-4">
-                                                <p className="text-sm font-semibold uppercase text-zinc-300 tracking-wide px-1">
+                                                <p className="text-xs font-black text-zinc-400 uppercase tracking-[0.2em] px-1">
                                                    Assigned Events
                                                 </p>
-                                                <div className="flex flex-wrap gap-3">
-                                                   {(rowVal.assigned_events || []).map((eventId, eIdx) => {
-                                                      const assignedEv = client?.events?.find(e => e.id === eventId);
-                                                      return (
-                                                         <div key={eIdx} className={`relative flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full group/chip hover:border-white/20 transition-all shadow-sm`}>
-                                                            <Calendar className="w-3 h-3 text-zinc-500" />
-                                                            <span className="text-sm font-medium text-zinc-200 uppercase tracking-widest whitespace-nowrap">
-                                                               {assignedEv ? `${assignedEv.name} (${new Date(assignedEv.date).toLocaleDateString()})` : 'Unknown Event'}
-                                                            </span>
+                                                
+                                                {(() => {
+                                                   const assignedEventsList = rowVal.assigned_events || [];
+                                                   const unassignedEvents = (client?.events || []).filter(ev => !assignedEventsList.includes(ev.id));
+                                                   
+                                                   return (
+                                                      <>
+                                                         {assignedEventsList.length === 0 ? (
+                                                            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest py-1 px-1">
+                                                               No events assigned.
+                                                            </p>
+                                                         ) : (
+                                                            <div className="flex flex-col gap-2 w-full">
+                                                               {assignedEventsList.map((eventId, eIdx) => {
+                                                                  const assignedEv = client?.events?.find(e => e.id === eventId);
+                                                                  return (
+                                                                     <div key={eIdx} className="flex items-center justify-between w-full px-4 py-3 bg-white/[0.02] border border-white/5 rounded-xl group/chip hover:bg-white/[0.04] hover:border-white/10 transition-all duration-200">
+                                                                        <div className="flex items-center gap-3 min-w-0">
+                                                                           <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                                                                           <span className="text-xs font-bold text-zinc-200 uppercase tracking-widest truncate">
+                                                                              {assignedEv ? `${assignedEv.name} (${formatEventDate(assignedEv.date)})` : 'Unknown Event'}
+                                                                           </span>
+                                                                        </div>
+                                                                        <button
+                                                                           type="button"
+                                                                           onClick={(e) => { e.stopPropagation(); handleRemoveEvent(category.id, idx, eIdx); }}
+                                                                           className="flex items-center justify-center w-7 h-7 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all duration-200 active:scale-95 shrink-0"
+                                                                           title="Remove Event Assignment"
+                                                                        >
+                                                                           <X size={14} />
+                                                                        </button>
+                                                                     </div>
+                                                                  );
+                                                               })}
+                                                            </div>
+                                                         )}
+
+                                                         <div className="relative inline-block">
                                                             <button
                                                                type="button"
-                                                               onClick={(e) => { e.stopPropagation(); handleRemoveEvent(category.id, idx, eIdx); }}
-                                                               className="relative z-10 ml-2 flex items-center justify-center w-6 h-6 rounded-full text-zinc-400 hover:text-red-400 hover:bg-red-500/20 transition duration-200 active:scale-90"
+                                                               onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  if (activeDropdown?.catId === category.id && activeDropdown?.memberIdx === idx) {
+                                                                     setActiveDropdown(null);
+                                                                  } else {
+                                                                     setActiveDropdown({ catId: category.id, memberIdx: idx });
+                                                                  }
+                                                               }}
+                                                               className="flex items-center gap-2 px-3.5 py-2 bg-white/5 border border-white/10 hover:border-white/20 text-zinc-300 hover:text-white hover:bg-white/10 rounded-full transition-all text-[11px] font-black uppercase tracking-widest cursor-pointer outline-none"
                                                             >
-                                                               <X size={14} />
+                                                               <Plus size={12} /> Add Event
                                                             </button>
+                                                            {activeDropdown?.catId === category.id && activeDropdown?.memberIdx === idx && (
+                                                               <>
+                                                                  <div 
+                                                                     className="fixed inset-0 z-40" 
+                                                                     onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setActiveDropdown(null);
+                                                                     }} 
+                                                                  />
+                                                                  <div className="absolute left-0 mt-2 w-64 bg-zinc-950 border border-white/10 rounded-xl shadow-2xl z-50 py-1.5 max-h-60 overflow-y-auto">
+                                                                     {unassignedEvents.length === 0 ? (
+                                                                        <div className="px-4 py-3 text-xs font-bold text-zinc-500 uppercase tracking-wider text-center">
+                                                                           No other events available
+                                                                        </div>
+                                                                     ) : (
+                                                                        unassignedEvents.map(ev => (
+                                                                           <button
+                                                                              key={ev.id}
+                                                                              type="button"
+                                                                              onClick={(e) => {
+                                                                                 e.stopPropagation();
+                                                                                 handleAddEventToMember(category.id, idx, ev.id);
+                                                                                 setActiveDropdown(null);
+                                                                              }}
+                                                                              className="w-full text-left px-4 py-2.5 text-xs font-bold text-zinc-300 hover:text-white hover:bg-white/5 uppercase tracking-wider transition-colors flex flex-col gap-0.5"
+                                                                           >
+                                                                              <span className="truncate">{ev.name}</span>
+                                                                              <span className="text-[9px] text-zinc-500 font-medium">
+                                                                                 ({formatEventDate(ev.date)})
+                                                                              </span>
+                                                                           </button>
+                                                                        ))
+                                                                     )}
+                                                                  </div>
+                                                               </>
+                                                            )}
                                                          </div>
-                                                      )
-                                                   })}
-                                                   <select
-                                                      className="flex items-center gap-2 px-4 py-2 bg-black/50 border border-white/5 border-dashed rounded-lg cursor-pointer hover:bg-white/10 hover:border-white/20 transition-all text-sm font-medium text-zinc-300 uppercase tracking-widest outline-none appearance-none"
-                                                      onChange={(e) => {
-                                                         if (e.target.value) {
-                                                            handleAddEventToMember(category.id, idx, e.target.value);
-                                                            e.target.value = '';
-                                                         }
-                                                      }}
-                                                      value=""
-                                                   >
-                                                      <option value="" disabled>+ Assign Event</option>
-                                                      {client?.events?.map(ev => (
-                                                         <option key={ev.id} value={ev.id}>{ev.name} ({new Date(ev.date).toLocaleDateString()})</option>
-                                                      ))}
-                                                   </select>
-                                                </div>
+                                                      </>
+                                                   );
+                                                })()}
                                              </div>
 
                                              {category.members.length > 1 && (
