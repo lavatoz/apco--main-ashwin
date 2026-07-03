@@ -146,5 +146,20 @@ export const files = {
       throw new Error('Failed to fetch secure file blob');
     }
     return response.blob();
+  },
+
+  getFileThumbnailBlob: async (id: string): Promise<Blob> => {
+    const token = getAccessToken();
+    const correlationId = generateCorrelationId();
+    const response = await fetch(`${API_URL}/files/${id}/thumbnail`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        'X-Correlation-ID': correlationId
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch secure thumbnail blob');
+    }
+    return response.blob();
   }
 };

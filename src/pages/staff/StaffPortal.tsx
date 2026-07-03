@@ -56,6 +56,7 @@ interface StaffPortalProps {
 
 const StaffPortal: React.FC<StaffPortalProps> = ({ selectedBrand = 'All' }) => {
     const user = getAuthUser();
+
     const [activeTab, setActiveTab] = useState('dashboard');
     const [tasks, setTasks] = useState<Task[]>([]);
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -288,6 +289,11 @@ const StaffPortal: React.FC<StaffPortalProps> = ({ selectedBrand = 'All' }) => {
 
     useEffect(() => {
         loadData();
+        const searchParams = new URLSearchParams(window.location.search);
+        const tabParam = searchParams.get('tab');
+        if (tabParam) {
+            setActiveTab(tabParam);
+        }
         const handleSync = () => {
             loadData();
         };
@@ -555,6 +561,7 @@ const StaffPortal: React.FC<StaffPortalProps> = ({ selectedBrand = 'All' }) => {
                         </div>
                     </div>
                 )}
+
 
                 {/* MY TASKS TAB */}
                 {activeTab === 'tasks' && (

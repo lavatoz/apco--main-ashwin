@@ -317,6 +317,7 @@ export interface StaffAssignment {
   cost?: number;
   price?: number;
   eventId?: string;
+  eventIds?: string[];
 }
 
 export interface ProjectTeam {
