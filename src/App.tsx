@@ -213,6 +213,8 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
   const fetchInitiated = useRef(false);
+  const messagingInitialized = useRef(false);
+  const foregroundUnsubscribe = useRef<(() => void) | null>(null);
 
   const { hasPermission } = usePermissions();
   const { companies, settings, selectedCompanyId, setSelectedCompanyId, globalSettings } = useCompanySettings();
@@ -327,10 +329,43 @@ const App: React.FC = () => {
         fetchData(false);
         setHasFetched(true);
       }
+      // Request permission and register listeners exactly once per authenticated session
+      if (!messagingInitialized.current) {
+        messagingInitialized.current = true;
+        import('./services/messaging').then(({ requestNotificationPermission, registerForegroundMessageListener }) => {
+          requestNotificationPermission()
+            .then((permission) => {
+              if (permission === 'granted') {
+                registerForegroundMessageListener((payload) => {
+                  console.log('Foreground push notification payload received:', payload);
+                  // Refresh notification states on new messages
+                  fetchData(true);
+                }).then((unsub) => {
+                  // Capture unsubscribe cleanup function
+                  foregroundUnsubscribe.current = unsub;
+                }).catch((err) => {
+                  console.error('Failed to register foreground messaging listener:', err);
+                });
+              }
+            })
+            .catch((err) => {
+              console.error('Failed to request notification permission:', err);
+            });
+        });
+      }
     } else {
       setIsInitialLoading(false);
       setHasFetched(false);
       fetchInitiated.current = false;
+      // Cleanup messaging resources on unauthenticated/logout states
+      if (foregroundUnsubscribe.current) {
+        foregroundUnsubscribe.current();
+        foregroundUnsubscribe.current = null;
+      }
+      messagingInitialized.current = false;
+      import('./services/messaging').then(({ clearMessagingSession }) => {
+        clearMessagingSession();
+      });
     }
   }, [authRole, hasFetched]);
 
@@ -686,7 +721,7 @@ const App: React.FC = () => {
               <Route path="/timeline" element={<PermissionRoute allowedRoles={['Client']}><ClientActivityPage client={activeClient} invoices={invoices} bookings={bookings} /></PermissionRoute>} />
               <Route path="/invoices" element={<PermissionRoute allowedRoles={['Client']}><ClientInvoices client={activeClient} invoices={invoices} /></PermissionRoute>} />
               <Route path="/agreements" element={<PermissionRoute allowedRoles={['Client']}><ClientAgreements client={activeClient} /></PermissionRoute>} />
-              <Route path="/messages" element={<PermissionRoute allowedRoles={['Client']}><ClientMessages client={activeClient} /></PermissionRoute>} />
+              <Route path="/messages" element={<PermissionRoute allowedRoles={['Client', 'Admin', 'Staff']}><ClientMessages client={activeClient} /></PermissionRoute>} />
               <Route path="/support" element={<PermissionRoute allowedRoles={['Client']}><ClientSupport client={activeClient} /></PermissionRoute>} />
 
               {/* Legacy portal route for backward compatibility / staff view */}

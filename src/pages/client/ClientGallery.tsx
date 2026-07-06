@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Image as ImageIcon, Heart, Check, Loader, X, Send, AlertTriangle } from 'lucide-react';
+import { Image as ImageIcon, Heart, Check, Loader, X, Send, AlertTriangle, Lock } from 'lucide-react';
 import type { Client, Project } from '../../types';
 import { api, getAccessToken, API_URL } from '../../services/api';
 import ClientPageLoader from './ClientPageLoader';
@@ -229,19 +229,37 @@ const ClientGallery: React.FC<ClientGalleryProps> = ({ client }) => {
         
         {/* Pipeline Status Stepper */}
         <div className="flex flex-col items-end gap-2">
-          <div className="inline-flex items-center gap-2 bg-purple-500/10 px-4 py-2 rounded-2xl border border-purple-500/20">
-            <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">
-              {getStatusLabel(status)}
-            </span>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <div className="inline-flex items-center gap-2 bg-purple-500/10 px-4 py-2 rounded-2xl border border-purple-500/20">
+              <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">
+                {getStatusLabel(status)}
+              </span>
+            </div>
+            <div className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl border text-[10px] font-black uppercase tracking-widest ${
+              locked 
+                ? 'bg-red-500/10 border-red-500/20 text-red-400' 
+                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+            }`}>
+              <span>{locked ? '🔒 Gallery Locked' : '🟢 Gallery Open'}</span>
+            </div>
           </div>
-          {locked && (
-            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
-              Selection Locked
-            </span>
-          )}
         </div>
       </div>
+
+      {/* Read-Only Information Banner when locked */}
+      {locked && (
+        <div className="glass-panel p-6 bg-red-500/5 rounded-3xl border border-red-500/10 flex items-start gap-4 animate-ios-slide-up">
+          <div className="p-3.5 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-400 shrink-0">
+            <Lock className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-black uppercase tracking-tight text-white leading-none">Selection Submitted</h3>
+            <p className="text-xs text-zinc-400 font-medium">Your photo selection has been locked by the studio.</p>
+            <p className="text-[10px] text-zinc-500 font-medium">If you need to make changes, please contact us.</p>
+          </div>
+        </div>
+      )}
 
       {/* Progress Dashboard */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-zinc-900/40 p-6 rounded-3xl border border-white/5">
@@ -285,20 +303,28 @@ const ClientGallery: React.FC<ClientGalleryProps> = ({ client }) => {
         </div>
 
         {/* Submit Action */}
-        {!locked && project && (
+        {project && (
           <button
+            disabled={locked}
             onClick={() => setShowConfirmModal(true)}
-            className="w-full sm:w-auto px-8 py-3.5 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-rose-500/10 active:scale-95"
+            className={`touch-target w-full sm:w-auto px-8 py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg ${
+              locked
+                ? 'bg-zinc-800/40 text-zinc-500 border border-white/5 cursor-not-allowed'
+                : 'bg-rose-600 hover:bg-rose-500 text-white hover:shadow-rose-500/10 active:scale-95'
+            }`}
           >
-            <Send className="w-3.5 h-3.5" />
-            Submit Selection
+            {locked ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                Selection Submitted
+              </>
+            ) : (
+              <>
+                <Send className="w-3.5 h-3.5" />
+                Submit Selection
+              </>
+            )}
           </button>
-        )}
-        {locked && (
-          <div className="px-6 py-3 bg-zinc-800/40 text-zinc-500 rounded-2xl border border-white/5 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-400" />
-            Selection Submitted
-          </div>
         )}
       </div>
 
@@ -336,7 +362,7 @@ const ClientGallery: React.FC<ClientGalleryProps> = ({ client }) => {
                 />
 
                 {/* Dark Vignette Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-40 group-hover:opacity-80 transition-opacity duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-40 group-hover:opacity-80 transition-opacity duration-500 pointer-events-none" />
 
                 {/* Optional Metadata - Filename shows very subtly in info tag if hovered */}
                 <div className="absolute top-4 left-4 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-500 transform -translate-y-2 group-hover:translate-y-0">
@@ -346,7 +372,11 @@ const ClientGallery: React.FC<ClientGalleryProps> = ({ client }) => {
                 </div>
 
                 {/* Interactive Overlay Layer */}
-                <div className="absolute inset-x-0 bottom-0 p-6 flex items-center justify-between translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-500">
+                <div className={`absolute inset-x-0 bottom-0 p-6 flex items-center justify-between transition-all duration-500 ${
+                  photo.isFavorite || photo.isReviewed
+                    ? 'opacity-100 translate-y-0'
+                    : 'opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0'
+                }`}>
                   {/* Mark Reviewed Checkmark (Disabled if locked) */}
                   {!locked ? (
                     <button
@@ -372,7 +402,7 @@ const ClientGallery: React.FC<ClientGalleryProps> = ({ client }) => {
                   )}
 
                   {/* Favorite Heart Control */}
-                  {!locked && (
+                  {!locked ? (
                     <button
                       onClick={(e) => handleToggleFavorite(photo, e)}
                       disabled={isSaving}
@@ -388,7 +418,14 @@ const ClientGallery: React.FC<ClientGalleryProps> = ({ client }) => {
                         <Heart className={`w-3.5 h-3.5 ${photo.isFavorite ? 'fill-white' : ''}`} />
                       )}
                     </button>
-                  )}
+                  ) : photo.isFavorite ? (
+                    <div
+                      className="p-3 rounded-2xl backdrop-blur-xl border border-rose-500 bg-rose-500 text-white flex items-center justify-center cursor-default ml-auto"
+                      title="Favorite Photo (Locked)"
+                    >
+                      <Heart className="w-3.5 h-3.5 fill-white" />
+                    </div>
+                  ) : null}
                 </div>
               </div>
             );
@@ -435,7 +472,7 @@ const ClientGallery: React.FC<ClientGalleryProps> = ({ client }) => {
               
               <div className="flex items-center gap-3">
                 {/* Heart Toggle Inside Lightbox */}
-                {!locked && (
+                {!locked ? (
                   <button
                     onClick={(e) => {
                       handleToggleFavorite(previewPhoto, e);
@@ -450,7 +487,14 @@ const ClientGallery: React.FC<ClientGalleryProps> = ({ client }) => {
                   >
                     <Heart className={`w-4 h-4 ${previewPhoto.isFavorite ? 'fill-white' : ''}`} />
                   </button>
-                )}
+                ) : previewPhoto.isFavorite ? (
+                  <div
+                    className="p-3.5 rounded-2xl border border-rose-500 bg-rose-500 text-white flex items-center justify-center cursor-default"
+                    title="Favorite Photo (Locked)"
+                  >
+                    <Heart className="w-4 h-4 fill-white" />
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
