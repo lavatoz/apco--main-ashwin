@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, Check, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -54,7 +55,33 @@ export const NotificationCenter: React.FC = () => {
   const [notifications, setNotifications] = useState<NotificationItem[]>(globalNotifications);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(globalLoading);
+  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const portalRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const updateCoords = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + 12, // 12px offset for mt-3 spacing
+        right: window.innerWidth - rect.right
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updateCoords();
+      window.addEventListener('resize', updateCoords);
+      window.addEventListener('scroll', updateCoords, true);
+    }
+    return () => {
+      window.removeEventListener('resize', updateCoords);
+      window.removeEventListener('scroll', updateCoords, true);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     const handleUpdate = (state: { notifications: NotificationItem[], loading: boolean }) => {
@@ -74,7 +101,11 @@ export const NotificationCenter: React.FC = () => {
   // Close dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(target) &&
+        portalRef.current && !portalRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
@@ -127,6 +158,7 @@ export const NotificationCenter: React.FC = () => {
   return (
     <div className="relative font-sans" ref={dropdownRef}>
       <button
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="w-10 h-10 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center cursor-pointer hover:bg-white/10 transition-all active:scale-95 group relative text-zinc-400 hover:text-white"
         aria-label="Notifications"
@@ -139,8 +171,12 @@ export const NotificationCenter: React.FC = () => {
         )}
       </button>
 
-      {isOpen && (
-        <div className="absolute right-0 mt-3 w-80 sm:w-96 glass-panel-dark border border-white/10 rounded-[1.5rem] p-4 shadow-2xl animate-ios-slide-up z-[100] max-h-[500px] flex flex-col">
+      {isOpen && coords && createPortal(
+        <div 
+          ref={portalRef}
+          style={{ position: 'fixed', top: `${coords.top}px`, right: `${coords.right}px` }}
+          className="w-80 sm:w-96 glass-panel-dark border border-white/10 rounded-[1.5rem] p-4 shadow-2xl animate-ios-slide-up z-[9999] max-h-[500px] flex flex-col"
+        >
           <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-3 shrink-0">
             <div>
               <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Notification Protocol</p>
@@ -212,7 +248,7 @@ export const NotificationCenter: React.FC = () => {
 
           {notifications.length > 0 && (
             <div className="border-t border-white/5 pt-3 mt-3 shrink-0 flex justify-between items-center">
-              <span className="text-[8px] font-mono text-zinc-600 uppercase">
+              <span className="text-[8px] font-mono text-zinc-650 uppercase">
                 {notifications.length} logged events
               </span>
               <button
@@ -223,7 +259,8 @@ export const NotificationCenter: React.FC = () => {
               </button>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
