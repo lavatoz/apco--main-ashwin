@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, Download, Loader, Lock, Layers, Edit3, Send, X } from 'lucide-react';
+import { Image as ImageIcon, Download, Loader, Lock, Unlock, Layers, Edit3, Send, X, AlertTriangle } from 'lucide-react';
 import { api, getAccessToken, API_URL } from '../../services/api';
 import type { Project } from '../../types';
 
@@ -39,7 +39,9 @@ const ProjectSelectionsPage: React.FC = () => {
 
   // Gallery status & counts
   const [status, setStatus] = useState<string>('UPLOADED');
-  const [, setLocked] = useState(false);
+  const [locked, setLocked] = useState(false);
+  const [updatingLock, setUpdatingLock] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedCount, setSelectedCount] = useState(0);
   const [reviewedCount, setReviewedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
@@ -99,6 +101,29 @@ const ProjectSelectionsPage: React.FC = () => {
       alert(err.message || "Failed to update status.");
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  const handleToggleLock = async () => {
+    if (!selectedProjectId || updatingLock) return;
+    setUpdatingLock(true);
+    const targetStatus = locked ? 'SELECTION_IN_PROGRESS' : 'SELECTION_SUBMITTED';
+    try {
+      const res = await api.updateGalleryStatus(selectedProjectId, targetStatus);
+      setStatus(res.status);
+      setLocked(res.selectionLocked);
+    } catch (err: any) {
+      console.error("Lock/Unlock toggle error:", err);
+      setToastMessage(locked ? 'Failed to unlock gallery.' : 'Failed to lock gallery.');
+    } finally {
+      setUpdatingLock(false);
     }
   };
 
@@ -170,6 +195,12 @@ const ProjectSelectionsPage: React.FC = () => {
   // Detailed workflow view (renders after selecting a project)
   return (
     <div className="space-y-8 animate-ios-slide-up max-w-[1600px] mx-auto pb-24">
+      {toastMessage && (
+        <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[300] bg-red-950/90 border border-red-500/20 px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-2 animate-ios-slide-up backdrop-blur-xl">
+          <AlertTriangle className="w-4 h-4 text-red-400" />
+          <span className="text-xs font-black uppercase tracking-wider text-red-200">{toastMessage}</span>
+        </div>
+      )}
       {/* Header and Back Button */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-4">
         <div>
@@ -310,6 +341,68 @@ const ProjectSelectionsPage: React.FC = () => {
                   )}
                 </button>
               )}
+            </div>
+
+            {/* Gallery Control Section */}
+            <div className="glass-panel p-8 squircle-lg border border-white/5 space-y-6">
+              <div className="border-b border-white/5 pb-3">
+                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500">
+                  Client Gallery
+                </h3>
+                <p className="text-[8px] font-black text-zinc-600 uppercase tracking-wider mt-1">Access Control</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Selection Status</span>
+                  <span className="text-xs font-black uppercase text-white">{getStatusLabel(status)}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Gallery Access</span>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-wider ${
+                    locked 
+                      ? 'bg-red-500/10 border-red-500/20 text-red-400' 
+                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                  }`}>
+                    {locked ? (
+                      <>
+                        <Lock className="w-3 h-3 text-red-400" />
+                        Locked
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Open for Client
+                      </>
+                    )}
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleToggleLock}
+                  disabled={updatingLock || loading}
+                  className={`touch-target w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 border ${
+                    locked
+                      ? 'bg-emerald-500 border-emerald-500 text-black hover:bg-emerald-400'
+                      : 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'
+                  }`}
+                >
+                  {updatingLock ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : locked ? (
+                    <>
+                      <Unlock className="w-4 h-4" />
+                      Unlock Gallery
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      Lock Gallery
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 

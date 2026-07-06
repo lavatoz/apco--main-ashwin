@@ -15,5 +15,11 @@ export const notifications = {
   },
   clearAllNotifications: async () => {
     return fetchApi('/notifications', { method: 'DELETE' });
+  },
+  registerDeviceToken: async (data: { token: string; deviceId: string; platform: string }) => {
+    return fetchApi('/notifications/device-token', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 };

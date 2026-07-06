@@ -32,6 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
     { path: '/calendar', label: 'Coordination', icon: Calendar, permission: 'tasks' },
     { path: '/workflow', label: 'Workflow', icon: Activity, permission: 'workflow' },
     { path: '/selections', label: 'Client Selections', icon: Image, permission: 'workflow' },
+    { path: '/messages', label: 'Messages', icon: MessageSquare, permission: 'dashboard' },
     { path: '/ledger', label: 'Ledger', icon: Wallet, permission: 'finance' },
     { path: '/copilot', label: 'Copilot', icon: Sparkles, permission: 'ai' },
     { path: '/analytics', label: 'Analytics', icon: BarChart3, permission: 'analytics' },
@@ -55,6 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
   const STAFF_MENU = [
     { path: '/workspace', label: 'My Workspace', icon: LayoutDashboard, permission: 'dashboard' },
     { path: '/selections', label: 'Client Selections', icon: Image, permission: 'dashboard' },
+    { path: '/messages', label: 'Messages', icon: MessageSquare, permission: 'dashboard' },
   ];
 
   let menuItems = ADMIN_MENU;

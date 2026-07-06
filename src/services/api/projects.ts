@@ -326,5 +326,16 @@ export const projects = {
     const divisions = await projects.getDivisions();
     const filtered = divisions.filter(d => d.id !== id);
     localStorage.setItem("divisions", JSON.stringify(filtered));
+  },
+
+  getProjectMessages: async (projectId: string): Promise<any[]> => {
+    return fetchApi(`/projects/${projectId}/messages`);
+  },
+
+  createProjectMessage: async (projectId: string, message: string): Promise<any> => {
+    return fetchApi(`/projects/${projectId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ message })
+    });
   }
 };
