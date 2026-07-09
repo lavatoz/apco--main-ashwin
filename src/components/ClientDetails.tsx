@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mail, Phone, Calendar, User, Briefcase, RefreshCw, AlertTriangle, Edit2, X, Check, LayoutDashboard, ChevronRight } from 'lucide-react';
 import { api, fetchApi } from '../services/api';
+import { getDisplayId } from '../utils/displayId';
 
 const ClientDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -99,7 +100,7 @@ const ClientDetails: React.FC = () => {
             <div className="flex justify-between items-start mb-10">
                 <div className="space-y-4">
                     <div className="inline-block px-3 py-1 bg-white/5 rounded-lg border border-white/10 text-[9px] font-black text-zinc-500 tracking-widest uppercase font-mono">
-                      ID: {client._id || id}
+                      ID: {getDisplayId(client.clientCode, client._id || id)}
                     </div>
                 </div>
                 {!isEditing && (

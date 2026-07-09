@@ -4,6 +4,7 @@ import { Search, Calendar, UserPlus, Mail, Phone, User, Trash2, Edit2, ChevronDo
 
 import { type Client, type Division } from '../types';
 import { useCompanySettings } from '../hooks/useCompanySettings';
+import { getDisplayId } from '../utils/displayId';
 import ClientModal from './ClientModal';
 
 interface ClientManagerProps {
@@ -138,7 +139,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
       (c.projectName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (c.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.phone || '').includes(searchTerm)
+      (c.phone || '').includes(searchTerm) ||
+      (c.clientCode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.id || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
 
@@ -263,7 +266,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients: allClients, divi
           <div key={client.id} className={`glass-panel p-6 md:p-10 squircle-lg ios-transition hover:scale-[1.02] active:scale-[0.98] group relative flex flex-col h-full border border-white/5 cursor-pointer ${fadingId === client.id ? 'animate-fade-out' : ''}`} onMouseDown={() => onOpenPortal(client)}>
             <div className="flex justify-between items-start mb-6 md:mb-8">
               <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/10 text-xs font-black text-zinc-500 tracking-widest uppercase font-mono truncate max-w-[120px]">
-                {client.id}
+                {getDisplayId(client.clientCode, client.id)}
               </div>
               {userRole !== 'Client' && (
                 <div className="flex gap-2">

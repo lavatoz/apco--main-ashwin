@@ -2,11 +2,18 @@ import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { ChevronRight, ArrowLeft } from 'lucide-react';
 
-const Breadcrumb: React.FC = () => {
+interface BreadcrumbProps {
+  customLabels?: Record<string, string>;
+}
+
+const Breadcrumb: React.FC<BreadcrumbProps> = ({ customLabels = {} }) => {
   const location = useLocation();
   const pathnames = location.pathname.split('/').filter((x) => x);
 
   const formatName = (name: string) => {
+    if (customLabels[name]) {
+      return customLabels[name];
+    }
     // Specific overrides for routes
     if (name === 'revenue' || name === 'ledger' || name === 'finance') return 'Revenue Analytics';
     if (name === 'directory') return 'Directory';

@@ -199,6 +199,7 @@ export type EventStatus = 'Scheduled' | 'In Preparation' | 'In Progress' | 'Comp
 
 export interface ClientEvent {
   id: string;
+  eventCode?: string;
   name: string;
   date: string;
   startTime?: string;
@@ -222,6 +223,7 @@ export interface EventLogistics {
 export interface Client {
   id: string;
   _id?: string;
+  clientCode?: string;
   projectName: string;
   name?: string;
   address?: string;
@@ -342,6 +344,7 @@ export interface SubTask {
 export interface Project {
   id: string;
   _id?: string;
+  projectCode?: string;
   name: string;
   clientId: string;
   divisionId: string;
@@ -426,6 +429,8 @@ export interface PaymentRecord {
 export interface Invoice {
   _id?: string;
   id: string;
+  invoiceCode?: string;
+  quotationCode?: string;
   clientId: string;
   projectId?: string;
   client?: any;
@@ -652,6 +657,7 @@ export interface StandaloneAgreementTemplate {
 
 export interface StandaloneAgreement {
   id: string;
+  agreementCode?: string;
   clientId: string;
   templateId: string;
   title: string;

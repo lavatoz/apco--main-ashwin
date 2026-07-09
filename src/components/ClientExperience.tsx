@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import type { Client, CloudConfig, ClientRequirement } from '../types';
 import { api } from '../services/api';
+import { getDisplayId } from '../utils/displayId';
 
 interface ClientExperienceProps {
    client: Client;
@@ -77,7 +78,7 @@ const ClientExperience: React.FC<ClientExperienceProps> = ({ client, loggedInPer
             <div className="flex items-center gap-4">
                <div className="w-12 h-12 bg-white text-black squircle-sm flex items-center justify-center font-serif text-2xl font-black">A</div>
                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] opacity-40">Project Hub • {client.id}</p>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] opacity-40">Project Hub • {getDisplayId(client.clientCode, client.id)}</p>
                   <p className="text-lg font-black uppercase tracking-tight">{client.projectName}</p>
                </div>
             </div>

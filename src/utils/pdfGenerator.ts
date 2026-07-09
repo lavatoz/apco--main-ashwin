@@ -10,6 +10,7 @@ import { quoteTemplates, invoiceTemplates, getBrandQuoteTemplate, getBrandInvoic
 import { type CustomTemplateMetadata } from '../templates/types';
 import { api } from '../services/api';
 import { replaceAgreementPlaceholders } from './agreementUtils';
+import { getDisplayId } from './displayId';
 
 const getPdfOptions = (gSettings: GlobalSettings, customOptions: any = {}) => {
   const options: any = {
@@ -225,12 +226,12 @@ const renderApcoMasterLayout = async (
   
   // Card 3: Document details — customized document-specific fields
   const docInfoLines = invoice.type === 'quotation' ? [
-     `Quote No: ${invoice.id}`,
+     `Quote No: ${getDisplayId(invoice.quotationCode, invoice.id)}`,
      `Issued Date: ${invoice.issueDate ? new Date(invoice.issueDate).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}`,
      `Valid Until: ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-GB') : 'N/A'}`,
      ...(invoice.status ? [`Quote Status: ${invoice.status}`] : [])
   ] : [
-     `Invoice No: ${invoice.id}`,
+     `Invoice No: ${getDisplayId(invoice.invoiceCode, invoice.id)}`,
      `Issued Date: ${invoice.issueDate ? new Date(invoice.issueDate).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}`,
      `Due Date: ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-GB') : 'N/A'}`,
      `Payment Status: ${invoice.status || 'Unpaid'}`
@@ -522,7 +523,7 @@ const renderApcoMasterLayout = async (
   
   // Metadata
   doc.setProperties({
-    title: `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'} ${invoice.id}`,
+    title: `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'} ${getDisplayId(invoice.type === 'quotation' ? invoice.quotationCode : invoice.invoiceCode, invoice.id)}`,
     subject: `Document for ${client.name}`,
     author: settings.companyName,
     creator: 'Artisans OS v1.0'
@@ -531,7 +532,7 @@ const renderApcoMasterLayout = async (
   // Apply APCO footer branding centered on all pages
   applyBrandingFooterToDoc(doc, pageWidth, pageWidth - 30);
   
-  const filename = `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'}_${invoice.id}_${client.projectName || client.name || 'Client'}.pdf`.replace(/[\s\/]/g, '_');
+  const filename = `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'}_${getDisplayId(invoice.type === 'quotation' ? invoice.quotationCode : invoice.invoiceCode, invoice.id)}_${client.projectName || client.name || 'Client'}.pdf`.replace(/[\s\/]/g, '_');
   if (autoSave) {
      doc.save(filename);
   }
@@ -645,7 +646,7 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
          });
       }
 
-      const filename = `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'}_${invoice.id}.pdf`;
+      const filename = `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'}_${getDisplayId(invoice.type === 'quotation' ? invoice.quotationCode : invoice.invoiceCode, invoice.id)}.pdf`;
       if (autoSave) {
          doc.save(filename);
       }
@@ -677,7 +678,7 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
         
         // Metadata
         doc.setProperties({
-           title: `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'} ${invoice.id}`,
+            title: `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'} ${getDisplayId(invoice.type === 'quotation' ? invoice.quotationCode : invoice.invoiceCode, invoice.id)}`,
            subject: `Financial Document for ${client.name}`,
            author: settings.companyName,
            creator: 'Artisans OS v1.0'
@@ -685,7 +686,7 @@ export const generateInvoicePDF = async (invoice: Invoice, client: Client, setti
 
 
 
-        const filename = `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'}_${invoice.id}_SECURE.pdf`;
+        const filename = `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'}_${getDisplayId(invoice.type === 'quotation' ? invoice.quotationCode : invoice.invoiceCode, invoice.id)}_SECURE.pdf`;
         if (autoSave) {
            doc.save(filename);
         }

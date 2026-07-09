@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, Navigate, NavLink, useLocation } from 'react-router-dom';
-import type { Client, Invoice, Booking, Division, Task, Expense } from './types';
+import type { Client, Invoice, Booking, Division, Task, Expense, Project } from './types';
+import { getDisplayId } from './utils/displayId';
 import {
   Lock,
   LayoutDashboard, Sparkles, Settings,
@@ -222,6 +223,7 @@ const App: React.FC = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const [clients, setClients] = useState<Client[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -239,16 +241,18 @@ const App: React.FC = () => {
   const fetchData = async (silent = false) => {
     if (!silent) setIsLoading(true);
     try {
-      const [c, i, t, b, e, d] = await Promise.all([
+      const [c, i, t, b, e, d, p] = await Promise.all([
         api.getClients(),
         api.getInvoices(),
         api.getTasks(),
         api.getBookings(),
         api.getExpenses(),
-        api.getDivisions()
+        api.getDivisions(),
+        api.getProjects()
       ]);
       const sortedClients = [...c].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       setClients(sortedClients);
+      setProjects(p);
       setInvoices(i);
       setTasks(t);
       setBookings(b);
@@ -618,7 +622,28 @@ const App: React.FC = () => {
             )}
 
             <div className="flex items-start justify-between mb-8 gap-4">
-              <Breadcrumb />
+              {(() => {
+                const customLabels: Record<string, string> = {};
+                clients.forEach(c => {
+                  const code = c.clientCode;
+                  const label = getDisplayId(code, c.id);
+                  if (c.id) customLabels[c.id] = label;
+                  if (c._id) customLabels[c._id] = label;
+                });
+                projects.forEach(p => {
+                  const code = p.projectCode;
+                  const label = getDisplayId(code, p.id);
+                  if (p.id) customLabels[p.id] = label;
+                  if (p._id) customLabels[p._id] = label;
+                });
+                invoices.forEach(inv => {
+                  const isQuote = inv.isQuotation || inv.type === 'quotation';
+                  const code = isQuote ? inv.quotationCode : inv.invoiceCode;
+                  const label = getDisplayId(code, inv.id);
+                  if (inv.id) customLabels[inv.id] = label;
+                });
+                return <Breadcrumb customLabels={customLabels} />;
+              })()}
               <div className="flex items-center gap-4">
                 <CompanySelector authRole={authRole} selectedCompanyId={selectedCompanyId} setSelectedCompanyId={setSelectedCompanyId} companies={companies} />
                 <div className="hidden lg:block">

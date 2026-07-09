@@ -7,6 +7,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { type Client, type Invoice, type PaymentRecord, type User as UserType, type IdDocument, type Project, type ProjectStage, type ClientEvent, type StandaloneAgreementTemplate, type StandaloneAgreement } from '../types';
 import { api } from '../services/api';
 import { useCompanySettings, useCompanyForClient } from '../hooks/useCompanySettings';
+import { getDisplayId } from '../utils/displayId';
 
 import { getAuthUser } from '../utils/storage';
 
@@ -1645,7 +1646,7 @@ const ClientDetailsPage: React.FC = () => {
                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
                         <div>
                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Client ID</p>
-                           <p className="text-sm font-bold text-white">{client.id || (client as any)._id}</p>
+                           <p className="text-sm font-bold text-white">{getDisplayId(client.clientCode, client.id || (client as any)._id)}</p>
                         </div>
                         <div>
                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Client Name</p>
@@ -1847,7 +1848,7 @@ const ClientDetailsPage: React.FC = () => {
                                  <FileText className="w-5 h-5 text-zinc-400" />
                               </div>
                               <div>
-                                 <p className="text-xs font-black text-white uppercase tracking-[0.2em] mb-1.5">{quote.id}</p>
+                                 <p className="text-xs font-black text-white uppercase tracking-[0.2em] mb-1.5">{getDisplayId(quote.quotationCode, quote.id)}</p>
                                  <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
                                     <span>{quote.createdAt || quote.issueDate}</span>
                                     <span>•</span>
@@ -1899,7 +1900,12 @@ const ClientDetailsPage: React.FC = () => {
                                  <div className="flex items-center gap-4">
                                     <div>
                                        <div className="flex items-center gap-3 mb-1.5">
-                                          <p className="text-xs font-black text-white uppercase tracking-[0.2em]">{invoice.id}</p>
+                                          <p className="text-xs font-black text-white uppercase tracking-[0.2em]">
+                                            {getDisplayId(
+                                              (invoice.isQuotation || invoice.type === 'quotation') ? invoice.quotationCode : invoice.invoiceCode,
+                                              invoice.id
+                                            )}
+                                          </p>
                                           <span className={`px-2 py-0.5 rounded text-[12px] font-black uppercase tracking-widest ${badgeClass}`}>{invoice.status}</span>
                                        </div>
                                        <p className="text-[12px] font-black text-zinc-600 uppercase tracking-widest">Due: {invoice.dueDate}</p>

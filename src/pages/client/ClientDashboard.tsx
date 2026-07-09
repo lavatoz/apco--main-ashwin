@@ -4,6 +4,7 @@ import type { Client, Invoice, Booking, Project } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { calculateProjectWorkflowProgress } from '../../utils/workflowUtils';
 import { api } from '../../services/api';
+import { getDisplayId } from '../../utils/displayId';
 
 import ClientPageLoader from './ClientPageLoader';
 
@@ -45,13 +46,13 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, i
     return [
       ...clientInvoices.map(inv => ({
         title: inv.status === 'Paid' ? 'Payment Received' : 'Payment Request',
-        description: `Invoice ${inv.id} for ₹${inv.totalAmount?.toLocaleString('en-IN')}`,
+        description: `Invoice ${getDisplayId(inv.invoiceCode, inv.id)} for ₹${inv.totalAmount?.toLocaleString('en-IN')}`,
         date: new Date(inv.createdAt || inv.dueDate || Date.now()),
         type: 'invoice'
       })),
       ...clientQuotes.map(q => ({
         title: q.status === 'Approved' ? 'Proposal Accepted' : 'Proposal Ready',
-        description: `Quote ${q.id} for ₹${q.totalAmount?.toLocaleString('en-IN')}`,
+        description: `Quote ${getDisplayId(q.quotationCode, q.id)} for ₹${q.totalAmount?.toLocaleString('en-IN')}`,
         date: new Date(q.createdAt || q.dueDate || Date.now()),
         type: 'quote'
       })),

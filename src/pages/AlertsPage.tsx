@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { type Client } from '../types';
+import { getDisplayId } from '../utils/displayId';
 
 interface Alert {
   id: string;
@@ -57,7 +58,7 @@ const AlertsPage: React.FC = () => {
         list.push({
           id: `alert-inv-${inv.id}`,
           title: 'Invoice Overdue',
-          description: `Invoice ${inv.id} for ${client} is past due date.`,
+          description: `Invoice ${getDisplayId(inv.invoiceCode, inv.id)} for ${client} is past due date.`,
           severity: 'critical',
           category: 'finance',
           timestamp: inv.dueDate,

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { X, Check, Search, Loader2 } from 'lucide-react';
 import { type Invoice } from '../../types';
+import { getDisplayId } from '../../utils/displayId';
 
 interface QuotationSelectionModalProps {
   isOpen: boolean;
@@ -58,9 +59,10 @@ export const QuotationSelectionModal: React.FC<QuotationSelectionModalProps> = (
     if (!searchQuery.trim()) return sortedQuotes;
     const query = searchQuery.toLowerCase().trim();
     return sortedQuotes.filter(q => {
+      const displayId = getDisplayId(q.quotationCode, q.id).toLowerCase();
       const num = (q.quotationNumber || q.id || '').toLowerCase();
       const name = ((q as any).name || (q as any).description || q.notes || q.items?.[0]?.description || '').toLowerCase();
-      return num.includes(query) || name.includes(query);
+      return num.includes(query) || displayId.includes(query) || name.includes(query);
     });
   }, [sortedQuotes, searchQuery]);
 
@@ -205,7 +207,7 @@ export const QuotationSelectionModal: React.FC<QuotationSelectionModalProps> = (
                 >
                   <div className="space-y-1.5">
                     <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">
-                      {q.quotationNumber || q.id}
+                      {getDisplayId(q.quotationCode, q.id)}
                     </span>
                     <h4 className="text-xs font-black uppercase text-white tracking-wider">
                       {((q as any).name || (q as any).description || q.notes || q.items?.[0]?.description || 'Quotation Package')}

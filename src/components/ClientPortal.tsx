@@ -6,6 +6,7 @@ import { api, fetchApi } from '../services/api';
 import { getTeamFromProjectAssignments } from '../utils/workflowUtils';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import Gallery from './Gallery';
+import { getDisplayId } from '../utils/displayId';
 
 interface ClientPortalProps {
   client: Client;
@@ -267,7 +268,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
                  )}
                  <div>
                     <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight leading-none mb-1 text-white">{project.projectName || project.name}</h1>
-                    <p className={`text-[9px] font-black uppercase tracking-widest ${theme.sub}`}>{settings.companyName || 'Artisans Productions'} • {project._id || project.id}</p>
+                    <p className={`text-[9px] font-black uppercase tracking-widest ${theme.sub}`}>{settings.companyName || 'Artisans Productions'} • {getDisplayId(project.projectCode, project._id || project.id)}</p>
                  </div>
               </div>
            </div>
@@ -477,7 +478,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({ onUpdateClient, onBack, use
                               </div>
                            </div>
                            <div>
-                              <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">{inv.id} • {new Date(inv.issueDate || inv.date).toLocaleDateString()}</p>
+                              <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">{getDisplayId(inv.invoiceCode, inv.id)} • {new Date(inv.issueDate || inv.date).toLocaleDateString()}</p>
                               <p className="text-2xl font-black text-white font-mono tracking-tight">₹{inv.total?.toLocaleString('en-IN')}</p>
                            </div>
                            <button onClick={() => window.alert("Invoice Preview Generating...")} className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-all group/btn">

@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { X, CheckCircle, Award, FileText, IndianRupee } from 'lucide-react';
 import { type Invoice, type Client } from '../types';
+import { getDisplayId } from '../utils/displayId';
 
 interface VerificationModalProps {
   isOpen: boolean;
@@ -78,7 +79,7 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
                 <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest block mb-1">Document Profile</span>
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-zinc-400" />
-                  <span className="font-bold text-white uppercase">{invoice.type === 'quotation' ? 'Quotation' : 'Invoice'} #{invoice.id}</span>
+                  <span className="font-bold text-white uppercase">{invoice.type === 'quotation' ? 'Quotation' : 'Invoice'} #{getDisplayId(invoice.type === 'quotation' ? invoice.quotationCode : invoice.invoiceCode, invoice.id)}</span>
                 </div>
               </div>
 

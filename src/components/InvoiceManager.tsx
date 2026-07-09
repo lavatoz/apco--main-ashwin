@@ -8,6 +8,7 @@ import { type Invoice, type Client, InvoiceStatus, type InvoiceItem } from '../t
 import { generateEmailDraft } from '../services/geminiService';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import { DocumentPreviewModal } from './DocumentPreviewModal';
+import { getDisplayId } from '../utils/displayId';
 
 interface InvoiceManagerProps {
   invoices: Invoice[];
@@ -261,7 +262,7 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
                 return (
                   <React.Fragment key={inv.id}>
                     <tr className={`${tableRowHover} transition-colors`}>
-                      <td className={`p-4 font-mono text-sm ${textSecondary}`}>#{inv.id}</td>
+                      <td className={`p-4 font-mono text-sm ${textSecondary}`}>#{getDisplayId(inv.isQuotation || inv.type === 'quotation' ? inv.quotationCode : inv.invoiceCode, inv.id)}</td>
                       <td className="p-4">
                         <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-sm ${inv.brand === 'AAHA Kalyanam' ? 'bg-yellow-900/30 text-yellow-500' : 'bg-blue-100 text-blue-600'}`}>
                           {inv.brand === 'AAHA Kalyanam' ? 'Wedding' : 'Baby'}
@@ -337,7 +338,7 @@ const InvoiceManager: React.FC<InvoiceManagerProps> = ({ invoices, clients, addI
                 <div className="flex justify-between items-start gap-2">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`font-mono text-sm ${textSecondary}`}>#{inv.id}</span>
+                      <span className={`font-mono text-sm ${textSecondary}`}>#{getDisplayId(inv.isQuotation || inv.type === 'quotation' ? inv.quotationCode : inv.invoiceCode, inv.id)}</span>
                       <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-sm ${inv.brand === 'AAHA Kalyanam' ? 'bg-yellow-900/30 text-yellow-500' : 'bg-blue-100 text-blue-600'}`}>
                         {inv.brand === 'AAHA Kalyanam' ? 'Wedding' : 'Baby'}
                       </span>

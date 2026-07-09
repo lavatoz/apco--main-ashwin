@@ -3,6 +3,7 @@ import { ArrowLeft, CheckCircle2, Clock, IndianRupee, Package, Users, Video } fr
 import { useNavigate } from 'react-router-dom';
 import type { Client, Invoice, Booking } from '../../types';
 import ClientPageLoader from './ClientPageLoader';
+import { getDisplayId } from '../../utils/displayId';
 
 interface ClientActivityPageProps {
   client: Client | null;
@@ -26,14 +27,14 @@ const ClientActivityPage: React.FC<ClientActivityPageProps> = ({ client, invoice
     ...clientInvoices.map(inv => ({
       id: inv.id,
       title: inv.status === 'Paid' ? 'Invoice Paid' : 'Invoice Generated',
-      description: `Invoice ${inv.id} for ₹${inv.totalAmount?.toLocaleString('en-IN')}`,
+      description: `Invoice ${getDisplayId(inv.invoiceCode, inv.id)} for ₹${inv.totalAmount?.toLocaleString('en-IN')}`,
       date: new Date(inv.createdAt || inv.dueDate || Date.now()),
       type: 'invoice' as const
     })),
     ...clientQuotes.map(q => ({
       id: q.id,
       title: q.status === 'Approved' ? 'Quote Approved' : 'Quote Created',
-      description: `Quote ${q.id} for ₹${q.totalAmount?.toLocaleString('en-IN')}`,
+      description: `Quote ${getDisplayId(q.quotationCode, q.id)} for ₹${q.totalAmount?.toLocaleString('en-IN')}`,
       date: new Date(q.createdAt || q.dueDate || Date.now()),
       type: 'quote' as const
     })),

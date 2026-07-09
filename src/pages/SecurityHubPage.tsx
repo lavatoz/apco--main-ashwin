@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import { useCompanySettings } from '../hooks/useCompanySettings';
 import { type Invoice, type Client } from '../types';
 import { generateInvoicePDF } from '../utils/pdfGenerator';
+import { getDisplayId } from '../utils/displayId';
 
 import AnimatedDashboard from '../components/AnimatedDashboard';
 import PdfProtectionCard from '../components/PdfProtectionCard';
@@ -102,8 +103,9 @@ export const SecurityHubPage: React.FC = () => {
     const client = clients.find(c => c.id === inv.clientId);
     const clientName = (client?.projectName || client?.name || '').toLowerCase();
     const invoiceId = String(inv.id).toLowerCase();
+    const displayId = String(inv.type === 'quotation' ? inv.quotationCode : inv.invoiceCode).toLowerCase();
     const query = searchQuery.toLowerCase();
-    return invoiceId.includes(query) || clientName.includes(query);
+    return invoiceId.includes(query) || displayId.includes(query) || clientName.includes(query);
   });
 
   // Password gate check
@@ -243,7 +245,7 @@ export const SecurityHubPage: React.FC = () => {
                   const hash = getDocumentHash(inv, client);
                   return (
                     <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="py-5 font-mono text-[10px] text-zinc-400">#{inv.id}</td>
+                      <td className="py-5 font-mono text-[10px] text-zinc-400">#{getDisplayId(inv.type === 'quotation' ? inv.quotationCode : inv.invoiceCode, inv.id)}</td>
                       <td className="py-5 text-white">{client.projectName || client.name}</td>
                       <td className="py-5">
                         <span className={`text-[8.5px] font-black uppercase px-2.5 py-0.5 rounded-full ${

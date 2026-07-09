@@ -8,6 +8,7 @@ import { api } from '../../services/api';
 import ClientPageLoader from './ClientPageLoader';
 import { useCompanyForClient } from '../../hooks/useCompanySettings';
 import { generateInvoicePDF } from '../../utils/pdfGenerator';
+import { getDisplayId } from '../../utils/displayId';
 
 const formatBytes = (bytes: number, decimals = 2) => {
     if (!bytes) return '0 Bytes';
@@ -155,7 +156,7 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
          const timelineEvent = {
             id: Date.now().toString(),
             title: 'Payment Submitted',
-            description: `Payment verification submitted for Invoice ${activePaymentInvoice.id} (UTR: ${utrNumber})`,
+            description: `Payment verification submitted for Invoice ${getDisplayId(activePaymentInvoice.invoiceCode, activePaymentInvoice.id)} (UTR: ${utrNumber})`,
             date: new Date().toISOString(),
             status: 'Pending' as const,
             category: 'finance'
@@ -231,7 +232,7 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
           newTab.document.write(
             `<iframe src="${fileURL}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
           );
-          newTab.document.title = `Quotation ${invoice.quotationNumber || invoice.id}`;
+          newTab.document.title = `Quotation ${getDisplayId(invoice.quotationCode, invoice.id)}`;
           
           newTab.addEventListener('beforeunload', () => {
             try {
@@ -254,7 +255,7 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
           newTab.document.write(
             `<iframe src="${pdfDataUri}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
           );
-          newTab.document.title = `Invoice ${invoice.id}`;
+          newTab.document.title = `Invoice ${getDisplayId(invoice.invoiceCode, invoice.id)}`;
         } else {
           alert("Pop-up blocked! Please allow pop-ups to view PDF.");
         }
@@ -281,7 +282,7 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
         }
         const blob = await api.getFileBlob(file.id);
         const fileURL = URL.createObjectURL(blob);
-        const filename = file.fileName || `Quotation_${invoice.quotationNumber || invoice.id}.pdf`;
+        const filename = file.fileName || `Quotation_${getDisplayId(invoice.quotationCode, invoice.id)}.pdf`;
         const link = document.createElement('a');
         link.href = fileURL;
         link.download = filename;
@@ -291,7 +292,7 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
         URL.revokeObjectURL(fileURL);
       } else {
         const pdfDataUri = await getPdfDataUri(invoice);
-        const filename = `Invoice_${invoice.id}.pdf`;
+        const filename = `Invoice_${getDisplayId(invoice.invoiceCode, invoice.id)}.pdf`;
         const link = document.createElement('a');
         link.href = pdfDataUri;
         link.download = filename;
@@ -313,7 +314,7 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
      const isSubmitted = invoice.status === 'Payment Submitted';
      const isEncrypted = !!globalSettings?.pdfOwnerPassword;
      
-     const title = isQuote ? `Quotation ${invoice.id}` : `Invoice ${invoice.id}`;
+     const title = isQuote ? `Quotation ${getDisplayId(invoice.quotationCode, invoice.id)}` : `Invoice ${getDisplayId(invoice.invoiceCode, invoice.id)}`;
      
      return (
        <div key={invoice.id || index} className="glass-panel p-8 squircle-lg flex flex-col md:flex-row gap-8 items-center justify-between border border-white/5 hover:bg-white/5 transition-colors relative overflow-hidden">
