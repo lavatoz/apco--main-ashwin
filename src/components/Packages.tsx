@@ -110,18 +110,12 @@ Looking forward to hearing from you.`;
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-2">
+        <div className="flex justify-center pt-4">
           <button
             onClick={handleWhatsAppClick}
-            className="w-full sm:w-auto px-8 py-4 bg-white text-black font-semibold text-xs tracking-[0.2em] uppercase hover:bg-zinc-200 transition-all duration-300 shadow-sm"
+            className="w-[260px] py-4 bg-white text-black font-semibold text-xs tracking-[0.2em] uppercase hover:bg-zinc-200 transition-all duration-300 shadow-sm"
           >
             Plan Your Wedding
-          </button>
-          <button
-            onClick={handleWhatsAppClick}
-            className="w-full sm:w-auto px-8 py-4 bg-transparent text-white font-semibold text-xs tracking-[0.2em] uppercase border border-zinc-800 hover:border-zinc-500 transition-all duration-300"
-          >
-            Chat on WhatsApp
           </button>
         </div>
       </div>
