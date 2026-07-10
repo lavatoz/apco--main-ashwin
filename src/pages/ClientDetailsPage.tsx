@@ -2585,14 +2585,20 @@ const ClientDetailsPage: React.FC = () => {
                                        <AlertTriangle className="w-4 h-4 text-red-500" />
                                        <select
                                           value={normalizeWorkflowStage(project.stage)}
-                                          onChange={async (e) => {
-                                             if (confirm('Are you sure you want to force this workflow stage? This should only be used for corrections.')) {
-                                                const newStage = e.target.value as ProjectStage;
-                                                await emergencyOverrideWorkflow(project.id, newStage);
-                                                const updatedProj = await api.getProjectById(project.id);
-                                                if (updatedProj) setProject(updatedProj);
-                                                setShowEmergencyOverride(false);
-                                             }
+                                          onChange={(e) => {
+                                             const newStage = e.target.value as ProjectStage;
+                                             requestConfirmation({
+                                                title: 'Force Workflow Stage',
+                                                message: 'This action bypasses the normal workflow progression and should only be used to correct operational mistakes.',
+                                                confirmLabel: 'Force Stage',
+                                                tone: 'danger',
+                                                onConfirm: async () => {
+                                                   await emergencyOverrideWorkflow(project.id, newStage);
+                                                   const updatedProj = await api.getProjectById(project.id);
+                                                   if (updatedProj) setProject(updatedProj);
+                                                   setShowEmergencyOverride(false);
+                                                }
+                                             });
                                           }}
                                           className="bg-black/50 border border-red-500/20 rounded-lg px-3 py-1.5 text-xs font-bold text-red-400 outline-none cursor-pointer hover:bg-black/80 transition-all"
                                        >
