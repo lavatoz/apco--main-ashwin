@@ -1,23 +1,20 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { packages } from '../data/packages';
 import { Check, Sparkles } from 'lucide-react';
+import { openWhatsApp } from '../utils/whatsapp';
 
 const Packages: React.FC = () => {
   const [activeTab, setActiveTab] = useState('elegant');
-  const navigate = useNavigate();
 
   const activePackage = packages.find(p => p.id === activeTab) || packages[1];
 
   const handleChoosePackage = (pkgName: string) => {
-    localStorage.setItem('selectedPackage', pkgName);
-    navigate('/');
-    // Trigger login modal if needed, but the request says redirect to /login
-    // Given the current structure in App.tsx, navigating to root and then opening login might be better
-    // but I'll follow the exact instruction "Redirect to /login" if I can.
-    // Actually, App.tsx handles login as a modal when showLogin is true and authRole is 'none'.
-    // If I want to trigger /login route, I should add it to App.tsx.
-    navigate('/login');
+    const message = `Hi APCO Team! \uD83D\uDC4B\n\nI visited your website and I'm interested in your *${pkgName}* collection.\n\nCould you please share:\n\n• Complete package details\n• Pricing\n• What's included\n• Available customizations\n• Availability for my wedding date\n\nLooking forward to hearing from you.\n\nThank you!`;
+
+    openWhatsApp({
+      message,
+      source: 'Landing Page'
+    });
   };
 
   return (
@@ -99,7 +96,7 @@ const Packages: React.FC = () => {
           onClick={() => handleChoosePackage(activePackage.name)}
           className="w-full py-6 bg-white text-black rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] hover:bg-zinc-200 transition-all duration-500 shadow-[0_20px_40px_rgba(255,255,255,0.1)] active:scale-[0.98]"
         >
-          Choose Package
+          Enquire on WhatsApp
         </button>
       </div>
     </div>
