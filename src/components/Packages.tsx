@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
-import { packages } from '../data/packages';
-import { Check, Sparkles } from 'lucide-react';
+import React from 'react';
+import { Check } from 'lucide-react';
 import { openWhatsApp } from '../utils/whatsapp';
 
 const Packages: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('elegant');
+  const handleWhatsAppClick = () => {
+    const message = `Hi AP Co Team! 👋
 
-  const activePackage = packages.find(p => p.id === activeTab) || packages[1];
+I visited your website and would love to discuss my wedding with your team.
 
-  const handleChoosePackage = (pkgName: string) => {
-    const message = `Hi APCO Team! \uD83D\uDC4B\n\nI visited your website and I'm interested in your *${pkgName}* collection.\n\nCould you please share:\n\n• Complete package details\n• Pricing\n• What's included\n• Available customizations\n• Availability for my wedding date\n\nLooking forward to hearing from you.\n\nThank you!`;
+I'm looking for a personalized photography and filmmaking experience.
+
+Could we schedule a consultation?
+
+My Name:
+Wedding Date:
+Venue:
+
+Looking forward to hearing from you.`;
 
     openWhatsApp({
       message,
@@ -18,90 +25,108 @@ const Packages: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-20 relative z-10 min-h-screen flex flex-col items-center">
+    <div className="max-w-6xl mx-auto px-6 py-24 md:py-32 relative z-10 flex flex-col items-center">
       {/* Header */}
-      <div className="text-center mb-16 animate-ios-slide-up">
-        <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter mb-4 text-white">
-          Select Your Collection
-        </h1>
-        <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.4em] text-zinc-500">
-          CURATED FILMMAKING FOR THE MODERN WEDDING
+      <div className="text-center max-w-3xl mb-16 md:mb-24 animate-ios-slide-up">
+        <h2 className="text-4xl md:text-5xl lg:text-6xl font-extralight tracking-tight text-white leading-tight mb-6">
+          Let's Create Your Story
+        </h2>
+        <p className="text-xs md:text-sm font-light tracking-[0.2em] uppercase text-zinc-400 max-w-2xl mx-auto">
+          Every wedding deserves a story that's uniquely yours.
         </p>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-12 mb-16 border-b border-white/5 pb-4 animate-ios-slide-up" style={{ animationDelay: '0.1s' }}>
-        {['classic', 'elegant', 'royal'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`relative text-[11px] font-black uppercase tracking-[0.3em] transition-all duration-300 ${
-              activeTab === tab ? 'text-white' : 'text-zinc-600 hover:text-white'
-            }`}
-          >
-            {tab}
-            {activeTab === tab && (
-              <div className="absolute -bottom-[17px] left-0 right-0 h-[2px] bg-white animate-ios-slide-up" />
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Package Panel */}
+      {/* Editorial Content Grid */}
       <div 
-        key={activeTab} // Use key to trigger re-animation on tab switch
-        className="w-full max-w-[900px] glass-panel backdrop-blur-3xl rounded-[3rem] p-8 md:p-16 border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.5)] animate-ios-slide-up"
-        style={{ animationDelay: '0.2s' }}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20 w-full animate-ios-slide-up"
+        style={{ animationDelay: '0.1s' }}
       >
-        <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-12">
-          <div className="space-y-4">
-            {activePackage.tag && (
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em] animate-pulse">
-                <Sparkles className="w-3 h-3" />
-                {activePackage.tag}
-              </span>
-            )}
-            <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight text-white">
-              {activePackage.name}
-            </h2>
-            <div className="flex items-center gap-3 text-zinc-400">
-              <div className="p-2 bg-white/5 rounded-lg border border-white/5">
-                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
-                   <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                </svg>
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-widest">{activePackage.crew}</span>
-            </div>
+        {/* Storytelling Copy */}
+        <div className="lg:col-span-7 flex flex-col justify-center space-y-8 pr-0 lg:pr-8">
+          <p className="text-zinc-300 text-xl md:text-2xl font-light leading-relaxed tracking-wide">
+            We don't believe in fixed packages because no two celebrations are ever the same.
+          </p>
+          <div className="space-y-6 text-zinc-400 text-sm md:text-base font-light leading-relaxed">
+            <p>
+              Whether you're planning an intimate ceremony, a grand celebration, or a destination wedding, we take the time to understand your vision, traditions, and expectations before crafting a personalized proposal.
+            </p>
+            <p>
+              From cinematic films and timeless photography to luxury albums and live streaming, every detail is tailored to your story.
+            </p>
           </div>
-          <div className="text-right">
-            <p className="text-[9px] font-black uppercase text-zinc-500 tracking-[0.2em] mb-2">Total Investment</p>
-            <h3 className="text-4xl md:text-5xl font-black font-mono text-white tracking-tighter">
-              {activePackage.price}
+        </div>
+
+        {/* Feature Highlights Checklist */}
+        <div 
+          className="lg:col-span-5 bg-zinc-950/40 border border-zinc-900/80 p-8 md:p-10 rounded-none flex flex-col justify-center space-y-8"
+        >
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-zinc-500">
+              EXPERIENCE DESIGN
+            </span>
+            <h3 className="text-lg font-medium text-white tracking-wide">
+              Tailored Elements
             </h3>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mb-16">
-          {activePackage.features.map((feature, idx) => (
-            <div key={idx} className="flex items-start gap-4 group">
-              <div className="mt-1 w-5 h-5 rounded-full bg-white/5 flex items-center justify-center border border-white/10 group-hover:bg-white group-hover:text-black transition-all">
-                <Check className="w-3 h-3" />
+          <div className="space-y-5">
+            {[
+              "Personalized consultation",
+              "Tailor-made photography & filmmaking",
+              "Flexible coverage for every event",
+              "Premium albums & keepsakes",
+              "Destination weddings",
+              "Dedicated creative team"
+            ].map((feature, idx) => (
+              <div key={idx} className="flex items-start gap-4">
+                <div className="mt-1 flex-shrink-0 w-4 h-4 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400">
+                  <Check className="w-2.5 h-2.5" />
+                </div>
+                <span className="text-zinc-300 text-xs md:text-sm font-light leading-normal">
+                  {feature}
+                </span>
               </div>
-              <span className="text-zinc-400 text-sm font-medium leading-tight group-hover:text-white transition-colors">{feature}</span>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Elegant Divider */}
+      <div 
+        className="w-full max-w-5xl h-[1px] bg-zinc-900 my-16 md:my-24 animate-ios-slide-up"
+        style={{ animationDelay: '0.2s' }}
+      />
+
+      {/* Call To Action Block */}
+      <div 
+        className="max-w-3xl text-center space-y-8 animate-ios-slide-up"
+        style={{ animationDelay: '0.3s' }}
+      >
+        <div className="space-y-3">
+          <h3 className="text-2xl md:text-3xl font-extralight tracking-wide text-white leading-tight">
+            Ready to start planning your wedding?
+          </h3>
+          <p className="text-zinc-400 text-xs md:text-sm font-light max-w-xl mx-auto leading-relaxed">
+            We'll discuss your vision, answer your questions, and prepare a proposal designed exclusively for your celebration.
+          </p>
         </div>
 
-        <button
-          onClick={() => handleChoosePackage(activePackage.name)}
-          className="w-full py-6 bg-white text-black rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] hover:bg-zinc-200 transition-all duration-500 shadow-[0_20px_40px_rgba(255,255,255,0.1)] active:scale-[0.98]"
-        >
-          Enquire on WhatsApp
-        </button>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-2">
+          <button
+            onClick={handleWhatsAppClick}
+            className="w-full sm:w-auto px-8 py-4 bg-white text-black font-semibold text-xs tracking-[0.2em] uppercase hover:bg-zinc-200 transition-all duration-300 shadow-sm"
+          >
+            Plan Your Wedding
+          </button>
+          <button
+            onClick={handleWhatsAppClick}
+            className="w-full sm:w-auto px-8 py-4 bg-transparent text-white font-semibold text-xs tracking-[0.2em] uppercase border border-zinc-800 hover:border-zinc-500 transition-all duration-300"
+          >
+            Chat on WhatsApp
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
 export default Packages;
-
