@@ -42,9 +42,9 @@ const PackagesPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
         <div className="flex items-center gap-10">
           <div className="hidden md:flex items-center gap-8 text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">
+            <NavLink to="/#philosophy" className="hover:text-white hover:scale-105 transition-all duration-300">Studio</NavLink>
             <NavLink to="/#work" className="hover:text-white hover:scale-105 transition-all duration-300">Portfolio</NavLink>
             <NavLink to="/#divisions" className="hover:text-white hover:scale-105 transition-all duration-300">Divisions</NavLink>
-            <NavLink to="/#philosophy" className="hover:text-white hover:scale-105 transition-all duration-300">Studio</NavLink>
             <NavLink 
               to="/packages" 
               className={({ isActive }) => 
