@@ -1,7 +1,131 @@
-
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Instagram, Mail, Camera, Film, ArrowUpRight, Sparkles, MapPin, Clapperboard } from 'lucide-react';
+import { ArrowRight, Instagram, Mail, Camera, Film, ArrowUpRight, Sparkles, MapPin, Clapperboard, Globe, Layers } from 'lucide-react';
 import Packages from './Packages';
+import { api } from '../services/api';
+import { type PublicDivisionMedia } from '../services/api/divisions';
+import galleryPlaceholder from '../assets/placeholders/gallery-placeholder.jpg';
+
+const GalleryCard: React.FC<{ item: any; index: number }> = ({ item, index }) => {
+   const [imgSrc, setImgSrc] = useState(item.coverImageUrl);
+   const [isFallback, setIsFallback] = useState(false);
+   
+   const variant = index % 4;
+   let colSpanClass = 'lg:col-span-8';
+   let aspectClass = 'aspect-[16/10]';
+   let titleClass = 'text-4xl font-black uppercase mb-3';
+   
+   if (variant === 1) {
+      colSpanClass = 'lg:col-span-4';
+      aspectClass = 'aspect-[4/5] lg:aspect-auto';
+      titleClass = 'text-3xl font-black uppercase mb-3';
+   } else if (variant === 2) {
+      colSpanClass = 'lg:col-span-4';
+      aspectClass = 'aspect-square';
+      titleClass = 'text-3xl font-black uppercase mb-3';
+   } else if (variant === 3) {
+      colSpanClass = 'lg:col-span-8';
+      aspectClass = 'aspect-[16/10]';
+      titleClass = 'text-4xl font-black uppercase mb-3';
+   }
+
+   const divisionLabels = ["AAHA Kalyanam", "Candid Moments", "Tiny Toes", "Artisans Signature"];
+   const divisionLabel = divisionLabels[variant];
+   const hasLink = !!item.instagramUrl;
+
+   const handleImageError = () => {
+      if (!isFallback) {
+         setImgSrc(galleryPlaceholder);
+         setIsFallback(true);
+      }
+   };
+
+   const handleClick = () => {
+      if (hasLink) {
+         window.open(item.instagramUrl, '_blank', 'noopener,noreferrer');
+      }
+   };
+
+   return (
+      <div 
+         onClick={handleClick}
+         className={`${colSpanClass} ${aspectClass} group relative overflow-hidden rounded-[3rem] border border-white/5 hover:border-white/20 transition-all duration-500 ${hasLink ? 'cursor-pointer' : 'cursor-default'}`}
+      >
+         <img 
+            src={imgSrc} 
+            onError={handleImageError}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-[1.5s] group-hover:scale-110" 
+            alt={item.title}
+         />
+         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
+         <div className="absolute bottom-0 left-0 p-12 translate-y-4 group-hover:translate-y-0 transition-transform duration-700">
+            <h3 className={titleClass}>{item.title}</h3>
+            <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 bg-zinc-900/20 border border-white/10 px-3 py-1 rounded-full w-max backdrop-blur-md">
+               {divisionLabel}
+            </p>
+         </div>
+      </div>
+   );
+};
+
+const MediaCard: React.FC<{
+   mediaItem: PublicDivisionMedia;
+   instagramUrl: string | null;
+}> = React.memo(({ mediaItem, instagramUrl }) => {
+   const [hasError, setHasError] = useState(false);
+   const [imgSrc, setImgSrc] = useState(mediaItem.url);
+   const [isFallback, setIsFallback] = useState(false);
+
+   const handleImageError = () => {
+      if (!isFallback) {
+         setImgSrc(galleryPlaceholder);
+         setIsFallback(true);
+      } else {
+         setHasError(true);
+      }
+   };
+
+   const handleVideoError = () => {
+      setHasError(true);
+   };
+
+   const cardClassName = instagramUrl 
+      ? 'relative w-48 h-64 flex-shrink-0 rounded-2xl overflow-hidden cursor-pointer border border-white/10 group/item'
+      : 'relative w-48 h-64 flex-shrink-0 rounded-2xl overflow-hidden cursor-default border border-white/10 group/item';
+
+   return (
+      <div className={cardClassName}>
+         {mediaItem.type === 'VIDEO' && !hasError ? (
+            <video
+               src={mediaItem.url}
+               autoPlay
+               muted
+               loop
+               playsInline
+               preload="metadata"
+               onError={handleVideoError}
+               className="w-full h-full object-cover transition-transform duration-700 group-hover/item:scale-110"
+            />
+         ) : (
+            <img
+               src={hasError ? galleryPlaceholder : imgSrc}
+               onError={handleImageError}
+               loading="lazy"
+               decoding="async"
+               className="w-full h-full object-cover transition-transform duration-700 group-hover/item:scale-110"
+               alt="Division Media"
+            />
+         )}
+         <div className="absolute inset-0 bg-black/20 group-hover/item:bg-transparent transition-colors" />
+         {instagramUrl && (
+            <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-md p-1.5 rounded-full opacity-0 group-hover/item:opacity-100 transition-opacity">
+               <Instagram className="w-3 h-3 text-white" />
+            </div>
+         )}
+      </div>
+   );
+});
 
 interface LandingPageProps {
    onLogin: () => void;
@@ -10,6 +134,10 @@ interface LandingPageProps {
 const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
    const [scrolled, setScrolled] = useState(false);
    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+   const [galleries, setGalleries] = useState<any[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [divisions, setDivisions] = useState<any[]>([]);
+   const [divisionsLoading, setDivisionsLoading] = useState(true);
 
    useEffect(() => {
       const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -21,32 +149,29 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
       };
       window.addEventListener('mousemove', handleMouseMove);
 
+      const loadData = async () => {
+         setLoading(true);
+         setDivisionsLoading(true);
+         
+         const galleriesPromise = api.getPublicGalleries()
+            .then(data => setGalleries(data || []))
+            .catch(err => console.error("Failed to load website galleries for landing page", err))
+            .finally(() => setLoading(false));
+
+         const divisionsPromise = api.getPublicDivisions()
+            .then(data => setDivisions(data || []))
+            .catch(err => console.error("Failed to load website divisions for landing page", err))
+            .finally(() => setDivisionsLoading(false));
+
+         await Promise.allSettled([galleriesPromise, divisionsPromise]);
+      };
+      loadData();
+
       return () => {
          window.removeEventListener('scroll', handleScroll);
          window.removeEventListener('mousemove', handleMouseMove);
       };
    }, []);
-
-   // Mock Instagram Data
-   const aahaImages = [
-      "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1583939003579-730e3918a45a?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1511285560982-1927bb242493?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1606800052052-a08af7148866?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1545232979-8bf68ee29183?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1606216794074-735e91aa2c92?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?q=80&w=600&auto=format&fit=crop"
-   ];
-
-   const tinyImages = [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1510746968896-c2cd169eb6db?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1596939170830-6b6062f6892e?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1602631985686-1bb0e6a8696e?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1519340241574-2291ec33587f?q=80&w=600&auto=format&fit=crop"
-   ];
 
    return (
       <div className="min-h-screen bg-transparent text-white font-sans selection:bg-primary selection:text-white overflow-x-hidden relative">
@@ -179,156 +304,165 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
             </div>
          </section>
 
-         {/* Selected Works - Futuristic Grid */}
-         <section id="work" className="py-32 px-6 relative z-10">
-            <div className="max-w-[1800px] mx-auto mb-20 flex flex-col md:flex-row justify-between items-end gap-6 animate-ios-slide-up">
-               <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter text-white/90">Curated Gallery</h2>
-               <span className="text-xs font-bold uppercase tracking-widest text-zinc-600 mb-2 px-4 py-2 rounded-full border border-white/10 glass-panel">Highlights 2024-25</span>
-            </div>
-
-            <div className="max-w-[1800px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8">
-               {/* Item 1 - Wedding (AAHA Kalyanam vibe) */}
-               <div className="lg:col-span-8 group cursor-pointer relative overflow-hidden aspect-[16/10] rounded-[3rem] border border-white/5 hover:border-white/20 transition-all duration-500">
-                  <img src="https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?q=80&w=2670&auto=format&fit=crop" className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-[1.5s] group-hover:scale-110" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
-                  <div className="absolute bottom-0 left-0 p-12 translate-y-4 group-hover:translate-y-0 transition-transform duration-700">
-                     <h3 className="text-4xl font-black uppercase mb-3">The Royal Vows</h3>
-                     <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 bg-zinc-900/20 border border-white/10 px-3 py-1 rounded-full w-max backdrop-blur-md">AAHA Kalyanam</p>
-                  </div>
-               </div>
-
-               {/* Item 2 - Wedding Portrait */}
-               <div className="lg:col-span-4 group cursor-pointer relative overflow-hidden aspect-[4/5] lg:aspect-auto rounded-[3rem] border border-white/5 hover:border-white/20 transition-all duration-500">
-                  <img src="https://images.unsplash.com/photo-1606216794074-735e91aa2c92?q=80&w=2574&auto=format&fit=crop" className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-[1.5s] group-hover:scale-110" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
-                  <div className="absolute bottom-0 left-0 p-12 translate-y-4 group-hover:translate-y-0 transition-transform duration-700">
-                     <h3 className="text-3xl font-black uppercase mb-3">Haldi Joy</h3>
-                     <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 bg-zinc-900/20 border border-white/10 px-3 py-1 rounded-full w-max backdrop-blur-md">Candid Moments</p>
-                  </div>
-               </div>
-
-               {/* Item 3 - Kids (Tiny Toes vibe) */}
-               <div className="lg:col-span-4 group cursor-pointer relative overflow-hidden aspect-square rounded-[3rem] border border-white/5 hover:border-white/20 transition-all duration-500">
-                  <img src="https://images.unsplash.com/photo-1555252333-9f8e92e65df9?q=80&w=2670&auto=format&fit=crop" className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-[1.5s] group-hover:scale-110" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
-                  <div className="absolute bottom-0 left-0 p-12 translate-y-4 group-hover:translate-y-0 transition-transform duration-700">
-                     <h3 className="text-3xl font-black uppercase mb-3">Pure Innocence</h3>
-                     <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 bg-zinc-900/20 border border-white/10 px-3 py-1 rounded-full w-max backdrop-blur-md">Tiny Toes</p>
-                  </div>
-               </div>
-
-               {/* Item 4 - Event/Celebration */}
-               <div className="lg:col-span-8 group cursor-pointer relative overflow-hidden aspect-[16/10] rounded-[3rem] border border-white/5 hover:border-white/20 transition-all duration-500">
-                  <img src="https://images.unsplash.com/photo-1469334031218-e382a71b716b?q=80&w=2670&auto=format&fit=crop" className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-[1.5s] group-hover:scale-110" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
-                  <div className="absolute bottom-0 left-0 p-12 translate-y-4 group-hover:translate-y-0 transition-transform duration-700">
-                     <h3 className="text-4xl font-black uppercase mb-3">Grand Celebrations</h3>
-                     <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 bg-zinc-900/20 border border-white/10 px-3 py-1 rounded-full w-max backdrop-blur-md">Artisans Signature</p>
-                  </div>
-               </div>
-            </div>
-         </section>
+          {/* Selected Works - Futuristic Grid */}
+          <section id="work" className="py-32 px-6 relative z-10">
+             <div className="max-w-[1800px] mx-auto mb-20 flex flex-col md:flex-row justify-between items-end gap-6 animate-ios-slide-up">
+                <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter text-white/90">Curated Gallery</h2>
+                <span className="text-xs font-bold uppercase tracking-widest text-zinc-600 mb-2 px-4 py-2 rounded-full border border-white/10 glass-panel">Highlights 2024-25</span>
+             </div>
+ 
+             {loading ? (
+                <div className="max-w-[1800px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8">
+                   <div className="lg:col-span-8 aspect-[16/10] rounded-[3rem] bg-white/5 animate-pulse border border-white/5" />
+                   <div className="lg:col-span-4 aspect-[4/5] lg:aspect-auto rounded-[3rem] bg-white/5 animate-pulse border border-white/5" />
+                   <div className="lg:col-span-4 aspect-square rounded-[3rem] bg-white/5 animate-pulse border border-white/5" />
+                   <div className="lg:col-span-8 aspect-[16/10] rounded-[3rem] bg-white/5 animate-pulse border border-white/5" />
+                </div>
+             ) : galleries.length === 0 ? (
+                <div className="max-w-[1800px] mx-auto py-20 text-center glass-panel rounded-[3rem] border border-white/5 p-12">
+                   <Globe className="w-12 h-12 text-zinc-600 mx-auto mb-6 animate-pulse" />
+                   <h3 className="text-2xl font-black text-white/80 uppercase tracking-tight mb-2">No Featured Highlights</h3>
+                   <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Check back later for our curated collection of works.</p>
+                </div>
+             ) : (
+                <div className="max-w-[1800px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8">
+                   {galleries.map((item, index) => (
+                      <GalleryCard key={item.id} item={item} index={index} />
+                   ))}
+                </div>
+             )}
+          </section>
 
          {/* Divisions - Futuristic Cards */}
          <section id="divisions" className="py-32 px-6 relative z-10">
             <div className="max-w-[1400px] mx-auto">
                <h2 className="text-[10vw] font-black uppercase tracking-tighter leading-none mb-24 opacity-20 text-transparent bg-clip-text bg-gradient-to-b from-white to-transparent">Divisions</h2>
 
-               <div className="space-y-32">
-                  {/* Division 1: AAHA Kalyanam */}
-                  <div className="flex flex-col md:flex-row gap-16 items-center group">
-                     <div className="flex-1 space-y-8 order-2 md:order-1">
-                        <div className="w-24 h-24 glass-panel rounded-[2rem] flex items-center justify-center border border-white/10 group-hover:bg-white group-hover:text-black transition-all duration-500 shadow-[0_0_40px_rgba(255,255,255,0.05)] group-hover:shadow-[0_0_40px_rgba(255,255,255,0.3)]">
-                           <Film className="w-10 h-10" />
-                        </div>
-                        <h3 className="text-4xl md:text-6xl font-black uppercase tracking-tight">AAHA Kalyanam</h3>
-                        <p className="text-lg text-zinc-400 font-medium leading-relaxed max-w-lg">
-                           The gold standard in Indian wedding cinematography. We craft feature-length films that document the grandeur, ritual, and emotion of your union with cinematic precision.
-                        </p>
-                        <a
-                           href="https://www.instagram.com/aahakalyanam.from.apco/"
-                           target="_blank"
-                           rel="noreferrer"
-                           className="inline-flex items-center gap-3 px-8 py-4 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-300"
-                        >
-                           <span>Visit Instagram</span>
-                           <ArrowUpRight className="w-3 h-3" />
-                        </a>
-                     </div>
-                     <div className="flex-1 order-1 md:order-2 w-full overflow-hidden">
-                        {/* Instagram Scrolling Feed */}
-                        <div className="relative w-full overflow-hidden group/feed rounded-[3rem] border border-white/10 glass-panel p-2">
-                           <div className="flex gap-4 animate-marquee hover:pause">
-                              {[...aahaImages, ...aahaImages].map((img, i) => (
-                                 <a
-                                    href="https://www.instagram.com/aahakalyanam.from.apco/"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    key={i}
-                                    className="relative w-48 h-64 flex-shrink-0 rounded-2xl overflow-hidden cursor-pointer border border-white/10 group/item"
-                                 >
-                                    <img src={img} className="w-full h-full object-cover transition-transform duration-700 group-hover/item:scale-110" alt="Wedding Post" />
-                                    <div className="absolute inset-0 bg-black/20 group-hover/item:bg-transparent transition-colors" />
-                                    <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-md p-1.5 rounded-full opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                       <Instagram className="w-3 h-3 text-white" />
-                                    </div>
-                                 </a>
-                              ))}
+               {divisionsLoading ? (
+                  /* Premium Loading Skeletons */
+                  <div className="space-y-32">
+                     {[0, 1].map((idx) => {
+                        const isEvenSkeleton = idx % 2 === 1;
+                        return (
+                           <div 
+                              key={idx} 
+                              className={`flex flex-col ${isEvenSkeleton ? 'md:flex-row-reverse' : 'md:flex-row'} gap-16 items-center`}
+                           >
+                              <div className="flex-1 space-y-8 animate-pulse">
+                                 <div className="w-24 h-24 bg-white/5 rounded-[2rem]" />
+                                 <div className="h-10 bg-white/5 rounded-xl w-3/4" />
+                                 <div className="space-y-3">
+                                    <div className="h-4 bg-white/5 rounded w-full" />
+                                    <div className="h-4 bg-white/5 rounded w-5/6" />
+                                    <div className="h-4 bg-white/5 rounded w-4/5" />
+                                 </div>
+                                 <div className="w-36 h-12 bg-white/5 rounded-full" />
+                              </div>
+                              <div className="flex-1 w-full overflow-hidden animate-pulse">
+                                 <div className="flex gap-4">
+                                    {[1, 2, 3].map((mIdx) => (
+                                       <div key={mIdx} className="w-48 h-64 bg-white/5 rounded-2xl border border-white/5 flex-shrink-0" />
+                                    ))}
+                                 </div>
+                              </div>
                            </div>
-                           {/* Gradient Masks */}
-                           <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none rounded-l-[3rem]" />
-                           <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none rounded-r-[3rem]" />
-                        </div>
-                     </div>
+                        );
+                     })}
                   </div>
+               ) : divisions.length === 0 ? (
+                  /* Premium Empty State */
+                  <div className="max-w-2xl mx-auto py-20 text-center glass-panel rounded-[3rem] border border-white/5 p-12 animate-ios-slide-up">
+                     <Layers className="w-12 h-12 text-zinc-600 mx-auto mb-6 animate-pulse" />
+                     <h3 className="text-2xl font-black text-white/80 uppercase tracking-tight mb-2">No Divisions Published</h3>
+                     <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Check back later as we update our creative segments.</p>
+                  </div>
+               ) : (
+                  <div className="space-y-32">
+                     {divisions.map((division, index) => {
+                        const isEvenTheme = index % 2 === 1;
+                        const instagramUrl = division.instagramUrl || null;
+                        const Icon = isEvenTheme ? Camera : Film;
+                        
+                        const iconContainerClass = isEvenTheme
+                           ? "w-24 h-24 bg-primary/10 glass-panel rounded-[2rem] flex items-center justify-center border border-primary/20 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-[0_0_40px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_40px_rgba(59,130,246,0.4)]"
+                           : "w-24 h-24 glass-panel rounded-[2rem] flex items-center justify-center border border-white/10 group-hover:bg-white group-hover:text-black transition-all duration-500 shadow-[0_0_40px_rgba(255,255,255,0.05)] group-hover:shadow-[0_0_40px_rgba(255,255,255,0.3)]";
 
-                  {/* Division 2: Tiny Toes */}
-                  <div className="flex flex-col md:flex-row-reverse gap-16 items-center group">
-                     <div className="flex-1 space-y-8">
-                        <div className="w-24 h-24 bg-primary/10 glass-panel rounded-[2rem] flex items-center justify-center border border-primary/20 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-[0_0_40px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_40px_rgba(59,130,246,0.4)]">
-                           <Camera className="w-10 h-10" />
-                        </div>
-                        <h3 className="text-4xl md:text-6xl font-black uppercase tracking-tight">Tiny Toes</h3>
-                        <p className="text-lg text-zinc-400 font-medium leading-relaxed max-w-lg">
-                           Specialized newborn, maternity, and family photography. Capturing the fleeting moments of childhood with a playful, artistic, and patient approach that families cherish.
-                        </p>
-                        <a
-                           href="https://www.instagram.com/tinytoes.from.apco/"
-                           target="_blank"
-                           rel="noreferrer"
-                           className="inline-flex items-center gap-3 px-8 py-4 border border-primary/50 text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all duration-300"
-                        >
-                           <span>Visit Instagram</span>
-                           <ArrowUpRight className="w-3 h-3" />
-                        </a>
-                     </div>
-                     <div className="flex-1 relative w-full overflow-hidden">
-                        {/* Instagram Scrolling Feed */}
-                        <div className="relative w-full overflow-hidden group/feed rounded-[3rem] border border-white/10 glass-panel p-2">
-                           <div className="flex gap-4 animate-marquee hover:pause" style={{ animationDirection: 'reverse' }}>
-                              {[...tinyImages, ...tinyImages].map((img, i) => (
-                                 <a
-                                    href="https://www.instagram.com/tinytoes.from.apco/"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    key={i}
-                                    className="relative w-48 h-64 flex-shrink-0 rounded-2xl overflow-hidden cursor-pointer border border-white/10 group/item"
-                                 >
-                                    <img src={img} className="w-full h-full object-cover transition-transform duration-700 group-hover/item:scale-110" alt="Kids Post" />
-                                    <div className="absolute inset-0 bg-black/20 group-hover/item:bg-transparent transition-colors" />
-                                    <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-md p-1.5 rounded-full opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                       <Instagram className="w-3 h-3 text-white" />
-                                    </div>
-                                 </a>
-                              ))}
+                        const sortedMedia = division.media && division.media.length > 0
+                           ? [...division.media].sort((a: any, b: any) => a.position - b.position)
+                           : [];
+
+                        const marqueeMedia = sortedMedia.length > 0
+                           ? (sortedMedia.length < 4
+                              ? [...sortedMedia, ...sortedMedia, ...sortedMedia, ...sortedMedia]
+                              : [...sortedMedia, ...sortedMedia]
+                           )
+                           : [];
+
+                        const handleDivisionClick = () => {
+                           if (instagramUrl) {
+                              window.open(instagramUrl, '_blank', 'noopener,noreferrer');
+                           }
+                        };
+
+                        return (
+                           <div 
+                              key={division.id} 
+                              onClick={handleDivisionClick}
+                              className={`flex flex-col ${isEvenTheme ? 'md:flex-row-reverse' : 'md:flex-row'} gap-16 items-center group ${instagramUrl ? 'cursor-pointer' : 'cursor-default pointer-events-none'}`}
+                           >
+                              {/* Text content info */}
+                              <div className={`flex-1 space-y-8 ${isEvenTheme ? '' : 'order-2 md:order-1'}`}>
+                                 <div className={iconContainerClass}>
+                                    <Icon className="w-10 h-10" />
+                                 </div>
+                                 <h3 className="text-4xl md:text-6xl font-black uppercase tracking-tight">{division.name}</h3>
+                                 <p className="text-lg text-zinc-400 font-medium leading-relaxed max-w-lg">
+                                    {division.description}
+                                 </p>
+                                 {instagramUrl && (
+                                    <span
+                                       className={isEvenTheme
+                                          ? "inline-flex items-center gap-3 px-8 py-4 border border-primary/50 text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all duration-300"
+                                          : "inline-flex items-center gap-3 px-8 py-4 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-300"
+                                       }
+                                    >
+                                       <span>Visit Instagram</span>
+                                       <ArrowUpRight className="w-3 h-3" />
+                                    </span>
+                                 )}
+                              </div>
+
+                              {/* Media Scrolling Feed */}
+                              <div className={`flex-1 ${isEvenTheme ? 'relative' : 'order-1 md:order-2'} w-full overflow-hidden`}>
+                                 <div className="relative w-full overflow-hidden group/feed rounded-[3rem] border border-white/10 glass-panel p-2">
+                                    {marqueeMedia.length > 0 ? (
+                                       <div 
+                                          className="flex gap-4 animate-marquee hover:pause"
+                                          style={isEvenTheme ? { animationDirection: 'reverse' } : undefined}
+                                       >
+                                          {marqueeMedia.map((mediaItem, i) => (
+                                             <MediaCard 
+                                                key={`${mediaItem.id}-${i}`}
+                                                mediaItem={mediaItem}
+                                                instagramUrl={instagramUrl}
+                                             />
+                                          ))}
+                                       </div>
+                                    ) : (
+                                       <div className="flex justify-center items-center h-64 text-zinc-500 font-bold uppercase text-[10px] tracking-widest">
+                                          No Media Available
+                                       </div>
+                                    )}
+                                    {/* Gradient Masks */}
+                                    <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none rounded-l-[3rem]" />
+                                    <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none rounded-r-[3rem]" />
+                                 </div>
+                              </div>
                            </div>
-                           {/* Gradient Masks */}
-                           <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none rounded-l-[3rem]" />
-                           <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none rounded-r-[3rem]" />
-                        </div>
-                     </div>
+                        );
+                     })}
                   </div>
-               </div>
+               )}
             </div>
          </section>
 

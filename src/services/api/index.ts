@@ -10,6 +10,8 @@ import { files } from './files';
 import { notifications } from './notifications';
 import { workflow } from './workflow';
 import { agreementsV2 } from './agreementsV2';
+import { websiteGallery } from './websiteGallery';
+import { divisions } from './divisions';
 
 export const api = {
   ...auth,
@@ -23,6 +25,8 @@ export const api = {
   ...notifications,
   ...workflow,
   ...agreementsV2,
+  ...websiteGallery,
+  ...divisions,
   setAccessToken
 };
 

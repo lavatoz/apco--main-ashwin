@@ -38,6 +38,10 @@ import CompanySettingsPage from './pages/CompanySettingsPage';
 import AlertsPage from './pages/AlertsPage';
 import CoordinationPage from './pages/CoordinationPage';
 import CoordinationCenter from './pages/CoordinationCenter';
+import WebsiteGalleryManager from './components/settings/WebsiteGalleryManager';
+import WebsiteGalleryForm from './components/settings/WebsiteGalleryForm';
+import WebsiteDivisionsManager from './components/settings/WebsiteDivisionsManager';
+import WebsiteDivisionForm from './components/settings/WebsiteDivisionForm';
 import BrandDetailPage from './pages/BrandDetailPage';
 import SecurityHubPage from './pages/SecurityHubPage';
 import StaffPortal from './pages/staff/StaffPortal';
@@ -723,6 +727,12 @@ const App: React.FC = () => {
                 }} selectedDivisionId={selectedCompanyId} onOpenPortal={(client) => navigate(`/client/${client.id}`)} userRole={authRole} userId={getAuthUser()?.id} />}
               </PermissionRoute>} />
               <Route path="/ecosystem" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><SettingsView onOpenTeam={() => navigate('/team')} isAdmin={authRole === 'Admin'} /></PermissionRoute>} />
+              <Route path="/ecosystem/gallery" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><WebsiteGalleryManager /></PermissionRoute>} />
+              <Route path="/ecosystem/gallery/new" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><WebsiteGalleryForm /></PermissionRoute>} />
+              <Route path="/ecosystem/gallery/:id/edit" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><WebsiteGalleryForm /></PermissionRoute>} />
+              <Route path="/ecosystem/divisions" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><WebsiteDivisionsManager /></PermissionRoute>} />
+              <Route path="/ecosystem/divisions/new" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><WebsiteDivisionForm /></PermissionRoute>} />
+              <Route path="/ecosystem/divisions/:id/edit" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><WebsiteDivisionForm /></PermissionRoute>} />
               <Route path="/ecosystem/brand/:brandId" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><BrandDetailPage /></PermissionRoute>} />
               <Route path="/system" element={<Navigate to="/ecosystem" replace />} />
               <Route path="/team" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><TeamPage /></PermissionRoute>} />

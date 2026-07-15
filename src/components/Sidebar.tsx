@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   BarChart3,
   LayoutDashboard, Users, Calendar, Wallet, Sparkles,
@@ -7,7 +7,9 @@ import {
   CloudRain, Cpu,
   Activity, Shield,
   FolderDown, Receipt, FileSignature, MessageSquare, HelpCircle,
-  Image
+  Image,
+  Layers,
+  ChevronDown
 } from 'lucide-react';
 
 import { api } from '../services/api';
@@ -36,7 +38,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
     { path: '/copilot', label: 'Copilot', icon: Sparkles, permission: 'ai' },
     { path: '/analytics', label: 'Analytics', icon: BarChart3, permission: 'analytics' },
     { path: '/security', label: 'Security Hub', icon: Shield, permission: 'system' },
-    { path: '/ecosystem', label: 'Ecosystem', icon: Settings, permission: 'system' },
+    {
+      path: '/ecosystem',
+      label: 'Ecosystem',
+      icon: Settings,
+      permission: 'system',
+      children: [
+        { path: '/ecosystem/gallery', label: 'Website Gallery', icon: Image, permission: 'system' },
+        { path: '/ecosystem/divisions', label: 'Divisions', icon: Layers, permission: 'system' }
+      ]
+    },
     { path: '/settings', label: 'Settings', icon: Settings, permission: 'dashboard' },
   ];
 
@@ -68,6 +79,28 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
   } else {
     menuItems = [];
   }
+
+  const location = useLocation();
+  const [isEcosystemExpanded, setIsEcosystemExpanded] = useState(() => {
+    const saved = localStorage.getItem('apco_ecosystem_expanded');
+    if (saved !== null) {
+      return saved === 'true';
+    }
+    return location.pathname.startsWith('/ecosystem');
+  });
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/ecosystem/gallery') || location.pathname.startsWith('/ecosystem/divisions')) {
+      setIsEcosystemExpanded(true);
+      localStorage.setItem('apco_ecosystem_expanded', 'true');
+    }
+  }, [location.pathname]);
+
+  const handleEcosystemClick = () => {
+    const nextState = !isEcosystemExpanded;
+    setIsEcosystemExpanded(nextState);
+    localStorage.setItem('apco_ecosystem_expanded', String(nextState));
+  };
 
   const handleManualSync = async () => {
     setIsSyncing(true);
@@ -114,16 +147,91 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
         <nav className="flex-1 px-4 space-y-3 overflow-y-auto no-scrollbar">
           {menuItems.map((item) => {
             const Icon = item.icon;
+            const isSub = (item as any).isSubItem;
+            const hasChildren = 'children' in item && item.children && item.children.length > 0;
+
+            if (hasChildren) {
+              const isChildActive = location.pathname.startsWith('/ecosystem/gallery') || location.pathname.startsWith('/ecosystem/divisions');
+              const isEcosystemActive = location.pathname === '/ecosystem' || isChildActive;
+
+              return (
+                <div key={item.path} className="flex flex-col gap-1.5" role="none">
+                  {/* Parent Ecosystem Item */}
+                  <NavLink
+                    to={item.path}
+                    onClick={() => {
+                      setIsMobileOpen(false);
+                      handleEcosystemClick();
+                    }}
+                    aria-expanded={isEcosystemExpanded}
+                    aria-controls="ecosystem-children"
+                    className={() => `
+                      flex items-center gap-5 transition-all group relative overflow-hidden w-full px-4 py-3.5 rounded-[1.2rem] text-base font-bold
+                      ${isEcosystemActive ? 'bg-white/10 text-white shadow-inner border border-white/5' : 'text-zinc-500 hover:text-white hover:bg-white/5'}
+                    `}
+                  >
+                    {/* Active Indicator Glow */}
+                    {isEcosystemActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary blur-md" />}
+
+                    <Icon className={`shrink-0 transition-transform duration-300 w-6 h-6 ${isEcosystemActive ? 'text-white scale-110' : 'group-hover:text-white group-hover:scale-110'}`} />
+                    <span className={`${isMobileOpen ? 'block' : 'lg:block hidden'} truncate transition-all tracking-tight`}>{item.label}</span>
+                    
+                    {/* Chevron Indicator */}
+                    <ChevronDown className={`shrink-0 w-4 h-4 ml-auto transition-transform duration-300 ${isEcosystemExpanded ? 'rotate-180 text-white' : 'rotate-0 text-zinc-500 group-hover:text-white'}`} />
+                  </NavLink>
+
+                  {/* Children Container with expand/collapse animation */}
+                  <div 
+                    id="ecosystem-children"
+                    role="group"
+                    aria-label="Ecosystem Submenu"
+                    className={`
+                      transition-all duration-300 ease-in-out overflow-hidden
+                      ${isEcosystemExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}
+                    `}
+                  >
+                    <div className="relative pl-4 ml-[28px] border-l border-zinc-800 space-y-1.5 py-1">
+                      {item.children!.map((subItem) => {
+                        const SubIcon = subItem.icon;
+                        return (
+                          <NavLink
+                            key={subItem.path}
+                            to={subItem.path}
+                            onClick={() => setIsMobileOpen(false)}
+                            className={({ isActive }) => `
+                              flex items-center gap-4 transition-all group relative overflow-hidden
+                              w-full px-4 py-2.5 rounded-[1rem] text-sm font-bold
+                              ${isActive ? 'bg-white/10 text-white border border-white/5' : 'text-zinc-500 hover:text-white hover:bg-white/5'}
+                            `}
+                          >
+                            {({ isActive }) => (
+                              <>
+                                {/* Active Indicator Glow for SubItem */}
+                                {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary blur-md" />}
+                                <SubIcon className={`shrink-0 transition-transform duration-300 w-4 h-4 ${isActive ? 'text-white scale-110' : 'group-hover:text-white group-hover:scale-110'}`} />
+                                <span className={`${isMobileOpen ? 'block' : 'lg:block hidden'} truncate transition-all tracking-tight`}>{subItem.label}</span>
+                              </>
+                            )}
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
                 onClick={() => setIsMobileOpen(false)}
                 className={({ isActive }) => `
-                  w-full flex items-center gap-5 px-4 py-3.5 rounded-[1.2rem] text-base font-bold transition-all group relative overflow-hidden
-                  ${isActive
-                    ? 'bg-white/10 text-white shadow-inner border border-white/5'
-                    : 'text-zinc-500 hover:text-white hover:bg-white/5'}
+                  flex items-center gap-5 transition-all group relative overflow-hidden
+                  ${isSub 
+                    ? `ml-6 w-[calc(100%-1.5rem)] px-4 py-2.5 rounded-[1rem] text-sm font-bold ${isActive ? 'bg-white/10 text-white border border-white/5' : 'text-zinc-500 hover:text-white hover:bg-white/5'}` 
+                    : `w-full px-4 py-3.5 rounded-[1.2rem] text-base font-bold ${isActive ? 'bg-white/10 text-white shadow-inner border border-white/5' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`
+                  }
                 `}
               >
                 {({ isActive }) => (
@@ -131,7 +239,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onLogo
                     {/* Active Indicator Glow */}
                     {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary blur-md" />}
    
-                    <Icon className={`w-6 h-6 shrink-0 transition-transform duration-300 ${isActive ? 'text-white scale-110' : 'group-hover:text-white group-hover:scale-110'}`} />
+                    <Icon className={`shrink-0 transition-transform duration-300 ${isSub ? 'w-4 h-4' : 'w-6 h-6'} ${isActive ? 'text-white scale-110' : 'group-hover:text-white group-hover:scale-110'}`} />
                     <span className={`${isMobileOpen ? 'block' : 'lg:block hidden'} truncate transition-all tracking-tight`}>{item.label}</span>
                   </>
                 )}
