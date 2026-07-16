@@ -6,17 +6,15 @@ const Packages: React.FC = () => {
   const handleWhatsAppClick = () => {
     const message = `Hi AP Co Team! 👋
 
-I visited your website and would love to discuss my wedding with your team.
+I visited your website and would love to learn more about your photography and filmmaking services.
 
-I'm looking for a personalized photography and filmmaking experience.
+I'm interested in discussing my requirements and would like to know more about your packages, availability, and booking process.
 
-Could we schedule a consultation?
+Looking forward to hearing from you!
 
-My Name:
-Wedding Date:
-Venue:
-
-Looking forward to hearing from you.`;
+Name:
+Phone:
+Service Interested In:`;
 
     openWhatsApp({
       message,
