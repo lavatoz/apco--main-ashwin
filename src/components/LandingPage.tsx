@@ -9,12 +9,12 @@ import galleryPlaceholder from '../assets/placeholders/gallery-placeholder.jpg';
 const GalleryCard: React.FC<{ item: any; index: number }> = ({ item, index }) => {
    const [imgSrc, setImgSrc] = useState(item.coverImageUrl);
    const [isFallback, setIsFallback] = useState(false);
-   
+
    const variant = index % 4;
    let colSpanClass = 'lg:col-span-8';
    let aspectClass = 'aspect-[16/10]';
    let titleClass = 'text-4xl font-black uppercase mb-3';
-   
+
    if (variant === 1) {
       colSpanClass = 'lg:col-span-4';
       aspectClass = 'aspect-[4/5] lg:aspect-auto';
@@ -47,16 +47,16 @@ const GalleryCard: React.FC<{ item: any; index: number }> = ({ item, index }) =>
    };
 
    return (
-      <div 
+      <div
          onClick={handleClick}
          className={`${colSpanClass} ${aspectClass} group relative overflow-hidden rounded-[3rem] border border-white/5 hover:border-white/20 transition-all duration-500 ${hasLink ? 'cursor-pointer' : 'cursor-default'}`}
       >
-         <img 
-            src={imgSrc} 
+         <img
+            src={imgSrc}
             onError={handleImageError}
             loading="lazy"
             decoding="async"
-            className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-[1.5s] group-hover:scale-110" 
+            className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-[1.5s] group-hover:scale-110"
             alt={item.title}
          />
          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
@@ -91,7 +91,7 @@ const MediaCard: React.FC<{
       setHasError(true);
    };
 
-   const cardClassName = instagramUrl 
+   const cardClassName = instagramUrl
       ? 'relative w-48 h-64 flex-shrink-0 rounded-2xl overflow-hidden cursor-pointer border border-white/10 group/item'
       : 'relative w-48 h-64 flex-shrink-0 rounded-2xl overflow-hidden cursor-default border border-white/10 group/item';
 
@@ -153,7 +153,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
       const loadData = async () => {
          setLoading(true);
          setDivisionsLoading(true);
-         
+
          const galleriesPromise = api.getPublicGalleries()
             .then(data => setGalleries(data || []))
             .catch(err => console.error("Failed to load website galleries for landing page", err))
@@ -201,8 +201,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                   <a href="#work" className="hover:text-white hover:scale-105 transition-all duration-300">Portfolio</a>
                   <a href="#divisions" className="hover:text-white hover:scale-105 transition-all duration-300">Divisions</a>
                   <a href="#packages" className="hover:text-white hover:scale-105 transition-all duration-300 relative group">
-                    PACKAGES
-                    <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-white scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
+                     PACKAGES
+                     <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-white scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
                   </a>
                </div>
                <button
@@ -223,7 +223,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/20 z-10" />
                {/* Cinematic Camera/Production Shot representing Artisans Co */}
                <img
-                  src="https://images.unsplash.com/photo-1527011046414-4781f1f94f8c?q=80&w=2670&auto=format&fit=crop"
+                  src="https://www.instagram.com/p/DaagNC_EkzL/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
                   className="w-full h-full object-cover opacity-60 grayscale hover:grayscale-0 transition-all duration-[2s] scale-105 animate-[pulse_10s_ease-in-out_infinite]"
                   alt="Cinematic Production"
                />
@@ -305,34 +305,34 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
             </div>
          </section>
 
-          {/* Selected Works - Futuristic Grid */}
-          <section id="work" className="py-32 px-6 relative z-10">
-             <div className="max-w-[1800px] mx-auto mb-20 flex flex-col md:flex-row justify-between items-end gap-6 animate-ios-slide-up">
-                <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter text-white/90">Curated Gallery</h2>
-                <span className="text-xs font-bold uppercase tracking-widest text-zinc-600 mb-2 px-4 py-2 rounded-full border border-white/10 glass-panel">Highlights 2024-25</span>
-             </div>
- 
-             {loading ? (
-                <div className="max-w-[1800px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8">
-                   <div className="lg:col-span-8 aspect-[16/10] rounded-[3rem] bg-white/5 animate-pulse border border-white/5" />
-                   <div className="lg:col-span-4 aspect-[4/5] lg:aspect-auto rounded-[3rem] bg-white/5 animate-pulse border border-white/5" />
-                   <div className="lg:col-span-4 aspect-square rounded-[3rem] bg-white/5 animate-pulse border border-white/5" />
-                   <div className="lg:col-span-8 aspect-[16/10] rounded-[3rem] bg-white/5 animate-pulse border border-white/5" />
-                </div>
-             ) : galleries.length === 0 ? (
-                <div className="max-w-[1800px] mx-auto py-20 text-center glass-panel rounded-[3rem] border border-white/5 p-12">
-                   <Globe className="w-12 h-12 text-zinc-600 mx-auto mb-6 animate-pulse" />
-                   <h3 className="text-2xl font-black text-white/80 uppercase tracking-tight mb-2">No Featured Highlights</h3>
-                   <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Check back later for our curated collection of works.</p>
-                </div>
-             ) : (
-                <div className="max-w-[1800px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8">
-                   {galleries.map((item, index) => (
-                      <GalleryCard key={item.id} item={item} index={index} />
-                   ))}
-                </div>
-             )}
-          </section>
+         {/* Selected Works - Futuristic Grid */}
+         <section id="work" className="py-32 px-6 relative z-10">
+            <div className="max-w-[1800px] mx-auto mb-20 flex flex-col md:flex-row justify-between items-end gap-6 animate-ios-slide-up">
+               <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter text-white/90">Curated Gallery</h2>
+               <span className="text-xs font-bold uppercase tracking-widest text-zinc-600 mb-2 px-4 py-2 rounded-full border border-white/10 glass-panel">Highlights 2024-25</span>
+            </div>
+
+            {loading ? (
+               <div className="max-w-[1800px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8">
+                  <div className="lg:col-span-8 aspect-[16/10] rounded-[3rem] bg-white/5 animate-pulse border border-white/5" />
+                  <div className="lg:col-span-4 aspect-[4/5] lg:aspect-auto rounded-[3rem] bg-white/5 animate-pulse border border-white/5" />
+                  <div className="lg:col-span-4 aspect-square rounded-[3rem] bg-white/5 animate-pulse border border-white/5" />
+                  <div className="lg:col-span-8 aspect-[16/10] rounded-[3rem] bg-white/5 animate-pulse border border-white/5" />
+               </div>
+            ) : galleries.length === 0 ? (
+               <div className="max-w-[1800px] mx-auto py-20 text-center glass-panel rounded-[3rem] border border-white/5 p-12">
+                  <Globe className="w-12 h-12 text-zinc-600 mx-auto mb-6 animate-pulse" />
+                  <h3 className="text-2xl font-black text-white/80 uppercase tracking-tight mb-2">No Featured Highlights</h3>
+                  <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Check back later for our curated collection of works.</p>
+               </div>
+            ) : (
+               <div className="max-w-[1800px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8">
+                  {galleries.map((item, index) => (
+                     <GalleryCard key={item.id} item={item} index={index} />
+                  ))}
+               </div>
+            )}
+         </section>
 
          {/* Divisions - Futuristic Cards */}
          <section id="divisions" className="py-32 px-6 relative z-10">
@@ -345,8 +345,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                      {[0, 1].map((idx) => {
                         const isEvenSkeleton = idx % 2 === 1;
                         return (
-                           <div 
-                              key={idx} 
+                           <div
+                              key={idx}
                               className={`flex flex-col ${isEvenSkeleton ? 'md:flex-row-reverse' : 'md:flex-row'} gap-16 items-center`}
                            >
                               <div className="flex-1 space-y-8 animate-pulse">
@@ -383,7 +383,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                         const isEvenTheme = index % 2 === 1;
                         const instagramUrl = division.instagramUrl || null;
                         const Icon = isEvenTheme ? Camera : Film;
-                        
+
                         const iconContainerClass = isEvenTheme
                            ? "w-24 h-24 bg-primary/10 glass-panel rounded-[2rem] flex items-center justify-center border border-primary/20 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-[0_0_40px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_40px_rgba(59,130,246,0.4)]"
                            : "w-24 h-24 glass-panel rounded-[2rem] flex items-center justify-center border border-white/10 group-hover:bg-white group-hover:text-black transition-all duration-500 shadow-[0_0_40px_rgba(255,255,255,0.05)] group-hover:shadow-[0_0_40px_rgba(255,255,255,0.3)]";
@@ -406,8 +406,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                         };
 
                         return (
-                           <div 
-                              key={division.id} 
+                           <div
+                              key={division.id}
                               onClick={handleDivisionClick}
                               className={`flex flex-col ${isEvenTheme ? 'md:flex-row-reverse' : 'md:flex-row'} gap-16 items-center group ${instagramUrl ? 'cursor-pointer' : 'cursor-default pointer-events-none'}`}
                            >
@@ -437,12 +437,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                               <div className={`flex-1 ${isEvenTheme ? 'relative' : 'order-1 md:order-2'} w-full overflow-hidden`}>
                                  <div className="relative w-full overflow-hidden group/feed rounded-[3rem] border border-white/10 glass-panel p-2">
                                     {marqueeMedia.length > 0 ? (
-                                       <div 
+                                       <div
                                           className="flex gap-4 animate-marquee hover:pause"
                                           style={isEvenTheme ? { animationDirection: 'reverse' } : undefined}
                                        >
                                           {marqueeMedia.map((mediaItem, i) => (
-                                             <MediaCard 
+                                             <MediaCard
                                                 key={`${mediaItem.id}-${i}`}
                                                 mediaItem={mediaItem}
                                                 instagramUrl={instagramUrl}

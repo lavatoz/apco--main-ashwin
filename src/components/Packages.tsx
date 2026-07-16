@@ -37,7 +37,7 @@ Looking forward to hearing from you.`;
       </div>
 
       {/* Editorial Content Grid */}
-      <div 
+      <div
         className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20 w-full animate-ios-slide-up"
         style={{ animationDelay: '0.1s' }}
       >
@@ -57,7 +57,7 @@ Looking forward to hearing from you.`;
         </div>
 
         {/* Feature Highlights Checklist */}
-        <div 
+        <div
           className="lg:col-span-5 bg-zinc-950/40 border border-zinc-900/80 p-8 md:p-10 rounded-none flex flex-col justify-center space-y-8"
         >
           <div className="space-y-1">
@@ -91,23 +91,22 @@ Looking forward to hearing from you.`;
       </div>
 
       {/* Elegant Divider */}
-      <div 
+      <div
         className="w-full max-w-5xl h-[1px] bg-zinc-900 my-16 md:my-24 animate-ios-slide-up"
         style={{ animationDelay: '0.2s' }}
       />
 
       {/* Call To Action Block */}
-      <div 
+      <div
         className="max-w-3xl text-center space-y-8 animate-ios-slide-up"
         style={{ animationDelay: '0.3s' }}
       >
         <div className="space-y-3">
           <h3 className="text-2xl md:text-3xl font-extralight tracking-wide text-white leading-tight">
-            Ready to start planning your wedding?
+            Ready to preserve your memories?
           </h3>
           <p className="text-zinc-400 text-xs md:text-sm font-light max-w-xl mx-auto leading-relaxed">
-            We'll discuss your vision, answer your questions, and prepare a proposal designed exclusively for your celebration.
-          </p>
+            From weddings and newborns to family portraits, corporate events, and every milestone in between, we're here to preserve the moments that matter most.          </p>
         </div>
 
         <div className="flex justify-center pt-4">
@@ -115,7 +114,7 @@ Looking forward to hearing from you.`;
             onClick={handleWhatsAppClick}
             className="w-[260px] py-4 bg-white text-black font-semibold text-xs tracking-[0.2em] uppercase hover:bg-zinc-200 transition-all duration-300 shadow-sm"
           >
-            Plan Your Wedding
+            PLAN YOUR MEMORIES
           </button>
         </div>
       </div>
