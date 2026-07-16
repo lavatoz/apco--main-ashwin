@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Upload, Globe, Instagram, Image as ImageIcon, Film, Loader2 } from 'lucide-react';
 import { api } from '../../services/api';
+import { getFullUrl } from '../../utils/media';
 
 const MediaUploadCard = ({ 
   type, 
@@ -168,7 +169,7 @@ const WebsiteDivisionForm: React.FC = () => {
             imageMedia.forEach((m: any) => {
               const index = m.position - 1;
               if (index >= 0 && index < 3) {
-                newPhotos[index] = m.url;
+                newPhotos[index] = getFullUrl(m.url);
                 newPhotoUrls[index] = m.url;
                 newPhotoFileIds[index] = m.fileId;
                 newPhotoNames[index] = `Active Cover ${index + 1}`;
@@ -186,7 +187,7 @@ const WebsiteDivisionForm: React.FC = () => {
             videoMedia.forEach((m: any) => {
               const index = m.position - 4;
               if (index === 0) {
-                newVideos[index] = m.url;
+                newVideos[index] = getFullUrl(m.url);
                 newVideoUrls[index] = m.url;
                 newVideoFileIds[index] = m.fileId;
                 newVideoNames[index] = `Active Footage ${index + 1}`;

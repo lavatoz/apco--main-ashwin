@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Plus, Edit2, Trash2, Instagram, AlertTriangle, CheckCircle2, Layers, Image as ImageIcon, Film } from 'lucide-react';
 import { api } from '../../services/api';
 import { type WebsiteDivision } from '../../services/api/divisions';
+import { getFullUrl } from '../../utils/media';
 
 const WebsiteDivisionsManager: React.FC = () => {
   const navigate = useNavigate();
@@ -88,8 +89,9 @@ const WebsiteDivisionsManager: React.FC = () => {
           {items.map((item) => {
             const photosCount = item.media ? item.media.filter((m: any) => m.type === 'IMAGE').length : 0;
             const videosCount = item.media ? item.media.filter((m: any) => m.type === 'VIDEO').length : 0;
-            const coverMedia = item.media ? item.media.find((m: any) => m.type === 'IMAGE') || item.media[0] : null;
-            const coverImage = coverMedia ? coverMedia.url : 'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?q=80&w=600&auto=format&fit=crop';
+            const images = item.media ? item.media.filter((m: any) => m.type === 'IMAGE').sort((a: any, b: any) => a.position - b.position) : [];
+            const coverMedia = images.length > 0 ? images[0] : (item.media && item.media.length > 0 ? item.media[0] : null);
+            const coverImage = coverMedia ? getFullUrl(coverMedia.url) : 'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?q=80&w=600&auto=format&fit=crop';
             return (
               <div key={item.id} className="glass-panel rounded-[2rem] border border-white/5 overflow-hidden flex flex-col group hover:border-white/10 transition-all duration-300">
                 {/* Image Cover */}

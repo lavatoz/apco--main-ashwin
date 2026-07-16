@@ -3,6 +3,7 @@ import { ArrowRight, Instagram, Mail, Camera, Film, ArrowUpRight, Sparkles, MapP
 import Packages from './Packages';
 import { api } from '../services/api';
 import { type PublicDivisionMedia } from '../services/api/divisions';
+import { getFullUrl } from '../utils/media';
 import galleryPlaceholder from '../assets/placeholders/gallery-placeholder.jpg';
 
 const GalleryCard: React.FC<{ item: any; index: number }> = ({ item, index }) => {
@@ -74,7 +75,7 @@ const MediaCard: React.FC<{
    instagramUrl: string | null;
 }> = React.memo(({ mediaItem, instagramUrl }) => {
    const [hasError, setHasError] = useState(false);
-   const [imgSrc, setImgSrc] = useState(mediaItem.url);
+   const [imgSrc, setImgSrc] = useState(getFullUrl(mediaItem.url));
    const [isFallback, setIsFallback] = useState(false);
 
    const handleImageError = () => {
@@ -98,7 +99,7 @@ const MediaCard: React.FC<{
       <div className={cardClassName}>
          {mediaItem.type === 'VIDEO' && !hasError ? (
             <video
-               src={mediaItem.url}
+               src={getFullUrl(mediaItem.url)}
                autoPlay
                muted
                loop
