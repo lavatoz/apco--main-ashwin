@@ -472,7 +472,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
          </section>
 
           {/* Contact Section */}
-          <section id="contact" className="scroll-mt-24">
+          <section className="scroll-mt-24">
              {/* Footer - Minimal */}
              <footer className="py-24 px-6 border-t border-white/5 relative bg-black z-20">
                 <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between gap-16 relative z-10">
@@ -501,10 +501,21 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                                href="#contact"
                                onClick={(e) => {
                                   e.preventDefault();
-                                  document.getElementById("contact")?.scrollIntoView({
-                                     behavior: "smooth",
-                                     block: "start",
-                                  });
+                                  const element = document.getElementById("contact");
+                                  console.log("Contact element:", element);
+                                  if (element) {
+                                     const y =
+                                        element.getBoundingClientRect().top +
+                                        window.pageYOffset -
+                                        window.innerHeight * 0.2;
+
+                                     window.scrollTo({
+                                        top: y,
+                                        behavior: "smooth",
+                                     });
+                                  } else {
+                                     console.error("No element with id='contact' found.");
+                                  }
                                }}
                                className="hover:text-white transition-colors"
                             >

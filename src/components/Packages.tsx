@@ -95,8 +95,9 @@ Service Interested In:`;
       />
 
       {/* Call To Action Block */}
-      <div
-        className="max-w-3xl text-center space-y-8 animate-ios-slide-up"
+      <section
+        id="contact"
+        className="max-w-3xl text-center space-y-8 animate-ios-slide-up scroll-mt-24"
         style={{ animationDelay: '0.3s' }}
       >
         <div className="space-y-3">
@@ -115,7 +116,7 @@ Service Interested In:`;
             PLAN YOUR MEMORIES
           </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 };
