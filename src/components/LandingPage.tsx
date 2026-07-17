@@ -251,7 +251,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                      <p className="text-xl font-bold font-mono text-white">140+</p>
                   </div>
                   <div className="text-right">
-                     <a href="https://share.google/ewR0TawJRKAG5eZBl" target="_blank" rel="noreferrer" className="group block">
+                     <a href="https://www.google.com/search?num=10&newwindow=1&sca_esv=58ed6498840539ce&sxsrf=AE3TifP3xKbAXk-Lkm27q4qSZDFzjQrWyQ:1767363113304&kgmid=/g/11rb9ky4rz&q=Artisans+Production+Company&shndl=30&shem=ptotplc,shrtsdl&source=sh/x/loc/uni/m1/1&kgs=58f10297eb1b944b&utm_source=ptotplc,shrtsdl,sh/x/loc/uni/m1/1#lrd=0x3b061f1eb422a52f:0xd8bbbe8300057cb1,1,,,," target="_blank" rel="noopener noreferrer" className="group block">
                         <p className="text-[9px] uppercase tracking-widest text-zinc-500 mb-1 group-hover:text-white transition-colors">Reviews</p>
                         <div className="flex items-center gap-1 justify-end">
                            <p className="text-xl font-bold font-mono text-white">5.0</p>
@@ -484,7 +484,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                   <div className="flex gap-4">
                      <a href="https://www.instagram.com/artisansproductioncompany/" target="_blank" rel="noreferrer" className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl hover:bg-white hover:text-black transition-all duration-300 border border-white/5"><Instagram className="w-5 h-5" /></a>
                      <a href="mailto:contact@artisans.co" className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl hover:bg-white hover:text-black transition-all duration-300 border border-white/5"><Mail className="w-5 h-5" /></a>
-                     <a href="https://share.google/ewR0TawJRKAG5eZBl" target="_blank" rel="noreferrer" className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl hover:bg-white hover:text-black transition-all duration-300 border border-white/5"><MapPin className="w-5 h-5" /></a>
+                     <a href="https://www.google.com/search?num=10&newwindow=1&sca_esv=58ed6498840539ce&sxsrf=AE3TifP3xKbAXk-Lkm27q4qSZDFzjQrWyQ:1767363113304&kgmid=/g/11rb9ky4rz&q=Artisans+Production+Company&shndl=30&shem=ptotplc,shrtsdl&source=sh/x/loc/uni/m1/1&kgs=58f10297eb1b944b&utm_source=ptotplc,shrtsdl,sh/x/loc/uni/m1/1#lrd=0x3b061f1eb422a52f:0xd8bbbe8300057cb1,1,,,," target="_blank" rel="noopener noreferrer" className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl hover:bg-white hover:text-black transition-all duration-300 border border-white/5"><MapPin className="w-5 h-5" /></a>
                   </div>
                </div>
 
@@ -494,7 +494,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                      <div className="flex flex-col gap-4 text-sm font-bold text-zinc-400">
                         <a href="https://www.instagram.com/aahakalyanam.from.apco/" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">AAHA Kalyanam</a>
                         <a href="https://www.instagram.com/tinytoes.from.apco/" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">Tiny Toes</a>
-                        <a href="https://share.google/ewR0TawJRKAG5eZBl" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">Reviews</a>
+                        <a href="https://www.google.com/search?num=10&newwindow=1&sca_esv=58ed6498840539ce&sxsrf=AE3TifP3xKbAXk-Lkm27q4qSZDFzjQrWyQ:1767363113304&kgmid=/g/11rb9ky4rz&q=Artisans+Production+Company&shndl=30&shem=ptotplc,shrtsdl&source=sh/x/loc/uni/m1/1&kgs=58f10297eb1b944b&utm_source=ptotplc,shrtsdl,sh/x/loc/uni/m1/1#lrd=0x3b061f1eb422a52f:0xd8bbbe8300057cb1,1,,,," target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Reviews</a>
                         <a href="#" className="hover:text-white transition-colors">Contact</a>
                      </div>
                   </div>
