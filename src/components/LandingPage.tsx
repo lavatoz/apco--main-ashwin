@@ -471,54 +471,68 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
             <Packages />
          </section>
 
-         {/* Footer - Minimal */}
-         <footer className="py-24 px-6 border-t border-white/5 relative bg-black z-20">
-            <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between gap-16 relative z-10">
-               <div className="space-y-8">
-                  <h4 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-2">
-                     <div className="w-8 h-8 bg-white rounded-lg" /> Artisans Co.
-                  </h4>
-                  <p className="text-zinc-500 max-w-xs text-sm leading-relaxed">
-                     Creating visual legacies for the modern connoisseur. Based in Mumbai, available worldwide.
-                  </p>
-                  <div className="flex gap-4">
-                     <a href="https://www.instagram.com/artisansproductioncompany/" target="_blank" rel="noreferrer" className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl hover:bg-white hover:text-black transition-all duration-300 border border-white/5"><Instagram className="w-5 h-5" /></a>
-                     <a href="mailto:contact@artisans.co" className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl hover:bg-white hover:text-black transition-all duration-300 border border-white/5"><Mail className="w-5 h-5" /></a>
-                     <a href="https://www.google.com/search?num=10&newwindow=1&sca_esv=58ed6498840539ce&sxsrf=AE3TifP3xKbAXk-Lkm27q4qSZDFzjQrWyQ:1767363113304&kgmid=/g/11rb9ky4rz&q=Artisans+Production+Company&shndl=30&shem=ptotplc,shrtsdl&source=sh/x/loc/uni/m1/1&kgs=58f10297eb1b944b&utm_source=ptotplc,shrtsdl,sh/x/loc/uni/m1/1#lrd=0x3b061f1eb422a52f:0xd8bbbe8300057cb1,1,,,," target="_blank" rel="noopener noreferrer" className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl hover:bg-white hover:text-black transition-all duration-300 border border-white/5"><MapPin className="w-5 h-5" /></a>
-                  </div>
-               </div>
+          {/* Contact Section */}
+          <section id="contact" className="scroll-mt-24">
+             {/* Footer - Minimal */}
+             <footer className="py-24 px-6 border-t border-white/5 relative bg-black z-20">
+                <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between gap-16 relative z-10">
+                   <div className="space-y-8">
+                      <h4 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-2">
+                         <div className="w-8 h-8 bg-white rounded-lg" /> Artisans Co.
+                      </h4>
+                      <p className="text-zinc-500 max-w-xs text-sm leading-relaxed">
+                         Creating visual legacies for the modern connoisseur. Based in Mumbai, available worldwide.
+                      </p>
+                      <div className="flex gap-4">
+                         <a href="https://www.instagram.com/artisansproductioncompany/" target="_blank" rel="noopener noreferrer" className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl hover:bg-white hover:text-black transition-all duration-300 border border-white/5"><Instagram className="w-5 h-5" /></a>
+                         <a href="mailto:contact@artisans.co" className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl hover:bg-white hover:text-black transition-all duration-300 border border-white/5"><Mail className="w-5 h-5" /></a>
+                         <a href="https://www.google.com/search?num=10&newwindow=1&sca_esv=58ed6498840539ce&sxsrf=AE3TifP3xKbAXk-Lkm27q4qSZDFzjQrWyQ:1767363113304&kgmid=/g/11rb9ky4rz&q=Artisans+Production+Company&shndl=30&shem=ptotplc,shrtsdl&source=sh/x/loc/uni/m1/1&kgs=58f10297eb1b944b&utm_source=ptotplc,shrtsdl,sh/x/loc/uni/m1/1#lrd=0x3b061f1eb422a52f:0xd8bbbe8300057cb1,1,,,," target="_blank" rel="noopener noreferrer" className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl hover:bg-white hover:text-black transition-all duration-300 border border-white/5"><MapPin className="w-5 h-5" /></a>
+                      </div>
+                   </div>
 
-               <div className="grid grid-cols-2 gap-16">
-                  <div className="space-y-6">
-                     <h5 className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Studio</h5>
-                     <div className="flex flex-col gap-4 text-sm font-bold text-zinc-400">
-                        <a href="https://www.instagram.com/aahakalyanam.from.apco/" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">AAHA Kalyanam</a>
-                        <a href="https://www.instagram.com/tinytoes.from.apco/" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">Tiny Toes</a>
-                        <a href="https://www.google.com/search?num=10&newwindow=1&sca_esv=58ed6498840539ce&sxsrf=AE3TifP3xKbAXk-Lkm27q4qSZDFzjQrWyQ:1767363113304&kgmid=/g/11rb9ky4rz&q=Artisans+Production+Company&shndl=30&shem=ptotplc,shrtsdl&source=sh/x/loc/uni/m1/1&kgs=58f10297eb1b944b&utm_source=ptotplc,shrtsdl,sh/x/loc/uni/m1/1#lrd=0x3b061f1eb422a52f:0xd8bbbe8300057cb1,1,,,," target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Reviews</a>
-                        <a href="#" className="hover:text-white transition-colors">Contact</a>
-                     </div>
-                  </div>
-                  <div className="space-y-6">
-                     <h5 className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Client</h5>
-                     <div className="flex flex-col gap-4 text-sm font-bold text-zinc-400">
-                        <button onClick={onLogin} className="text-left hover:text-white transition-colors">Member Login</button>
-                        <button onClick={onLogin} className="text-left hover:text-white transition-colors">Project Access</button>
-                        <a href="#" className="hover:text-white transition-colors">Support</a>
-                     </div>
-                  </div>
-               </div>
-            </div>
-            <div className="max-w-[1600px] mx-auto mt-24 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center text-[10px] font-bold uppercase tracking-widest text-zinc-700">
-               <p>© 2025 Artisans Co. Productions</p>
-               <div className="flex gap-6 mt-4 md:mt-0">
-                  <a href="#" className="hover:text-zinc-500">Privacy Policy</a>
-                  <a href="#" className="hover:text-zinc-500">Terms of Service</a>
-               </div>
-            </div>
-         </footer>
-      </div>
-   );
-};
+                   <div className="grid grid-cols-2 gap-16">
+                      <div className="space-y-6">
+                         <h5 className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Studio</h5>
+                         <div className="flex flex-col gap-4 text-sm font-bold text-zinc-400">
+                            <a href="https://www.instagram.com/aahakalyanam.from.apco/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">AAHA Kalyanam</a>
+                            <a href="https://www.instagram.com/tinytoes.from.apco/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Tiny Toes</a>
+                            <a href="https://www.google.com/search?num=10&newwindow=1&sca_esv=58ed6498840539ce&sxsrf=AE3TifP3xKbAXk-Lkm27q4qSZDFzjQrWyQ:1767363113304&kgmid=/g/11rb9ky4rz&q=Artisans+Production+Company&shndl=30&shem=ptotplc,shrtsdl&source=sh/x/loc/uni/m1/1&kgs=58f10297eb1b944b&utm_source=ptotplc,shrtsdl,sh/x/loc/uni/m1/1#lrd=0x3b061f1eb422a52f:0xd8bbbe8300057cb1,1,,,," target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Reviews</a>
+                            <a
+                               href="#contact"
+                               onClick={(e) => {
+                                  e.preventDefault();
+                                  document.getElementById("contact")?.scrollIntoView({
+                                     behavior: "smooth",
+                                     block: "start",
+                                  });
+                               }}
+                               className="hover:text-white transition-colors"
+                            >
+                               Contact
+                            </a>
+                         </div>
+                      </div>
+                      <div className="space-y-6">
+                         <h5 className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Client</h5>
+                         <div className="flex flex-col gap-4 text-sm font-bold text-zinc-400">
+                            <button onClick={onLogin} className="text-left hover:text-white transition-colors">Member Login</button>
+                            <button onClick={onLogin} className="text-left hover:text-white transition-colors">Project Access</button>
+                            <a href="#" className="hover:text-white transition-colors">Support</a>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+                <div className="max-w-[1600px] mx-auto mt-24 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center text-[10px] font-bold uppercase tracking-widest text-zinc-700">
+                   <p>© 2025 Artisans Co. Productions</p>
+                   <div className="flex gap-6 mt-4 md:mt-0">
+                      <a href="#" className="hover:text-zinc-500">Privacy Policy</a>
+                      <a href="#" className="hover:text-zinc-500">Terms of Service</a>
+                   </div>
+                </div>
+             </footer>
+          </section>
+       </div>
+    );
+ };
 
 export default LandingPage;
-
