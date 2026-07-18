@@ -1,10 +1,30 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { type Invoice, type Client, type CompanyProfile } from '../types';
 import { quoteTemplates, invoiceTemplates, getBrandQuoteTemplate, getBrandInvoiceTemplate } from '../templates/registry';
 import { type CustomTemplateMetadata } from '../templates/types';
-import { X, Printer, Download, Loader2 } from 'lucide-react';
+import { 
+  X, 
+  Printer, 
+  Download, 
+  Loader2, 
+  Lock, 
+  ChevronLeft, 
+  ChevronRight, 
+  ZoomIn, 
+  ZoomOut, 
+  Eye, 
+  EyeOff 
+} from 'lucide-react';
 import { generateInvoicePDF } from '../utils/pdfGenerator';
 import { api } from '../services/api';
+
+// PDF.js (react-pdf) config
+import { Document, Page, pdfjs } from 'react-pdf';
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 interface DocumentPreviewModalProps {
   documentData: Invoice | any;
@@ -32,7 +52,18 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // PDF.js (react-pdf) viewer states
+  const [numPages, setNumPages] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [zoomScale, setZoomScale] = useState<number>(1.25);
+  
+  // Custom password prompt states
+  const [needsPassword, setNeedsPassword] = useState<boolean>(false);
+  const [inputPassword, setInputPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordCallback, setPasswordCallback] = useState<((password: string | null) => void) | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -51,6 +82,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
           } else {
             if (active) {
               setError("Unable to load quotation PDF. Please try again later or contact an administrator.");
+              setLoading(false);
             }
           }
         } else {
@@ -66,9 +98,6 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
         console.error(`[PREVIEW] Error generating/fetching ${type} PDF:`, err);
         if (active) {
           setError(`Unable to load ${type} PDF. Please try again later or contact an administrator.`);
-        }
-      } finally {
-        if (active) {
           setLoading(false);
         }
       }
@@ -108,27 +137,115 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
   };
 
   const handlePrint = () => {
-    if (iframeRef.current) {
+    if (!pdfUrl) return;
+    
+    // Create a temporary hidden iframe to print
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'fixed';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = 'none';
+    printFrame.src = pdfUrl;
+    
+    document.body.appendChild(printFrame);
+    
+    printFrame.onload = () => {
       try {
-        iframeRef.current.contentWindow?.focus();
-        iframeRef.current.contentWindow?.print();
+        printFrame.contentWindow?.focus();
+        printFrame.contentWindow?.print();
       } catch (err) {
-        console.error("[PREVIEW] Iframe printing failed, falling back to window.print():", err);
+        console.error('[PREVIEW] Print failed from iframe, falling back to window.print():', err);
         window.print();
       }
-    } else {
-      window.print();
+      // Cleanup after printing is done
+      setTimeout(() => {
+        document.body.removeChild(printFrame);
+      }, 5000);
+    };
+  };
+
+  const handlePassword = (callback: (password: string | null) => void, reason: number) => {
+    setNeedsPassword(true);
+    setPasswordCallback(() => callback);
+    if (reason === 2) { // INCORRECT_PASSWORD
+      setPasswordError('Verification Failure: Invalid Password Key');
     }
+  };
+
+  const handleSubmitPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordCallback) {
+      passwordCallback(inputPassword);
+    }
+  };
+
+  const handleClose = () => {
+    if (passwordCallback) {
+      passwordCallback(null);
+    }
+    onClose();
   };
 
   return (
     <div className="fixed inset-0 bg-black/90 z-[9999] flex flex-col backdrop-blur-md animate-ios-fade-in print:bg-white print:static print:z-0">
       {/* Header - Hidden on Print */}
-      <div className="flex items-center justify-between p-4 border-b border-white/10 bg-zinc-950 print:hidden">
+      <div className="flex items-center justify-between p-4 border-b border-white/10 bg-zinc-950 print:hidden select-none">
         <div>
           <h2 className="text-white font-bold tracking-widest uppercase">Document Preview</h2>
           <p className="text-zinc-500 text-xs mt-1">Using template: {templateDef.metadata.name}</p>
         </div>
+
+        {/* Center Page & Zoom Navigation (Only visible when document loaded and not password locked) */}
+        {!needsPassword && !loading && numPages > 0 && (
+          <div className="flex items-center gap-6">
+            {/* Page Navigation */}
+            <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl">
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                disabled={currentPage <= 1}
+                className="p-1 hover:bg-white/10 rounded-lg disabled:opacity-30 disabled:hover:bg-transparent text-zinc-400 hover:text-white transition-colors"
+                type="button"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-mono font-bold text-zinc-350 min-w-[70px] text-center">
+                PAGE {currentPage} / {numPages}
+              </span>
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, numPages))} 
+                disabled={currentPage >= numPages}
+                className="p-1 hover:bg-white/10 rounded-lg disabled:opacity-30 disabled:hover:bg-transparent text-zinc-400 hover:text-white transition-colors"
+                type="button"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl">
+              <button 
+                onClick={() => setZoomScale(prev => Math.max(prev - 0.25, 0.5))} 
+                disabled={zoomScale <= 0.5}
+                className="p-1 hover:bg-white/10 rounded-lg disabled:opacity-30 disabled:hover:bg-transparent text-zinc-400 hover:text-white transition-colors"
+                type="button"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-mono font-bold text-zinc-350 min-w-[50px] text-center">
+                {Math.round(zoomScale * 100)}%
+              </span>
+              <button 
+                onClick={() => setZoomScale(prev => Math.min(prev + 0.25, 2.5))} 
+                disabled={zoomScale >= 2.5}
+                className="p-1 hover:bg-white/10 rounded-lg disabled:opacity-30 disabled:hover:bg-transparent text-zinc-400 hover:text-white transition-colors"
+                type="button"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-4">
           <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors">
             <Printer className="w-4 h-4" /> Print
@@ -136,7 +253,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
           <button onClick={handleDownload} className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors">
             <Download className="w-4 h-4" /> Download PDF
           </button>
-          <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white transition-colors">
+          <button onClick={handleClose} className="p-2 text-zinc-400 hover:text-white transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -144,24 +261,103 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-8 print:p-0 flex justify-center bg-zinc-900 print:bg-white print:overflow-visible">
-         <div className="w-full max-w-[210mm] min-h-[297mm] flex items-center justify-center">
-           {loading ? (
-             <div className="flex flex-col items-center justify-center text-zinc-400 gap-4">
+         <div className="w-full max-w-[210mm] min-h-[297mm] flex justify-center items-start">
+           {needsPassword ? (
+             <form 
+               onSubmit={handleSubmitPassword}
+               className="relative max-w-sm w-full bg-zinc-950/70 border border-white/10 rounded-[2.5rem] p-10 backdrop-blur-2xl text-center space-y-8 shadow-[0_24px_50px_rgba(0,0,0,0.8)] mt-12"
+             >
+               <div className="flex flex-col items-center gap-3">
+                 <div className="p-5 bg-white/5 border border-white/5 rounded-[2rem] text-zinc-400">
+                   <Lock className="w-10 h-10" />
+                 </div>
+                 <h1 className="text-2xl font-black uppercase tracking-tighter text-white">DECRYPT PREVIEW</h1>
+                 <p className="text-[10px] font-black tracking-[0.2em] text-zinc-500 uppercase">Document password required</p>
+               </div>
+
+               <div className="space-y-4">
+                 <div className="relative">
+                   <input
+                     type={showPassword ? 'text' : 'password'}
+                     placeholder="ENTER DOCUMENT PASSWORD..."
+                     value={inputPassword}
+                     onChange={(e) => {
+                       setInputPassword(e.target.value);
+                       setPasswordError(null);
+                     }}
+                     className="w-full bg-black/60 border border-white/10 rounded-2xl px-6 py-4 text-center font-mono font-bold text-white text-sm tracking-widest outline-none pr-12 focus:border-white/20 transition-all"
+                     autoFocus
+                   />
+                   <button
+                     type="button"
+                     onClick={() => setShowPassword(!showPassword)}
+                     className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                   >
+                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                   </button>
+                 </div>
+                 {passwordError && (
+                   <p className="text-[9px] font-black uppercase text-red-500 tracking-widest">
+                     {passwordError}
+                   </p>
+                 )}
+               </div>
+
+               <button
+                 type="submit"
+                 className="w-full flex items-center justify-center gap-2 py-4 bg-white text-black hover:bg-zinc-200 transition-colors font-black text-[10px] uppercase tracking-widest rounded-2xl"
+               >
+                 <span>Decrypt Access</span>
+               </button>
+             </form>
+           ) : loading ? (
+             <div className="flex flex-col items-center justify-center text-zinc-400 gap-4 mt-20">
                <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-               <p className="text-xs font-black uppercase tracking-[0.2em]">Generating Premium PDF...</p>
+               <p className="text-xs font-black uppercase tracking-[0.2em]">Decrypting &amp; Loading PDF...</p>
              </div>
            ) : error ? (
-             <div className="p-12 text-center text-red-400 bg-red-950/20 border border-red-900/30 rounded-2xl max-w-md">
+             <div className="p-12 text-center text-red-400 bg-red-950/20 border border-red-900/30 rounded-2xl max-w-md mt-20">
                <p className="font-black uppercase tracking-wider mb-2">Preview Generation Failed</p>
                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{error}</p>
              </div>
            ) : pdfUrl ? (
-             <iframe
-               ref={iframeRef}
-               src={pdfUrl}
-               className="w-full h-[297mm] border-0 rounded-2xl shadow-2xl bg-zinc-950"
-               title={`${type === 'quote' ? 'Quotation' : 'Invoice'} ${documentData.id}`}
-             />
+             <Document
+               file={pdfUrl}
+               onLoadSuccess={({ numPages }) => {
+                 setNumPages(numPages);
+                 setCurrentPage(1);
+                 setNeedsPassword(false);
+                 setLoading(false);
+               }}
+               onPassword={handlePassword}
+               onLoadError={(err) => {
+                 console.error('[PREVIEW] PDF load error:', err);
+                 if (!needsPassword) {
+                   setError("Unable to load PDF document. Please make sure the file is valid or contact an administrator.");
+                   setLoading(false);
+                 }
+               }}
+               loading={
+                 <div className="flex flex-col items-center justify-center text-zinc-400 gap-4 mt-20">
+                   <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+                   <p className="text-xs font-black uppercase tracking-[0.2em]">Decrypting &amp; Loading PDF...</p>
+                 </div>
+               }
+             >
+               <Page
+                 pageNumber={currentPage}
+                 scale={zoomScale}
+                 renderTextLayer={false}
+                 renderAnnotationLayer={false}
+                 className="shadow-2xl rounded-2xl overflow-hidden border border-white/5 bg-zinc-950"
+                 loading={
+                   <div className="flex flex-col items-center justify-center text-zinc-400 gap-4 min-h-[300px]">
+                     <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                     <p className="text-xs font-black uppercase tracking-[0.2em]">Rendering page...</p>
+                   </div>
+                 }
+               />
+             </Document>
            ) : null}
          </div>
       </div>
