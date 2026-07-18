@@ -71,28 +71,32 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
       setLoading(true);
       setError(null);
       try {
+        let url = '';
         if (type === 'quote') {
           const res = await api.generateQuotationPDF(documentData.id);
           if (res.success && res.fileId) {
             const blob = await api.getFileBlob(res.fileId);
             if (active) {
-              const url = URL.createObjectURL(blob);
-              setPdfUrl(url);
+              url = URL.createObjectURL(blob);
             }
           } else {
             if (active) {
               setError("Unable to load quotation PDF. Please try again later or contact an administrator.");
               setLoading(false);
             }
+            return;
           }
         } else {
           // Generate Invoice PDF on the fly using frontend jsPDF renderer
           const doc = await generateInvoicePDF(documentData, client, company, false);
           const blob = doc.output('blob');
           if (active) {
-            const url = URL.createObjectURL(blob);
-            setPdfUrl(url);
+            url = URL.createObjectURL(blob);
           }
+        }
+
+        if (active) {
+          setPdfUrl(url);
         }
       } catch (err: any) {
         console.error(`[PREVIEW] Error generating/fetching ${type} PDF:`, err);
