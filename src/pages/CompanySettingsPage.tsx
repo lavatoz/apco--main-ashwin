@@ -7,9 +7,8 @@ import { quoteTemplates, invoiceTemplates, agreementTemplates, proposalTemplates
 import { 
   Building, Palette, CreditCard, FileText, Upload, Trash2, 
   CheckCircle2, Plus, X, 
-  Star, Settings as Gear, Shield, Copy, Check, Info,
-  Eye, EyeOff, Edit3, Save, AlertTriangle, Hash, FileImage,
-  Sliders, ChevronDown, ChevronUp, Globe, Languages, ShieldCheck
+  Star, Settings as Gear, Shield, Check, Info,
+  Languages, Eye
 } from 'lucide-react';
 import { saveCustomTemplate } from '../templates/registry';
 import { TemplateEditor } from '../components/TemplateEditor';
@@ -21,18 +20,11 @@ const CompanySettingsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') === 'agreements' ? 'agreements' : 'brands';
 
-  const { companies, saveCompanies, globalSettings, saveGlobalSettings } = useCompanySettings();
+  const { companies, saveCompanies } = useCompanySettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyProfile | null>(null);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [showPdfPassword, setShowPdfPassword] = useState(false);
-  const [showUserPassword, setShowUserPassword] = useState(false);
-  const [isEditingPdfPassword, setIsEditingPdfPassword] = useState(false);
-  const [showAdvancedProtection, setShowAdvancedProtection] = useState(false);
-  const [tempPassword, setTempPassword] = useState(globalSettings.pdfOwnerPassword || '');
-  const [tempUserPassword, setTempUserPassword] = useState(globalSettings.pdfUserPassword || '');
   const [pendingConfirm, setPendingConfirm] = useState<{
     title: string;
     message: string;
@@ -40,7 +32,6 @@ const CompanySettingsPage: React.FC = () => {
     tone: 'default' | 'danger';
     onConfirm: () => void;
   } | null>(null);
-  const [dismissedTip, setDismissedTip] = useState(() => localStorage.getItem('artisans_dismissed_pdf_tip') === 'true');
 
   // Ensure ThemeStudio is imported
   // import { ThemeStudio } from '../components/settings/ThemeStudio';
@@ -154,17 +145,7 @@ const CompanySettingsPage: React.FC = () => {
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 
-  const savePdfPassword = () => {
-    saveGlobalSettings({
-      ...globalSettings,
-      pdfOwnerPassword: tempPassword.trim(),
-      pdfUserPassword: tempUserPassword.trim(),
-      pdfPasswordMode: tempPassword.trim() ? (globalSettings.pdfPasswordMode || 'owner-only') : undefined,
-    });
-    setIsEditingPdfPassword(false);
-    setSuccessMsg('Security protocol updated ✓');
-    setTimeout(() => setSuccessMsg(null), 3000);
-  };
+
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -351,532 +332,195 @@ const CompanySettingsPage: React.FC = () => {
            <h2 className="text-xl font-black text-white uppercase tracking-widest">Global Settings</h2>
         </div>
 
-        {/* PDF Security Section - Premium Protection Tip Alert */}
-        {!dismissedTip && (
-           <div className="p-6 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-between gap-6 animate-ios-slide-up">
-              <div className="flex items-center gap-4">
-                 <div className="p-3 bg-primary/20 rounded-xl">
-                    <Shield className="w-5 h-5 text-blue-400" />
-                 </div>
-                 <div>
-                    <p className="text-xs font-bold text-white uppercase tracking-widest leading-none mb-2">Security Hub Protocol</p>
-                    <p className="text-xs font-medium text-zinc-400">Set a personal password for your invoice PDFs. Default is 'Artisans@2026'.</p>
-                 </div>
-              </div>
-              <button 
-                onClick={() => {
-                   localStorage.setItem('artisans_dismissed_pdf_tip', 'true');
-                   setDismissedTip(true);
-                }}
-                className="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-xs font-bold text-white uppercase tracking-widest rounded-xl transition-all"
-              >
-                 Got it
-              </button>
-           </div>
-        )}
+          {/* Theme Management & General */}
+          <div className="space-y-8">
+             <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <div className="flex items-center gap-3">
+                   <Palette className="w-5 h-5 text-pink-500" />
+                   <div>
+                      <h3 className="text-lg font-bold text-white">Theme & Aesthetics</h3>
+                      <p className="text-xs text-zinc-500">Configure visual themes, graphics presets, fonts, and brand colors.</p>
+                   </div>
+                </div>
+                <select
+                  value={themeStudioBrandId}
+                  onChange={(e) => setThemeStudioBrandId(e.target.value)}
+                  className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-bold text-white outline-none uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  {companies.map(c => (
+                    <option key={c.id} value={c.id} className="bg-black text-white">{c.companyName}</option>
+                  ))}
+                </select>
+             </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 items-start">
-           
-           {/* Column 1: Security Hub */}
-           <div className="space-y-8">
-              <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-                 <Shield className="w-5 h-5 text-primary" />
-                 <div>
-                    <h3 className="text-lg font-bold text-white">Security Hub</h3>
-                    <p className="text-xs text-zinc-500">Configure global document protection protocols, authenticity keys, and encryption settings.</p>
-                 </div>
-              </div>
+             {/* Theme Settings Panel */}
+             {(() => {
+                const selectedThemeComp = companies.find(c => c.id === themeStudioBrandId) || companies[0];
+                if (!selectedThemeComp) return (
+                   <div className="glass-panel p-8 text-center opacity-50 rounded-2xl border border-white/5">
+                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">No Brands Available</p>
+                   </div>
+                );
 
-              {/* Status & Verification Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                 {/* Protection Status Card */}
-                 <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-white/[0.01] hover:border-white/10 transition-all flex flex-col justify-between h-[150px]">
-                    <div className="flex justify-between items-start gap-4">
-                       <div className="space-y-1">
-                          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">System Lock</p>
-                          <h4 className="text-sm font-bold text-white">Protection Status</h4>
-                       </div>
-                       <span className={`px-2.5 py-1 text-[9px] font-bold rounded-full uppercase tracking-wider ${
-                          globalSettings.pdfOwnerPassword 
-                            ? 'bg-emerald-950/50 border border-emerald-500/20 text-emerald-400' 
-                            : 'bg-amber-950/50 border border-amber-500/20 text-amber-400'
-                       }`}>
-                          {globalSettings.pdfOwnerPassword ? 'AES-128 Active' : 'Unencrypted'}
-                       </span>
+                return (
+                  <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-white/[0.01] hover:border-white/10 transition-all space-y-6">
+                    
+                    {/* Theme Preset selector as compact selectable cards */}
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Theme Preset</h4>
+                        <p className="text-[10px] text-zinc-500">Sets the base color mode and presets across brand portals</p>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {THEME_PRESETS.map((preset) => {
+                           const isSelected = selectedThemeComp.themePreset === preset.id;
+                           return (
+                             <button
+                               type="button"
+                               key={preset.id}
+                               onClick={() => {
+                                  const updated = companies.map(c => c.id === selectedThemeComp.id ? { ...c, themePreset: preset.id } : c);
+                                  saveCompanies(updated);
+                               }}
+                               className={`p-3 rounded-xl border text-center transition-all ${
+                                 isSelected 
+                                   ? 'bg-pink-500/10 border-pink-500 text-pink-400 font-bold shadow-inner' 
+                                   : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/15 hover:text-white'
+                               }`}
+                             >
+                               <p className="text-[10px] uppercase font-bold tracking-wider truncate">{preset.name.replace(' (Default)', '')}</p>
+                             </button>
+                           );
+                        })}
+                      </div>
                     </div>
-                    <p className="text-xs text-zinc-500 leading-relaxed mt-auto">
-                       {globalSettings.pdfOwnerPassword 
-                         ? 'Invoices and quotations are protected against extraction and editing using high-grade owner keys.' 
-                         : 'PDFs are generated without owner permission restrictions. No security password is applied.'}
-                    </p>
-                 </div>
 
-                 {/* Verification & Authenticity Card */}
-                 <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-white/[0.01] hover:border-white/10 transition-all flex flex-col justify-between h-[150px]">
-                    <div className="flex justify-between items-start gap-4">
-                       <div className="space-y-1">
-                          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Authenticity Badge</p>
-                          <h4 className="text-sm font-bold text-white">QR Verification</h4>
-                       </div>
+                    {/* Graphics Preset selector as compact selectable cards */}
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Graphics Engine</h4>
+                        <p className="text-[10px] text-zinc-500">Controls layout visuals, shadow styles, blur intensities, and card glowing</p>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {GRAPHICS_PRESETS.map((preset) => {
+                           const isSelected = selectedThemeComp.graphicsPreset === preset.id;
+                           return (
+                             <button
+                               type="button"
+                               key={preset.id}
+                               onClick={() => {
+                                  const updated = companies.map(c => c.id === selectedThemeComp.id ? { ...c, graphicsPreset: preset.id } : c);
+                                  saveCompanies(updated);
+                               }}
+                               className={`p-2.5 rounded-xl border text-center transition-all ${
+                                 isSelected 
+                                   ? 'bg-amber-500/10 border-amber-500 text-amber-400 font-bold' 
+                                   : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/15 hover:text-white'
+                               }`}
+                             >
+                               <p className="text-[10px] uppercase font-bold tracking-wider truncate">{preset.name}</p>
+                             </button>
+                           );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Typography Preset selector as compact selectable cards */}
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Typography Settings</h4>
+                        <p className="text-[10px] text-zinc-500">Selects primary typeface and editorial font combinations</p>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {TYPOGRAPHY_PRESETS.map((preset) => {
+                           const isSelected = selectedThemeComp.typographyPreset === preset.id;
+                           return (
+                             <button
+                               type="button"
+                               key={preset.id}
+                               onClick={() => {
+                                  const updated = companies.map(c => c.id === selectedThemeComp.id ? { ...c, typographyPreset: preset.id } : c);
+                                  saveCompanies(updated);
+                               }}
+                               className={`p-3 rounded-xl border text-center transition-all ${
+                                 isSelected 
+                                   ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 font-bold' 
+                                   : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/15 hover:text-white'
+                               }`}
+                             >
+                               <p className="text-[10px] uppercase font-bold tracking-wider truncate">{preset.name}</p>
+                             </button>
+                           );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Accent Color Editor placed directly beneath Theme controls */}
+                    <div className="space-y-3 pt-2">
+                      <div>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Accent Color</h4>
+                        <p className="text-[10px] text-zinc-500">Primary highlight color used across action items and branding variables</p>
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+                         <div className="flex items-center gap-4">
+                            <div className="relative w-10 h-10 rounded-full border border-white/10 shadow-inner overflow-hidden flex items-center justify-center cursor-pointer">
+                               <input 
+                                  type="color" 
+                                  className="absolute w-14 h-14 bg-transparent border-none cursor-pointer outline-none" 
+                                  value={selectedThemeComp.primaryColor || '#3B82F6'} 
+                                  onChange={e => {
+                                     const updated = companies.map(c => c.id === selectedThemeComp.id ? { ...c, primaryColor: e.target.value } : c);
+                                     saveCompanies(updated);
+                                  }}
+                               />
+                            </div>
+                            <div>
+                               <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Color Value</p>
+                               <p className="text-xs font-mono font-bold text-white uppercase">{selectedThemeComp.primaryColor || '#3B82F6'}</p>
+                            </div>
+                         </div>
+                         
+                         <button
+                           onClick={() => openModal(selectedThemeComp, 'theme')}
+                           className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                           title="Edit Theme"
+                         >
+                           Advanced Theme Settings
+                         </button>
+                      </div>
+                    </div>
+
+                    {/* Bottom Action buttons */}
+                    <div className="flex gap-4 pt-2 border-t border-white/5">
                        <button
-                         onClick={() => saveGlobalSettings({...globalSettings, pdfQrEnabled: !globalSettings.pdfQrEnabled})}
-                         className={`w-10 h-5.5 rounded-full transition-all duration-300 flex items-center p-0.5 shrink-0 ${globalSettings.pdfQrEnabled ? 'bg-white justify-end' : 'bg-zinc-800 border border-white/10 justify-start'}`}
+                         onClick={() => openModal(selectedThemeComp, 'theme')}
+                         className="flex-1 py-3 bg-white text-black hover:bg-zinc-200 text-[10px] font-bold uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-all shadow-xl"
                        >
-                         <span className={`w-4 h-4 rounded-full transition-all ${globalSettings.pdfQrEnabled ? 'bg-black' : 'bg-zinc-500'}`} />
+                         <Eye className="w-3.5 h-3.5" /> Preview & Apply Studio
                        </button>
                     </div>
-                    <p className="text-xs text-zinc-500 leading-relaxed mt-auto">
-                       {globalSettings.pdfQrEnabled 
-                         ? 'Cryptographic QR codes are automatically injected, allowing clients to scan and verify authentic data.' 
-                         : 'QR authenticity badges are disabled on generated documents.'}
-                    </p>
-                 </div>
-              </div>
 
-               {/* PDF Password Management Card */}
-               <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-white/[0.01] hover:border-white/10 transition-all">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
-                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/5 rounded-xl text-zinc-400">
-                           <ShieldCheck className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                           <h4 className="text-sm font-bold text-white">Password Management</h4>
-                           <p className="text-[10px] text-zinc-500">Owner &amp; open-password encryption settings</p>
-                        </div>
-                     </div>
-                     {!isEditingPdfPassword && (
-                        <button
-                          onClick={() => {
-                             setTempPassword(globalSettings.pdfOwnerPassword || '');
-                             setTempUserPassword(globalSettings.pdfUserPassword || '');
-                             setIsEditingPdfPassword(true);
-                          }}
-                          className="text-xs font-bold text-primary hover:text-blue-400 uppercase tracking-widest flex items-center gap-1 transition-colors animate-ios-fade-in"
-                        >
-                           <Edit3 className="w-3.5 h-3.5" />
-                           Change
-                        </button>
-                     )}
                   </div>
+                );
+             })()}
 
-                  {/* Protection Mode Selector */}
-                  <div className="grid grid-cols-2 gap-3 mb-5">
-                     {(['owner-only', 'open-password'] as const).map(mode => {
-                        const active = (globalSettings.pdfPasswordMode ?? 'owner-only') === mode;
-                        const isOpenMode = mode === 'open-password';
-                        return (
-                           <button
-                              key={mode}
-                              type="button"
-                              disabled={!globalSettings.pdfOwnerPassword}
-                              onClick={() => saveGlobalSettings({ ...globalSettings, pdfPasswordMode: mode })}
-                              className={`p-4 rounded-xl border text-left flex flex-col gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
-                                 active
-                                   ? isOpenMode
-                                     ? 'bg-amber-500/10 border-amber-500/40 text-amber-400'
-                                     : 'bg-primary/10 border-primary/30 text-primary'
-                                   : 'bg-transparent border-white/5 text-zinc-500 hover:border-white/15 hover:text-zinc-300'
-                              }`}
-                           >
-                              <div className="flex items-center gap-2">
-                                 <div className={`w-3 h-3 rounded-full border-2 transition-all ${ active ? (isOpenMode ? 'bg-amber-400 border-amber-400' : 'bg-primary border-primary') : 'bg-transparent border-zinc-600' }`} />
-                                 <span className="text-[10px] font-black uppercase tracking-widest">
-                                    {isOpenMode ? 'Open Password' : 'Owner Only'}
-                                 </span>
-                              </div>
-                              <p className="text-[9px] font-medium leading-snug">
-                                 {isOpenMode
-                                    ? 'PDF requires a password to open. Clients must enter it.'
-                                    : 'Opens freely. Editing & copying restricted.'}
-                              </p>
-                           </button>
-                        );
-                     })}
-                  </div>
-
-                  <div className="space-y-4">
-                     {/* Owner Password Field */}
-                     <div>
-                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Owner Password</p>
-                        <div className="relative">
-                           <input
-                             type={showPdfPassword || isEditingPdfPassword ? 'text' : 'password'}
-                             className={`w-full bg-black/60 border rounded-xl p-4 text-sm font-mono font-bold text-white outline-none transition-all pr-24 ${isEditingPdfPassword ? 'border-primary' : 'border-white/10 focus:border-white/20'}`}
-                             value={isEditingPdfPassword ? tempPassword : (globalSettings.pdfOwnerPassword || '')}
-                             onChange={e => setTempPassword(e.target.value)}
-                             readOnly={!isEditingPdfPassword}
-                             placeholder="No password set (Unprotected)"
-                           />
-                           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                              {!isEditingPdfPassword && (
-                                 <>
-                                    <button
-                                      onClick={() => setShowPdfPassword(!showPdfPassword)}
-                                      className="p-1.5 text-zinc-500 hover:text-white transition-colors"
-                                      title={showPdfPassword ? 'Hide password' : 'Show password'}
-                                    >
-                                       {showPdfPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                         navigator.clipboard.writeText(globalSettings.pdfOwnerPassword || '');
-                                         setCopied(true);
-                                         setTimeout(() => setCopied(false), 2000);
-                                      }}
-                                      className="p-1.5 text-zinc-500 hover:text-white transition-colors"
-                                      title="Copy owner password"
-                                    >
-                                       {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
-                                    </button>
-                                 </>
-                              )}
-                           </div>
-                        </div>
-                     </div>
-
-                     {/* User / Open Password Field — visible in read mode */}
-                     {globalSettings.pdfPasswordMode === 'open-password' && !isEditingPdfPassword && (
-                        <div className="animate-ios-fade-in">
-                           <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1.5">
-                             Open Password <span className="text-zinc-600 normal-case font-normal">(clients enter this at open)</span>
-                           </p>
-                           <div className="relative">
-                              <input
-                                type={showUserPassword ? 'text' : 'password'}
-                                className="w-full bg-black/60 border border-white/10 rounded-xl p-4 text-sm font-mono font-bold text-white outline-none transition-all pr-12"
-                                value={globalSettings.pdfUserPassword || ''}
-                                readOnly
-                                placeholder="No open password set"
-                              />
-                              <button
-                                onClick={() => setShowUserPassword(!showUserPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-zinc-500 hover:text-white transition-colors"
-                              >
-                                 {showUserPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                              </button>
-                           </div>
-                        </div>
-                     )}
-
-                     {isEditingPdfPassword && (
-                        <div className="animate-ios-slide-up space-y-4">
-                           <div className="space-y-2">
-                              <div className="flex justify-between items-center px-1">
-                                 <span className="text-[10px] font-bold uppercase text-zinc-500 tracking-widest">Owner Password Entropy</span>
-                                 <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                                    tempPassword.length === 0 ? 'text-zinc-500' :
-                                    tempPassword.length < 6 ? 'text-red-500' :
-                                    tempPassword.length < 10 ? 'text-amber-500' : 'text-primary'
-                                 }`}>
-                                    {tempPassword.length === 0 ? 'Void' : tempPassword.length < 6 ? 'Vulnerable' : tempPassword.length < 10 ? 'Standard' : 'Fortress'}
-                                 </span>
-                              </div>
-                              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                                 <div className={`h-full transition-all duration-500 ${ tempPassword.length < 6 ? 'bg-red-500' : tempPassword.length < 10 ? 'bg-amber-500' : 'bg-primary' }`} style={{ width: `${Math.min(100, (tempPassword.length / 12) * 100)}%` }} />
-                              </div>
-                           </div>
-
-                           {globalSettings.pdfPasswordMode === 'open-password' && (
-                              <div>
-                                 <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1.5">
-                                   Open Password <span className="text-zinc-600 normal-case font-normal">(clients enter this at open)</span>
-                                 </p>
-                                 <input type="text" className="w-full bg-black/60 border border-amber-500/40 rounded-xl p-4 text-sm font-mono font-bold text-white outline-none transition-all focus:border-amber-400" value={tempUserPassword} onChange={e => setTempUserPassword(e.target.value)} placeholder="Enter client-facing open password" />
-                              </div>
-                           )}
-
-                           <div className="space-y-4">
-                              {tempPassword && tempPassword.length < 6 && (<div className="flex gap-2 text-red-400 text-xs font-bold uppercase tracking-widest bg-red-400/5 p-3 rounded-xl border border-red-400/10"><AlertTriangle className="w-3.5 h-3.5 shrink-0" /><span>Owner password is too short for peak security.</span></div>)}
-                              {tempPassword && ['password', 'admin', '1234', 'test'].some(w => tempPassword.toLowerCase().includes(w)) && (<div className="flex gap-2 text-amber-500 text-xs font-bold uppercase tracking-widest bg-amber-500/5 p-3 rounded-xl border border-amber-500/10"><AlertTriangle className="w-3.5 h-3.5 shrink-0" /><span>Common pattern detected. Use a unique sequence.</span></div>)}
-                              {globalSettings.pdfPasswordMode === 'open-password' && !tempUserPassword.trim() && tempPassword.trim() && (<div className="flex gap-2 text-amber-500 text-xs font-bold uppercase tracking-widest bg-amber-500/5 p-3 rounded-xl border border-amber-500/10"><AlertTriangle className="w-3.5 h-3.5 shrink-0" /><span>Open password is empty — clients will not be prompted at open.</span></div>)}
-                              {!tempPassword && (<div className="flex gap-2 text-zinc-400 text-xs font-bold uppercase tracking-widest bg-white/5 p-3 rounded-xl border border-white/10"><Shield className="w-3.5 h-3.5 shrink-0 opacity-50" /><span>Clear field to disable PDF encryption entirely.</span></div>)}
-                           </div>
-
-                           <div className="flex gap-3 pt-2">
-                              <button onClick={() => { if (!tempPassword.trim()) { setPendingConfirm({ title: 'Disable PDF Security', message: 'Invoices will no longer be encrypted if PDF security is disabled.', confirmLabel: 'Disable', tone: 'danger', onConfirm: savePdfPassword }); return; } savePdfPassword(); }} className="flex-1 py-3 bg-white text-black text-xs font-bold uppercase tracking-widest rounded-xl flex items-center justify-center gap-2">
-                                 <Save className="w-3.5 h-3.5" />
-                                 Save Protocol
-                              </button>
-                              <button onClick={() => setIsEditingPdfPassword(false)} className="px-5 py-3 bg-white/5 text-zinc-400 hover:text-white text-xs font-bold uppercase tracking-widest rounded-xl">Cancel</button>
-                           </div>
-                        </div>
-                     )}
-                  </div>
-               </div>
-
-
-              {/* Advanced Security Features Collapsible Card */}
-              <div className="glass-panel rounded-2xl border border-white/5 bg-white/[0.01] hover:border-white/10 transition-all overflow-hidden">
-                 <button 
-                   onClick={() => setShowAdvancedProtection(!showAdvancedProtection)}
-                   className="w-full p-6 flex items-center justify-between hover:bg-white/[0.02] transition-all"
-                 >
-                   <div className="flex items-center gap-3">
-                     <div className="p-2 bg-white/5 rounded-xl text-zinc-400">
-                       <Sliders className="w-5 h-5" />
-                     </div>
-                     <div className="text-left">
-                       <h4 className="text-sm font-bold text-white">Advanced Security Features</h4>
-                       <p className="text-[10px] text-zinc-500">Fine-grained protection and verification systems</p>
-                     </div>
+             {/* Platform Language Card */}
+             <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-white/[0.01] hover:border-white/10 transition-all flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                   <div className="p-2 bg-white/5 rounded-xl text-zinc-400">
+                      <Languages className="w-5 h-5 text-amber-500" />
                    </div>
-                   {showAdvancedProtection ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
-                 </button>
-
-                 {showAdvancedProtection && (
-                   <div className="px-6 pb-6 pt-2 border-t border-white/5 bg-black/10 space-y-6 animate-ios-fade-in">
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                       {/* Watermark Toggle */}
-                       <button 
-                         onClick={() => saveGlobalSettings({...globalSettings, pdfWatermarkEnabled: !globalSettings.pdfWatermarkEnabled})}
-                         className={`p-4 rounded-xl border transition-all flex flex-col gap-2 text-left ${globalSettings.pdfWatermarkEnabled ? 'bg-white/5 border-white/20' : 'bg-transparent border-white/5 opacity-55'}`}
-                       >
-                         <Palette className={`w-4 h-4 ${globalSettings.pdfWatermarkEnabled ? 'text-amber-500' : 'text-zinc-650'}`} />
-                         <div>
-                           <p className="text-xs font-bold text-white uppercase tracking-wider">Watermark</p>
-                           <p className="text-[10px] text-zinc-550">Diagonal Brand Trace</p>
-                         </div>
-                       </button>
-
-                       {/* Secure Render Toggle */}
-                       <button 
-                         onClick={() => saveGlobalSettings({...globalSettings, pdfSecureRenderEnabled: !globalSettings.pdfSecureRenderEnabled})}
-                         className={`p-4 rounded-xl border transition-all flex flex-col gap-2 text-left ${globalSettings.pdfSecureRenderEnabled ? 'bg-primary/10 border-primary/30' : 'bg-transparent border-white/5 opacity-55'}`}
-                       >
-                         <FileImage className={`w-4 h-4 ${globalSettings.pdfSecureRenderEnabled ? 'text-primary' : 'text-zinc-650'}`} />
-                         <div>
-                           <p className="text-xs font-bold text-white uppercase tracking-wider">Secure Render</p>
-                           <p className="text-[10px] text-zinc-555">Image-based PDF (Fortress)</p>
-                         </div>
-                       </button>
-
-                       {/* Hash Toggle */}
-                       <button 
-                         onClick={() => saveGlobalSettings({...globalSettings, pdfHashEnabled: !globalSettings.pdfHashEnabled})}
-                         className={`p-4 rounded-xl border transition-all flex flex-col gap-2 text-left ${globalSettings.pdfHashEnabled ? 'bg-white/5 border-white/20' : 'bg-transparent border-white/5 opacity-55'}`}
-                       >
-                         <Hash className={`w-4 h-4 ${globalSettings.pdfHashEnabled ? 'text-primary' : 'text-zinc-655'}`} />
-                         <div>
-                           <p className="text-xs font-bold text-white uppercase tracking-wider">Data Hash</p>
-                           <p className="text-[10px] text-zinc-550">Unique Cryptographic Signature</p>
-                         </div>
-                       </button>
-
-                       {/* Verify Link Toggle */}
-                       <button 
-                         onClick={() => saveGlobalSettings({...globalSettings, pdfVerifyLinkEnabled: !globalSettings.pdfVerifyLinkEnabled})}
-                         className={`p-4 rounded-xl border transition-all flex flex-col gap-2 text-left ${globalSettings.pdfVerifyLinkEnabled !== false ? 'bg-white/5 border-white/20' : 'bg-transparent border-white/5 opacity-55'}`}
-                       >
-                         <Globe className={`w-4 h-4 ${globalSettings.pdfVerifyLinkEnabled !== false ? 'text-primary' : 'text-zinc-650'}`} />
-                         <div>
-                           <p className="text-xs font-bold text-white uppercase tracking-wider">Verify Link</p>
-                           <p className="text-[10px] text-zinc-550">Verification URL in Footer</p>
-                         </div>
-                       </button>
-                     </div>
-
-                     <div className="flex items-start gap-2 bg-white/5 p-4 rounded-xl border border-white/5">
-                       <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                       <p className="text-[10px] font-medium text-zinc-400 leading-relaxed">
-                         Note: Enabling 'Secure Render' creates larger files (~300-500KB) and renders text unselectable to prevent extraction. The 'Verify Link' setting injects a clickable verification URL in the document footer for instant online validation.
-                       </p>
-                     </div>
+                   <div>
+                      <h4 className="text-sm font-bold text-white">Platform Language</h4>
+                      <p className="text-[10px] text-zinc-500">Default localization for international portals</p>
                    </div>
-                 )}
+                </div>
+                <select className="glass-panel rounded-xl px-4 py-2 text-xs font-bold text-white outline-none border border-white/5 bg-black/60 cursor-pointer">
+                   <option>English (Universal)</option>
+                   <option>Hindi (Localized)</option>
+                </select>
               </div>
            </div>
-
-           {/* Column 2: Theme Management & General */}
-           <div className="space-y-8">
-              <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                 <div className="flex items-center gap-3">
-                    <Palette className="w-5 h-5 text-pink-500" />
-                    <div>
-                       <h3 className="text-lg font-bold text-white">Theme & Aesthetics</h3>
-                       <p className="text-xs text-zinc-500">Configure visual themes, graphics presets, fonts, and brand colors.</p>
-                    </div>
-                 </div>
-                 <select
-                   value={themeStudioBrandId}
-                   onChange={(e) => setThemeStudioBrandId(e.target.value)}
-                   className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-bold text-white outline-none uppercase tracking-wider transition-colors cursor-pointer"
-                 >
-                   {companies.map(c => (
-                     <option key={c.id} value={c.id} className="bg-black text-white">{c.companyName}</option>
-                   ))}
-                 </select>
-              </div>
-
-              {/* Theme Settings Panel */}
-              {(() => {
-                 const selectedThemeComp = companies.find(c => c.id === themeStudioBrandId) || companies[0];
-                 if (!selectedThemeComp) return (
-                    <div className="glass-panel p-8 text-center opacity-50 rounded-2xl border border-white/5">
-                       <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">No Brands Available</p>
-                    </div>
-                 );
-
-                 return (
-                   <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-white/[0.01] hover:border-white/10 transition-all space-y-6">
-                     
-                     {/* Theme Preset selector as compact selectable cards */}
-                     <div className="space-y-3">
-                       <div>
-                         <h4 className="text-xs font-bold text-white uppercase tracking-wider">Theme Preset</h4>
-                         <p className="text-[10px] text-zinc-500">Sets the base color mode and presets across brand portals</p>
-                       </div>
-                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                         {THEME_PRESETS.map((preset) => {
-                            const isSelected = selectedThemeComp.themePreset === preset.id;
-                            return (
-                              <button
-                                type="button"
-                                key={preset.id}
-                                onClick={() => {
-                                   const updated = companies.map(c => c.id === selectedThemeComp.id ? { ...c, themePreset: preset.id } : c);
-                                   saveCompanies(updated);
-                                }}
-                                className={`p-3 rounded-xl border text-center transition-all ${
-                                  isSelected 
-                                    ? 'bg-pink-500/10 border-pink-500 text-pink-400 font-bold shadow-inner' 
-                                    : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/15 hover:text-white'
-                                }`}
-                              >
-                                <p className="text-[10px] uppercase font-bold tracking-wider truncate">{preset.name.replace(' (Default)', '')}</p>
-                              </button>
-                            );
-                         })}
-                       </div>
-                     </div>
-
-                     {/* Graphics Preset selector as compact selectable cards */}
-                     <div className="space-y-3">
-                       <div>
-                         <h4 className="text-xs font-bold text-white uppercase tracking-wider">Graphics Engine</h4>
-                         <p className="text-[10px] text-zinc-500">Controls layout visuals, shadow styles, blur intensities, and card glowing</p>
-                       </div>
-                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                         {GRAPHICS_PRESETS.map((preset) => {
-                            const isSelected = selectedThemeComp.graphicsPreset === preset.id;
-                            return (
-                              <button
-                                type="button"
-                                key={preset.id}
-                                onClick={() => {
-                                   const updated = companies.map(c => c.id === selectedThemeComp.id ? { ...c, graphicsPreset: preset.id } : c);
-                                   saveCompanies(updated);
-                                }}
-                                className={`p-2.5 rounded-xl border text-center transition-all ${
-                                  isSelected 
-                                    ? 'bg-amber-500/10 border-amber-500 text-amber-400 font-bold' 
-                                    : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/15 hover:text-white'
-                                }`}
-                              >
-                                <p className="text-[10px] uppercase font-bold tracking-wider truncate">{preset.name}</p>
-                              </button>
-                            );
-                         })}
-                       </div>
-                     </div>
-
-                     {/* Typography Preset selector as compact selectable cards */}
-                     <div className="space-y-3">
-                       <div>
-                         <h4 className="text-xs font-bold text-white uppercase tracking-wider">Typography Settings</h4>
-                         <p className="text-[10px] text-zinc-500">Selects primary typeface and editorial font combinations</p>
-                       </div>
-                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                         {TYPOGRAPHY_PRESETS.map((preset) => {
-                            const isSelected = selectedThemeComp.typographyPreset === preset.id;
-                            return (
-                              <button
-                                type="button"
-                                key={preset.id}
-                                onClick={() => {
-                                   const updated = companies.map(c => c.id === selectedThemeComp.id ? { ...c, typographyPreset: preset.id } : c);
-                                   saveCompanies(updated);
-                                }}
-                                className={`p-3 rounded-xl border text-center transition-all ${
-                                  isSelected 
-                                    ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 font-bold' 
-                                    : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/15 hover:text-white'
-                                }`}
-                              >
-                                <p className="text-[10px] uppercase font-bold tracking-wider truncate">{preset.name}</p>
-                              </button>
-                            );
-                         })}
-                       </div>
-                     </div>
-
-                     {/* Accent Color Editor placed directly beneath Theme controls */}
-                     <div className="space-y-3 pt-2">
-                       <div>
-                         <h4 className="text-xs font-bold text-white uppercase tracking-wider">Accent Color</h4>
-                         <p className="text-[10px] text-zinc-500">Primary highlight color used across action items and branding variables</p>
-                       </div>
-                       <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
-                          <div className="flex items-center gap-4">
-                             <div className="relative w-10 h-10 rounded-full border border-white/10 shadow-inner overflow-hidden flex items-center justify-center cursor-pointer">
-                                <input 
-                                   type="color" 
-                                   className="absolute w-14 h-14 bg-transparent border-none cursor-pointer outline-none" 
-                                   value={selectedThemeComp.primaryColor || '#3B82F6'} 
-                                   onChange={e => {
-                                      const updated = companies.map(c => c.id === selectedThemeComp.id ? { ...c, primaryColor: e.target.value } : c);
-                                      saveCompanies(updated);
-                                   }}
-                                />
-                             </div>
-                             <div>
-                                <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Color Value</p>
-                                <p className="text-xs font-mono font-bold text-white uppercase">{selectedThemeComp.primaryColor || '#3B82F6'}</p>
-                             </div>
-                          </div>
-                          
-                          <button
-                            onClick={() => openModal(selectedThemeComp, 'theme')}
-                            className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
-                            title="Edit Theme"
-                          >
-                            Advanced Theme Settings
-                          </button>
-                       </div>
-                     </div>
-
-                     {/* Bottom Action buttons */}
-                     <div className="flex gap-4 pt-2 border-t border-white/5">
-                        <button
-                          onClick={() => openModal(selectedThemeComp, 'theme')}
-                          className="flex-1 py-3 bg-white text-black hover:bg-zinc-200 text-[10px] font-bold uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-all shadow-xl"
-                        >
-                          <Eye className="w-3.5 h-3.5" /> Preview & Apply Studio
-                        </button>
-                     </div>
-
-                   </div>
-                 );
-              })()}
-
-              {/* Platform Language Card */}
-              <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-white/[0.01] hover:border-white/10 transition-all flex items-center justify-between">
-                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/5 rounded-xl text-zinc-400">
-                       <Languages className="w-5 h-5 text-amber-500" />
-                    </div>
-                    <div>
-                       <h4 className="text-sm font-bold text-white">Platform Language</h4>
-                       <p className="text-[10px] text-zinc-500">Default localization for international portals</p>
-                    </div>
-                 </div>
-                 <select className="glass-panel rounded-xl px-4 py-2 text-xs font-bold text-white outline-none border border-white/5 bg-black/60 cursor-pointer">
-                    <option>English (Universal)</option>
-                    <option>Hindi (Localized)</option>
-                 </select>
-               </div>
-            </div>
-         </div>
        </section>
        </>
       )}
