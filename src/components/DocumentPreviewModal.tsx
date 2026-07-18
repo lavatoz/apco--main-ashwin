@@ -261,11 +261,67 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-8 print:p-0 flex justify-center bg-zinc-900 print:bg-white print:overflow-visible">
-         <div className="w-full max-w-[210mm] min-h-[297mm] flex justify-center items-start">
-           {needsPassword ? (
+         <div className="w-full max-w-[210mm] min-h-[297mm] flex justify-center items-start relative">
+           {/* Loading Indicator */}
+           {loading && !needsPassword && (
+             <div className="flex flex-col items-center justify-center text-zinc-400 gap-4 mt-20">
+               <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+               <p className="text-xs font-black uppercase tracking-[0.2em]">Decrypting &amp; Loading PDF...</p>
+             </div>
+           )}
+
+           {/* Error Message */}
+           {error && (
+             <div className="p-12 text-center text-red-400 bg-red-950/20 border border-red-900/30 rounded-2xl max-w-md mt-20">
+               <p className="font-black uppercase tracking-wider mb-2">Preview Generation Failed</p>
+               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{error}</p>
+             </div>
+           )}
+
+           {/* PDF Document Container - Remains mounted to keep decryption callback alive */}
+           {pdfUrl && !error && (
+             <div className={needsPassword ? 'hidden' : 'w-full flex justify-center'}>
+               <Document
+                 file={pdfUrl}
+                 onLoadSuccess={({ numPages }) => {
+                   setNumPages(numPages);
+                   setCurrentPage(1);
+                   setNeedsPassword(false);
+                   setLoading(false);
+                 }}
+                 onPassword={handlePassword}
+                 onLoadError={() => {
+                   if (!needsPassword) {
+                     setError("Unable to load PDF document. Please make sure the file is valid or contact an administrator.");
+                     setLoading(false);
+                   }
+                 }}
+                 loading={null}
+               >
+                 {!needsPassword && !loading && (
+                   <Page
+                     pageNumber={currentPage}
+                     scale={zoomScale}
+                     renderTextLayer={false}
+                     renderAnnotationLayer={false}
+                     className="shadow-2xl rounded-2xl overflow-hidden border border-white/5 bg-zinc-950"
+                     loading={
+                       <div className="flex flex-col items-center justify-center text-zinc-400 gap-4 min-h-[300px]">
+                         <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                         <p className="text-xs font-black uppercase tracking-[0.2em]">Rendering page...</p>
+                       </div>
+                     }
+                   />
+                 )}
+               </Document>
+             </div>
+           )}
+
+           {/* Password Overlay */}
+           {needsPassword && (
              <form 
                onSubmit={handleSubmitPassword}
-               className="relative max-w-sm w-full bg-zinc-950/70 border border-white/10 rounded-[2.5rem] p-10 backdrop-blur-2xl text-center space-y-8 shadow-[0_24px_50px_rgba(0,0,0,0.8)] mt-12"
+               className="relative max-w-sm w-full bg-zinc-950/70 border border-white/10 rounded-[2.5rem] p-10 backdrop-blur-2xl text-center space-y-8 shadow-[0_24px_50px_rgba(0,0,0,0.8)] mt-12 z-20"
              >
                <div className="flex flex-col items-center gap-3">
                  <div className="p-5 bg-white/5 border border-white/5 rounded-[2rem] text-zinc-400">
@@ -310,55 +366,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
                  <span>Decrypt Access</span>
                </button>
              </form>
-           ) : loading ? (
-             <div className="flex flex-col items-center justify-center text-zinc-400 gap-4 mt-20">
-               <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-               <p className="text-xs font-black uppercase tracking-[0.2em]">Decrypting &amp; Loading PDF...</p>
-             </div>
-           ) : error ? (
-             <div className="p-12 text-center text-red-400 bg-red-950/20 border border-red-900/30 rounded-2xl max-w-md mt-20">
-               <p className="font-black uppercase tracking-wider mb-2">Preview Generation Failed</p>
-               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{error}</p>
-             </div>
-           ) : pdfUrl ? (
-             <Document
-               file={pdfUrl}
-               onLoadSuccess={({ numPages }) => {
-                 setNumPages(numPages);
-                 setCurrentPage(1);
-                 setNeedsPassword(false);
-                 setLoading(false);
-               }}
-               onPassword={handlePassword}
-               onLoadError={(err) => {
-                 console.error('[PREVIEW] PDF load error:', err);
-                 if (!needsPassword) {
-                   setError("Unable to load PDF document. Please make sure the file is valid or contact an administrator.");
-                   setLoading(false);
-                 }
-               }}
-               loading={
-                 <div className="flex flex-col items-center justify-center text-zinc-400 gap-4 mt-20">
-                   <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-                   <p className="text-xs font-black uppercase tracking-[0.2em]">Decrypting &amp; Loading PDF...</p>
-                 </div>
-               }
-             >
-               <Page
-                 pageNumber={currentPage}
-                 scale={zoomScale}
-                 renderTextLayer={false}
-                 renderAnnotationLayer={false}
-                 className="shadow-2xl rounded-2xl overflow-hidden border border-white/5 bg-zinc-950"
-                 loading={
-                   <div className="flex flex-col items-center justify-center text-zinc-400 gap-4 min-h-[300px]">
-                     <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                     <p className="text-xs font-black uppercase tracking-[0.2em]">Rendering page...</p>
-                   </div>
-                 }
-               />
-             </Document>
-           ) : null}
+           )}
          </div>
       </div>
     </div>
