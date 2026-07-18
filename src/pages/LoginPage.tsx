@@ -2,16 +2,13 @@ import React, { useState } from 'react';
 import { 
   Command, 
   Layout, 
-  ShieldAlert, 
   KeyRound, 
   Mail, 
   QrCode, 
   Clipboard, 
-  Download, 
   Check, 
   RefreshCw, 
   ArrowLeft, 
-  ShieldCheck,
   Eye,
   EyeOff
 } from 'lucide-react';
@@ -22,7 +19,7 @@ interface LoginPageProps {
   onLogin: (user: any) => void;
 }
 
-type ViewType = 'LOGIN' | 'EMAIL_VERIFICATION' | 'MFA_SETUP' | 'MFA_VERIFY' | 'MFA_BACKUP_CODES';
+type ViewType = 'LOGIN' | 'EMAIL_VERIFICATION' | 'MFA_SETUP' | 'MFA_VERIFY';
 
 const mapBackendUserToFrontend = (backendUser: any) => {
   let mappedRole: 'Admin' | 'Staff' | 'Client' = 'Staff';
@@ -62,7 +59,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const [mfaSecret, setMfaSecret] = useState('');
   const [mfaCode, setMfaCode] = useState('');
-  const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
@@ -73,7 +69,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     setQrCodeDataUrl('');
     setMfaSecret('');
     setMfaCode('');
-    setBackupCodes([]);
     setError(null);
     setIsLoading(false);
   };
@@ -170,10 +165,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const enableRes = await api.enableMfa(mfaCode);
-      setBackupCodes(enableRes.backupCodes || []);
-      setView('MFA_BACKUP_CODES');
-      setMfaCode('');
+      await api.enableMfa(mfaCode);
+      resetFlow();
     } catch (err: any) {
       setError(err.message || 'Failed to verify and enable MFA.');
     } finally {
@@ -195,24 +188,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     }
   };
 
-  const copyBackupCodes = () => {
-    navigator.clipboard.writeText(backupCodes.join('\n'));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
-  const downloadBackupCodes = () => {
-    const text = `APCO ENTERPRISE SECURITY SYSTEM\nGenerated: ${new Date().toLocaleString()}\nUser: ${email}\n\nRECOVERY BACKUP CODES:\n\n` + backupCodes.map((c, i) => `[Code ${i + 1}]  ${c}`).join('\n') + `\n\nStore these safely. Each backup code resolves a single locked state and is destroyed post-use.`;
-    const blob = new Blob([text], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `apco_backup_codes_${email.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
 
   return (
     <div className="min-h-screen bg-transparent flex items-center justify-center px-4 selection:bg-white selection:text-black relative overflow-hidden">
@@ -445,61 +421,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             </div>
           )}
 
-          {view === 'MFA_BACKUP_CODES' && (
-            <div className="space-y-6">
-              <div className="text-center space-y-2">
-                <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto text-emerald-500">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <h2 className="text-md font-bold text-white uppercase tracking-wider">MFA Setup Succeeded</h2>
-                <p className="text-[11px] text-zinc-400 font-mono">Backup codes allow system restoration if device access is lost.</p>
-              </div>
 
-              <div className="bg-black/40 p-4 rounded-3xl border border-white/5 space-y-3">
-                <div className="grid grid-cols-2 gap-2 text-center">
-                  {backupCodes.map((code, index) => (
-                    <div key={index} className="font-mono text-xs py-2 bg-black/50 border border-white/5 rounded-xl text-zinc-300">
-                      {code}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={copyBackupCodes}
-                    className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-bold font-mono text-[9px] uppercase tracking-wider text-zinc-300 flex items-center justify-center gap-2"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Clipboard className="w-3.5 h-3.5" />}
-                    {copied ? 'Copied!' : 'Copy Codes'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={downloadBackupCodes}
-                    className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-bold font-mono text-[9px] uppercase tracking-wider text-zinc-300 flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Download (.txt)
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex gap-3 text-amber-500 text-[10px] font-mono leading-relaxed">
-                  <ShieldAlert className="w-5 h-5 shrink-0" />
-                  <span>WARNING: Keep backup codes secure. They are only shown once and cannot be re-retrieved.</span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={resetFlow}
-                  className="touch-target w-full bg-white text-black font-bold py-3.5 rounded-2xl text-xs uppercase tracking-wider hover:bg-zinc-200 transition-all"
-                >
-                  Return & Login
-                </button>
-              </div>
-            </div>
-          )}
 
           {view === 'MFA_VERIFY' && (
             <div className="space-y-6">
@@ -508,7 +430,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   <KeyRound className="w-6 h-6" />
                 </div>
                 <h2 className="text-md font-bold text-white uppercase tracking-wider">Two-Factor Authentication</h2>
-                <p className="text-[11px] text-zinc-500 font-mono mt-1">Enter your authenticator OTP or a recovery backup code.</p>
+                <p className="text-[11px] text-zinc-500 font-mono mt-1">Enter the 6-digit code from your authenticator app.</p>
               </div>
 
               <form onSubmit={handleMfaVerify} className="space-y-4">
