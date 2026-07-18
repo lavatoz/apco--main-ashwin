@@ -89,6 +89,7 @@ const StaffPortal: React.FC<StaffPortalProps> = ({ selectedBrand = 'All' }) => {
         category: string;
         successCount: number;
         failedCount: number;
+        duplicateCount?: number;
         failedFiles?: string[];
     } | null>(null);
 
@@ -153,6 +154,7 @@ const StaffPortal: React.FC<StaffPortalProps> = ({ selectedBrand = 'All' }) => {
 
         let successCount = 0;
         let failedCount = 0;
+        let duplicateCount = 0;
         const failedFiles: string[] = [];
 
         const targetProjectId = selectedProjectId;
@@ -187,16 +189,20 @@ const StaffPortal: React.FC<StaffPortalProps> = ({ selectedBrand = 'All' }) => {
                     }
                 );
 
-                if (response && response.id) {
-                    const eventName = selectedProjectEvents.find((e: any) => e.id === targetEventId)?.name || '';
-                    if (eventName) {
-                        setLocalFileEventMap(prev => ({ ...prev, [response.id]: eventName }));
+                if (response && response.duplicate) {
+                    duplicateCount++;
+                } else {
+                    if (response && response.id) {
+                        const eventName = selectedProjectEvents.find((e: any) => e.id === targetEventId)?.name || '';
+                        if (eventName) {
+                            setLocalFileEventMap(prev => ({ ...prev, [response.id]: eventName }));
+                        }
+                        if (user?.name) {
+                            setLocalFileUploaderMap(prev => ({ ...prev, [response.id]: user.name }));
+                        }
                     }
-                    if (user?.name) {
-                        setLocalFileUploaderMap(prev => ({ ...prev, [response.id]: user.name }));
-                    }
+                    successCount++;
                 }
-                successCount++;
             } catch (err: any) {
                 console.error(`Upload failed for file ${file.name}:`, err);
                 failedCount++;
@@ -205,29 +211,33 @@ const StaffPortal: React.FC<StaffPortalProps> = ({ selectedBrand = 'All' }) => {
         }
 
         const projectName = projects.find(p => p.id === targetProjectId)?.name || 'Unknown Project';
+        const summaryMessage = `✅ ${successCount} file(s) uploaded successfully.\n⚠️ ${duplicateCount} duplicate file(s) were skipped.`;
 
         if (failedCount === 0) {
             setUploadNotification({
                 type: 'success',
                 title: 'Upload Complete',
-                message: `${successCount} files uploaded successfully`,
+                message: summaryMessage,
                 project: projectName,
                 category: targetCategory,
                 successCount,
-                failedCount
+                failedCount,
+                duplicateCount
             });
             setTimeout(() => {
                 setUploadNotification(prev => prev?.type === 'success' ? null : prev);
             }, 5000);
         } else {
+            const failureMessage = `✅ ${successCount} file(s) uploaded successfully.\n⚠️ ${duplicateCount} duplicate file(s) were skipped.\n❌ ${failedCount} file(s) failed to upload.`;
             setUploadNotification({
                 type: 'failure',
                 title: 'Upload Finished With Errors',
-                message: `Uploaded: ${successCount} Failed: ${failedCount}`,
+                message: failureMessage,
                 project: projectName,
                 category: targetCategory,
                 successCount,
                 failedCount,
+                duplicateCount,
                 failedFiles
             });
         }
@@ -1309,12 +1319,15 @@ const StaffPortal: React.FC<StaffPortalProps> = ({ selectedBrand = 'All' }) => {
                                 </button>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-[11px] font-bold text-zinc-300">{uploadNotification.message}</p>
+                                <p className="text-[11px] font-bold text-zinc-300 whitespace-pre-line">{uploadNotification.message}</p>
                             </div>
                             <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-3 space-y-1.5 text-[10px] uppercase font-black tracking-wider text-zinc-400">
                                 <div className="flex justify-between"><span className="text-zinc-500">Project:</span><span className="text-white truncate max-w-[200px]">{uploadNotification.project}</span></div>
                                 <div className="flex justify-between"><span className="text-zinc-500">Category:</span><span className="text-white">{uploadNotification.category}</span></div>
                                 <div className="flex justify-between"><span className="text-zinc-500">Uploaded:</span><span className="text-emerald-400">{uploadNotification.successCount}</span></div>
+                                {uploadNotification.duplicateCount !== undefined && uploadNotification.duplicateCount > 0 && (
+                                    <div className="flex justify-between"><span className="text-zinc-500">Skipped (Dup):</span><span className="text-amber-400">{uploadNotification.duplicateCount}</span></div>
+                                )}
                                 <div className="flex justify-between"><span className="text-zinc-500">Failed:</span><span className="text-red-400">{uploadNotification.failedCount}</span></div>
                             </div>
                         </div>
@@ -1333,12 +1346,15 @@ const StaffPortal: React.FC<StaffPortalProps> = ({ selectedBrand = 'All' }) => {
                                 </button>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-[11px] font-bold text-red-400">{uploadNotification.message}</p>
+                                <p className="text-[11px] font-bold text-red-400 whitespace-pre-line">{uploadNotification.message}</p>
                             </div>
                             <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-3 space-y-1.5 text-[10px] uppercase font-black tracking-wider text-zinc-400">
                                 <div className="flex justify-between"><span className="text-zinc-500">Project:</span><span className="text-white truncate max-w-[200px]">{uploadNotification.project}</span></div>
                                 <div className="flex justify-between"><span className="text-zinc-500">Category:</span><span className="text-white">{uploadNotification.category}</span></div>
                                 <div className="flex justify-between"><span className="text-zinc-500">Uploaded:</span><span className="text-emerald-400">{uploadNotification.successCount}</span></div>
+                                {uploadNotification.duplicateCount !== undefined && uploadNotification.duplicateCount > 0 && (
+                                    <div className="flex justify-between"><span className="text-zinc-500">Skipped (Dup):</span><span className="text-amber-400">{uploadNotification.duplicateCount}</span></div>
+                                )}
                                 <div className="flex justify-between"><span className="text-zinc-500">Failed:</span><span className="text-red-400">{uploadNotification.failedCount}</span></div>
                             </div>
                             {uploadNotification.failedFiles && uploadNotification.failedFiles.length > 0 && (

@@ -11,7 +11,9 @@ import {
   Check, 
   RefreshCw, 
   ArrowLeft, 
-  ShieldCheck 
+  ShieldCheck,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { setAuthUser } from '../utils/storage';
 import { api } from '../services/api';
@@ -50,6 +52,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [role, setRole] = useState<'Client' | 'Staff' | 'Admin'>('Client');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -256,14 +259,28 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                     onChange={(e) => setEmail(e.target.value)}
                     className="touch-target w-full bg-black/40 border border-white/5 rounded-2xl py-3.5 md:p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-xs md:text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm focus:ring-1 focus:ring-white/10"
                   />
-                  <input
-                    required
-                    type="password"
-                    placeholder="PASSWORD"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="touch-target w-full bg-black/40 border border-white/5 rounded-2xl py-3.5 md:p-4 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-xs md:text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm focus:ring-1 focus:ring-white/10"
-                  />
+                  <div className="relative">
+                    <input
+                      required
+                      type={showPassword ? "text" : "password"}
+                      placeholder="PASSWORD"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="touch-target w-full bg-black/40 border border-white/5 rounded-2xl py-3.5 px-12 md:p-4 md:px-12 text-white text-center focus:border-white/20 focus:bg-black/60 outline-none text-xs md:text-sm font-bold font-mono placeholder:text-zinc-800 transition-all backdrop-blur-sm focus:ring-1 focus:ring-white/10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 focus:outline-none transition-colors"
+                      title={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {error && (
