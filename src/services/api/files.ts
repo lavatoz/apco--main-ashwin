@@ -84,18 +84,7 @@ export const files = {
   },
 
   downloadProjectFile: async (id: string, fileName: string) => {
-    const token = getAccessToken();
-    const correlationId = generateCorrelationId();
-    const response = await fetch(`${API_URL}/files/${id}/download`, {
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        'X-Correlation-ID': correlationId
-      }
-    });
-    if (!response.ok) {
-      throw new Error('Failed to download file');
-    }
-    const blob = await response.blob();
+    const blob = await fetchApi(`/files/${id}/download`, { responseType: 'blob' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -134,32 +123,10 @@ export const files = {
   },
 
   getFileBlob: async (id: string): Promise<Blob> => {
-    const token = getAccessToken();
-    const correlationId = generateCorrelationId();
-    const response = await fetch(`${API_URL}/files/${id}/download`, {
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        'X-Correlation-ID': correlationId
-      }
-    });
-    if (!response.ok) {
-      throw new Error('Failed to fetch secure file blob');
-    }
-    return response.blob();
+    return fetchApi(`/files/${id}/download`, { responseType: 'blob' });
   },
 
   getFileThumbnailBlob: async (id: string): Promise<Blob> => {
-    const token = getAccessToken();
-    const correlationId = generateCorrelationId();
-    const response = await fetch(`${API_URL}/files/${id}/thumbnail`, {
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        'X-Correlation-ID': correlationId
-      }
-    });
-    if (!response.ok) {
-      throw new Error('Failed to fetch secure thumbnail blob');
-    }
-    return response.blob();
+    return fetchApi(`/files/${id}/thumbnail`, { responseType: 'blob' });
   }
 };

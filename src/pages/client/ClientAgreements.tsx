@@ -594,7 +594,7 @@ const ClientAgreements: React.FC<ClientAgreementsProps> = ({ client: initialClie
         {processedAgreements.length === 0 ? (
           <div className="glass-panel p-16 squircle-lg text-center border border-white/5 bg-white/[0.01]">
             <FileSignature className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
-            <h3 className="text-xl font-black uppercase tracking-tight text-white mb-2">No Agreements Provisioned</h3>
+            <h3 className="text-xl font-black uppercase tracking-tight text-white mb-2">No standalone agreement has been created yet.</h3>
             <p className="text-sm font-medium text-zinc-400 max-w-sm mx-auto">
               Your production team will provision digital contracts here when required.
             </p>

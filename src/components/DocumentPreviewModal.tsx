@@ -16,7 +16,7 @@ import {
   EyeOff 
 } from 'lucide-react';
 import { generateInvoicePDF } from '../utils/pdfGenerator';
-import { api } from '../services/api';
+import { api, API_URL, getAccessToken } from '../services/api';
 
 // PDF.js (react-pdf) config
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -70,26 +70,123 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
     const loadPdf = async () => {
       setLoading(true);
       setError(null);
+      
+      console.log("[PREVIEW] --- STARTING PDF PREVIEW FLOW ---");
+      console.log("[PREVIEW] Step 1: User clicked Preview. Document type:", type, "ID:", documentData.id);
+
       try {
         let url = '';
         if (type === 'quote') {
-          const res = await api.generateQuotationPDF(documentData.id);
-          if (res.success && res.fileId) {
-            const blob = await api.getFileBlob(res.fileId);
+          const token = getAccessToken();
+          const generateUrl = `${API_URL}/quotations/${documentData.id}/generate-pdf`;
+          
+          console.log("[PREVIEW] Step 2: Requesting PDF Generation...");
+          console.log("[PREVIEW] Request URL:", generateUrl);
+          console.log("[PREVIEW] Request Method: POST");
+          const headers = {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          };
+          console.log("[PREVIEW] Request Headers:", headers);
+          console.log("[PREVIEW] Request Payload: None (empty body for generate-pdf)");
+
+          const response = await fetch(generateUrl, {
+            method: 'POST',
+            headers
+          });
+
+          console.log("[PREVIEW] Response Status:", response.status);
+          const responseHeaders: Record<string, string> = {};
+          response.headers.forEach((val, key) => {
+            responseHeaders[key] = val;
+          });
+          console.log("[PREVIEW] Response Headers:", responseHeaders);
+
+          const responseText = await response.text();
+          let resData: any = {};
+          try {
+            resData = JSON.parse(responseText);
+          } catch (e) {
+            console.warn("[PREVIEW] Response body is not valid JSON:", responseText);
+          }
+          console.log("[PREVIEW] Response Body:", resData);
+
+          if (!response.ok) {
+            console.error("[PREVIEW] PDF Generation Request Failed:", responseText);
+            throw new Error(`HTTP Status: ${response.status}\nBackend Error: ${resData.message || responseText}\nContent Type: ${responseHeaders['content-type'] || 'unknown'}`);
+          }
+
+          if (resData.success && resData.fileId) {
+            console.log("[PREVIEW] PDF Generated Successfully. File ID:", resData.fileId);
+            
+            console.log("[PREVIEW] Step 3: Requesting PDF File Blob...");
+            const downloadUrl = `${API_URL}/files/${resData.fileId}/download`;
+            console.log("[PREVIEW] Download URL:", downloadUrl);
+            console.log("[PREVIEW] Download Method: GET");
+            
+            const downloadHeaders = {
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
+            console.log("[PREVIEW] Download Headers:", downloadHeaders);
+
+            const downloadResponse = await fetch(downloadUrl, {
+              method: 'GET',
+              headers: downloadHeaders
+            });
+
+            console.log("[PREVIEW] Step 3 Validation: Response Type Check");
+            console.log({
+              status: downloadResponse.status,
+              contentType: downloadResponse.headers.get("content-type")
+            });
+
+            const contentType = downloadResponse.headers.get("content-type") || '';
+            
+            if (contentType.includes("application/json") || contentType.includes("text/html")) {
+              const downloadErrorText = await downloadResponse.text();
+              console.error("[PREVIEW] Expected PDF but received error response:", downloadErrorText);
+              
+              let parsedError = downloadErrorText;
+              try {
+                const parsed = JSON.parse(downloadErrorText);
+                parsedError = parsed.message || downloadErrorText;
+              } catch (e) {}
+
+              throw new Error(`HTTP Status: ${downloadResponse.status}\nBackend Error: ${parsedError}\nContent Type: ${contentType}`);
+            }
+
+            if (!downloadResponse.ok) {
+              const downloadErrorText = await downloadResponse.text();
+              throw new Error(`HTTP Status: ${downloadResponse.status}\nBackend Error: ${downloadErrorText}\nContent Type: ${contentType}`);
+            }
+
+            console.log("[PREVIEW] Step 4: Creating Blob from response...");
+            const blob = await downloadResponse.blob();
+            
+            console.log("[PREVIEW] Step 4 Validation: Blob Check");
+            console.log({
+              size: blob.size,
+              type: blob.type
+            });
+
+            if (blob.size === 0) {
+              throw new Error(`HTTP Status: ${downloadResponse.status}\nBackend Error: Received 0-byte file.\nContent Type: ${contentType}\nBlob Size: 0`);
+            }
+
+            console.log("[PREVIEW] Step 5: Creating Object URL...");
             if (active) {
               url = URL.createObjectURL(blob);
+              console.log("[PREVIEW] Step 5 Validation: Object URL created:", url);
             }
           } else {
-            if (active) {
-              setError("Unable to load quotation PDF. Please try again later or contact an administrator.");
-              setLoading(false);
-            }
-            return;
+            throw new Error(`HTTP Status: ${response.status}\nBackend Error: Missing fileId in response.\nContent Type: application/json`);
           }
         } else {
           // Generate Invoice PDF on the fly using frontend jsPDF renderer
+          console.log("[PREVIEW] Generating Invoice PDF on the fly (frontend)...");
           const doc = await generateInvoicePDF(documentData, client, company, false);
           const blob = doc.output('blob');
+          console.log("[PREVIEW] Frontend generated invoice PDF blob size:", blob.size);
           if (active) {
             url = URL.createObjectURL(blob);
           }
@@ -97,11 +194,12 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
 
         if (active) {
           setPdfUrl(url);
+          console.log("[PREVIEW] PDF loaded successfully into component state.");
         }
       } catch (err: any) {
         console.error(`[PREVIEW] Error generating/fetching ${type} PDF:`, err);
         if (active) {
-          setError(`Unable to load ${type} PDF. Please try again later or contact an administrator.`);
+          setError(err.message || `Unable to load ${type} PDF.`);
           setLoading(false);
         }
       }
@@ -274,34 +372,48 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
              </div>
            )}
 
-           {/* Error Message */}
-           {error && (
-             <div className="p-12 text-center text-red-400 bg-red-950/20 border border-red-900/30 rounded-2xl max-w-md mt-20">
-               <p className="font-black uppercase tracking-wider mb-2">Preview Generation Failed</p>
-               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{error}</p>
-             </div>
-           )}
+            {/* Error Message */}
+            {error && (
+              <div className="p-12 text-center text-red-400 bg-red-950/20 border border-red-900/30 rounded-2xl max-w-2xl mt-20 space-y-4">
+                <p className="font-black uppercase tracking-wider mb-2 text-red-500">Preview Generation Failed</p>
+                <div className="text-left text-xs font-mono bg-black/40 p-4 rounded-xl border border-white/5 space-y-2 overflow-x-auto text-zinc-300">
+                  {error.split('\n').map((line, idx) => (
+                    <p key={idx}>{line}</p>
+                  ))}
+                </div>
+              </div>
+            )}
 
            {/* PDF Document Container - Remains mounted to keep decryption callback alive */}
            {pdfUrl && !error && (
              <div className={needsPassword ? 'hidden' : 'w-full flex justify-center'}>
-               <Document
-                 file={pdfUrl}
-                 onLoadSuccess={({ numPages }) => {
-                   setNumPages(numPages);
-                   setCurrentPage(1);
-                   setNeedsPassword(false);
-                   setLoading(false);
-                 }}
-                 onPassword={handlePassword}
-                 onLoadError={() => {
-                   if (!needsPassword) {
-                     setError("Unable to load PDF document. Please make sure the file is valid or contact an administrator.");
-                     setLoading(false);
-                   }
-                 }}
-                 loading={null}
-               >
+                <Document
+                  file={pdfUrl}
+                  onLoadSuccess={({ numPages }) => {
+                    console.log("[PREVIEW] PDF.js Callback: onLoadSuccess. Total pages:", numPages);
+                    setNumPages(numPages);
+                    setCurrentPage(1);
+                    setNeedsPassword(false);
+                    setLoading(false);
+                  }}
+                  onPassword={(callback, reason) => {
+                    console.log("[PREVIEW] PDF.js Callback: onPassword. Reason:", reason);
+                    handlePassword(callback, reason);
+                  }}
+                  onLoadError={(err) => {
+                    console.error("[PREVIEW] PDF.js Callback: onLoadError. Full error:", err);
+                    if (!needsPassword) {
+                      setError(`PDF.js Load Error: ${err.message || 'Unknown error'}\n${JSON.stringify(err)}`);
+                      setLoading(false);
+                    }
+                  }}
+                  onSourceError={(err) => {
+                    console.error("[PREVIEW] PDF.js Callback: onSourceError. Full error:", err);
+                    setError(`PDF.js Source Error: ${err.message || 'Unknown source error'}\n${JSON.stringify(err)}`);
+                    setLoading(false);
+                  }}
+                  loading={null}
+                >
                  {!needsPassword && !loading && (
                    <Page
                      pageNumber={currentPage}

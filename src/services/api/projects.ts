@@ -1,4 +1,4 @@
-import { fetchApi, checkClientBlock, getAccessToken, API_URL } from './client';
+import { fetchApi, checkClientBlock } from './client';
 import { type Project, type Client, type Task, type Booking, type Division, type Company, type Expense, type Invoice } from '../../types';
 import { safeParse } from '../../utils/storage';
 
@@ -229,16 +229,7 @@ export const projects = {
   },
 
   downloadSelectedPhotosZip: async (projectId: string, projectName: string): Promise<void> => {
-    const token = getAccessToken();
-    const response = await fetch(`${API_URL}/projects/${projectId}/gallery/download-selected`, {
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      }
-    });
-    if (!response.ok) {
-      throw new Error('Failed to download ZIP file');
-    }
-    const blob = await response.blob();
+    const blob = await fetchApi(`/projects/${projectId}/gallery/download-selected`, { responseType: 'blob' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

@@ -2080,8 +2080,21 @@ const ClientDetailsPage: React.FC = () => {
                                  )}
                               </div>
                            ) : (
-                              <div className="text-center py-10 text-xs font-mono text-zinc-500 border border-white/5 border-dashed rounded-2xl bg-black/20">
-                                 NO ACTIVE STANDALONE AGREEMENT ASSIGNED.
+                              <div className="text-center py-12 border border-white/5 border-dashed rounded-2xl bg-black/20 flex flex-col items-center justify-center gap-4">
+                                 <span className="text-sm font-medium text-zinc-400">No standalone agreement has been created yet.</span>
+                                 {isAdmin && (
+                                    <button
+                                       onClick={() => {
+                                          const selectorEl = document.getElementById('agreement-selection-section');
+                                          if (selectorEl) {
+                                             selectorEl.scrollIntoView({ behavior: 'smooth' });
+                                          }
+                                       }}
+                                       className="px-5 py-2.5 bg-primary text-black font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-emerald-400 transition-colors"
+                                    >
+                                       Create Standalone Agreement
+                                    </button>
+                                 )}
                               </div>
                            )}
                         </div>
@@ -2128,7 +2141,7 @@ const ClientDetailsPage: React.FC = () => {
 
                   {/* MASTER TEMPLATES (ADMIN ONLY) */}
                   {isAdmin && (
-                     <div className="glass-panel p-8 squircle-md border border-white/5 bg-white/[0.01]">
+                     <div id="agreement-selection-section" className="glass-panel p-8 squircle-md border border-white/5 bg-white/[0.01]">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                            <div>
                               <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Client Agreement Selection</h3>

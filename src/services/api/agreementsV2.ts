@@ -1,4 +1,4 @@
-import { fetchApi, getAccessToken, API_URL } from './client';
+import { fetchApi } from './client';
 import type { StandaloneAgreementTemplate, StandaloneAgreement, StandaloneAgreementSignature } from '../../types';
 
 export const agreementsV2 = {
@@ -14,7 +14,14 @@ export const agreementsV2 = {
   },
 
   getClientStandaloneAgreement: async (clientId: string): Promise<StandaloneAgreement[]> => {
-    return fetchApi(`/clients/${clientId}/standalone-agreement`);
+    try {
+      return await fetchApi(`/clients/${clientId}/standalone-agreement`);
+    } catch (err: any) {
+      if (err.status === 404) {
+        return [];
+      }
+      throw err;
+    }
   },
 
   signStandaloneAgreement: async (agreementId: string, signerName: string, signatureImageUrl: string): Promise<StandaloneAgreementSignature> => {
@@ -49,16 +56,7 @@ export const agreementsV2 = {
   },
 
   downloadStandaloneAgreementDocument: async (documentId: string, fileName: string) => {
-    const token = getAccessToken();
-    const response = await fetch(`${API_URL}/standalone-agreements/documents/${documentId}/download`, {
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      }
-    });
-    if (!response.ok) {
-      throw new Error('Failed to download file');
-    }
-    const blob = await response.blob();
+    const blob = await fetchApi(`/standalone-agreements/documents/${documentId}/download`, { responseType: 'blob' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -70,16 +68,7 @@ export const agreementsV2 = {
   },
 
   getStandaloneAgreementSignatureImageBlob: async (agreementId: string): Promise<Blob> => {
-    const token = getAccessToken();
-    const response = await fetch(`${API_URL}/standalone-agreements/${agreementId}/signature/image`, {
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      }
-    });
-    if (!response.ok) {
-      throw new Error('Failed to fetch signature image blob');
-    }
-    return response.blob();
+    return fetchApi(`/standalone-agreements/${agreementId}/signature/image`, { responseType: 'blob' });
   },
 
   linkStandaloneAgreementToQuotation: async (agreementId: string, linkedQuoteId: string): Promise<any> => {

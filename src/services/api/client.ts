@@ -188,6 +188,9 @@ export const fetchApi = async (endpoint: string, options: any = {}): Promise<any
       }
 
       clearFallbackWarning();
+      if (options.responseType === 'blob') {
+        return response.blob();
+      }
       return await response.json();
     } catch (error: any) {
       lastError = error;
