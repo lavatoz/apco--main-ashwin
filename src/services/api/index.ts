@@ -12,6 +12,7 @@ import { workflow } from './workflow';
 import { agreementsV2 } from './agreementsV2';
 import { websiteGallery } from './websiteGallery';
 import { divisions } from './divisions';
+import { documents } from './documents';
 
 export const api = {
   ...auth,
@@ -27,6 +28,7 @@ export const api = {
   ...agreementsV2,
   ...websiteGallery,
   ...divisions,
+  ...documents,
   setAccessToken
 };
 
@@ -37,5 +39,6 @@ export {
   setAccessToken,
   getRefreshToken,
   setRefreshToken,
-  clearTokens
+  clearTokens,
+  documents
 };

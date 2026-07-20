@@ -50,7 +50,7 @@ export const QRVerifyCard: React.FC<QRVerifyCardProps> = ({ globalSettings, onSa
   useEffect(() => {
     if (!canvasRef.current) return;
     
-    const qrText = `https://artisans.app/verify/${sampleToken}`;
+    const qrText = `https://verify.artisains.com/verify/${sampleToken}`;
     QRCode.toCanvas(
       canvasRef.current,
       qrText,

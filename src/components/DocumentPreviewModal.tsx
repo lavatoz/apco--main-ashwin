@@ -150,7 +150,9 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
               try {
                 const parsed = JSON.parse(downloadErrorText);
                 parsedError = parsed.message || downloadErrorText;
-              } catch (e) {}
+              } catch (e) {
+                // Keep raw text if JSON parsing fails
+              }
 
               throw new Error(`HTTP Status: ${downloadResponse.status}\nBackend Error: ${parsedError}\nContent Type: ${contentType}`);
             }

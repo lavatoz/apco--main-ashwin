@@ -45,6 +45,7 @@ import WebsiteDivisionForm from './components/settings/WebsiteDivisionForm';
 import BrandDetailPage from './pages/BrandDetailPage';
 import SecurityHubPage from './pages/SecurityHubPage';
 import StaffPortal from './pages/staff/StaffPortal';
+import PublicVerifyDocumentPage from './pages/PublicVerifyDocumentPage';
 import { useCompanySettings, clearCompanySettingsCache } from './hooks/useCompanySettings';
 import { type UserPermission, type CompanyProfile } from './types';
 import { usePermissions } from './hooks/usePermissions';
@@ -472,6 +473,7 @@ const App: React.FC = () => {
           <Route path="/setup-account" element={<SetupAccountPage />} />
           <Route path="/setup-account/:token" element={<SetupAccountPage />} />
           <Route path="/login" element={<LoginPage onLogin={handleAuthLogin} />} />
+          <Route path="/verify/:documentId" element={<PublicVerifyDocumentPage />} />
           <Route path="/unauthorized" element={<div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10"><h1 className="text-4xl font-black text-white mb-4">RESTRICTED ACCESS</h1><p className="text-zinc-500 font-mono text-xs mb-8">Permission Profile Conflict Detected</p><button onClick={() => navigate('/')} className="px-6 py-2 bg-white text-black text-[10px] font-black uppercase rounded-full">Return Base</button></div>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -760,6 +762,7 @@ const App: React.FC = () => {
               {/* Legacy portal route for backward compatibility / staff view */}
               <Route path="/portal/:clientId" element={<RoleProtectedRoute allowedRoles={['Client', 'Admin', 'Staff']}><ClientPortal client={activeClient || {} as Client} onUpdateClient={() => { }} onBack={() => navigate('/login')} userRole={authRole} /></RoleProtectedRoute>} />
               <Route path="/agreement/:quoteId" element={<RoleProtectedRoute allowedRoles={['Client']}><AgreementPage /></RoleProtectedRoute>} />
+              <Route path="/verify/:documentId" element={<PublicVerifyDocumentPage />} />
 
               <Route path="/unauthorized" element={<div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10"><h1 className="text-4xl font-black text-white mb-4">RESTRICTED ACCESS</h1><p className="text-zinc-500 font-mono text-xs mb-8">Permission Profile Conflict Detected</p><button onClick={() => navigate('/')} className="px-6 py-2 bg-white text-black text-[10px] font-black uppercase rounded-full">Return Base</button></div>} />
             </Routes>

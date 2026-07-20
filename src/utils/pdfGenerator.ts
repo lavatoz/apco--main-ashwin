@@ -529,8 +529,9 @@ const renderApcoMasterLayout = async (
     creator: 'Artisans OS v1.0'
   });
   
+  const docId = invoice.id || (invoice.type === 'quotation' ? invoice.quotationCode : invoice.invoiceCode) || 'DOC-REF';
   // Apply APCO footer branding centered on all pages
-  applyBrandingFooterToDoc(doc, pageWidth, pageWidth - 30);
+  applyBrandingFooterToDoc(doc, pageWidth, pageWidth - 30, docId);
   
   const filename = `${invoice.type === 'quotation' ? 'Quotation' : 'Invoice'}_${getDisplayId(invoice.type === 'quotation' ? invoice.quotationCode : invoice.invoiceCode, invoice.id)}_${client.projectName || client.name || 'Client'}.pdf`.replace(/[\s\/]/g, '_');
   if (autoSave) {
@@ -934,6 +935,9 @@ export const generateAgreementPDF = async (agreement: ActiveAgreementSnapshot, c
     author: settings.companyName,
     creator: 'Artisans OS v1.0'
   });
+
+  const agreementDocId = (agreement as any).id || (agreement as any)._id || agreement.templateId || 'AGR-REF';
+  applyBrandingFooterToDoc(doc, pageWidth, pageWidth - 30, agreementDocId);
 
   const agreementFilename = `Agreement_${client.projectName || client.name || 'Client'}.pdf`.replace(/[\s\/]/g, '_');
   if (autoSave) {

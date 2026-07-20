@@ -17,6 +17,11 @@ let globalLoading = false;
 const listeners = new Set<(state: { notifications: NotificationItem[], loading: boolean }) => void>();
 let globalInterval: any = null;
 
+const updateGlobalNotifications = (newNotifications: NotificationItem[]) => {
+  globalNotifications = newNotifications;
+  listeners.forEach(l => l({ notifications: globalNotifications, loading: globalLoading }));
+};
+
 const fetchNotifications = async () => {
   if (globalLoading) return;
   globalLoading = true;
@@ -116,8 +121,7 @@ export const NotificationCenter: React.FC = () => {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const handleMarkAsRead = async (id: string) => {
-    globalNotifications = globalNotifications.map(n => n.id === id ? { ...n, isRead: true } : n);
-    listeners.forEach(l => l({ notifications: globalNotifications, loading: globalLoading }));
+    updateGlobalNotifications(globalNotifications.map(n => n.id === id ? { ...n, isRead: true } : n));
     try {
       await api.markNotificationAsRead(id);
     } catch (err) {
@@ -126,8 +130,7 @@ export const NotificationCenter: React.FC = () => {
   };
 
   const handleMarkAllAsRead = async () => {
-    globalNotifications = globalNotifications.map(n => ({ ...n, isRead: true }));
-    listeners.forEach(l => l({ notifications: globalNotifications, loading: globalLoading }));
+    updateGlobalNotifications(globalNotifications.map(n => ({ ...n, isRead: true })));
     try {
       await api.markAllNotificationsAsRead();
     } catch (err) {
@@ -136,8 +139,7 @@ export const NotificationCenter: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    globalNotifications = globalNotifications.filter(n => n.id !== id);
-    listeners.forEach(l => l({ notifications: globalNotifications, loading: globalLoading }));
+    updateGlobalNotifications(globalNotifications.filter(n => n.id !== id));
     try {
       await api.deleteNotification(id);
     } catch (err) {
@@ -146,8 +148,7 @@ export const NotificationCenter: React.FC = () => {
   };
 
   const handleClearAll = async () => {
-    globalNotifications = [];
-    listeners.forEach(l => l({ notifications: globalNotifications, loading: globalLoading }));
+    updateGlobalNotifications([]);
     try {
       await api.clearAllNotifications();
     } catch (err) {

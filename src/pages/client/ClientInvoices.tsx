@@ -237,12 +237,16 @@ const ClientInvoices: React.FC<ClientInvoicesProps> = ({ client, invoices }) => 
           newTab.addEventListener('beforeunload', () => {
             try {
               URL.revokeObjectURL(fileURL);
-            } catch (e) {}
+            } catch (e) {
+              // Ignore revoke errors
+            }
           });
           setTimeout(() => {
             try {
               URL.revokeObjectURL(fileURL);
-            } catch (e) {}
+            } catch (e) {
+              // Ignore revoke errors
+            }
           }, 15000);
         } else {
           URL.revokeObjectURL(fileURL);
