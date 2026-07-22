@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Instagram, Mail, Camera, Film, ArrowUpRight, Sparkles, MapPin, Clapperboard, Globe, Layers } from 'lucide-react';
 import Packages from './Packages';
 import { api } from '../services/api';
@@ -6,8 +7,23 @@ import { type PublicDivisionMedia } from '../services/api/divisions';
 import { getFullUrl } from '../utils/media';
 import galleryPlaceholder from '../assets/placeholders/gallery-placeholder.jpg';
 
+const getSlugFromTitle = (title: string, itemSlug?: string): string => {
+   if (itemSlug) return itemSlug;
+   const t = title.toLowerCase();
+   if (t.includes('innocence')) return 'innocence';
+   if (t.includes('wedding') && !t.includes('pre')) return 'wedding';
+   if (t.includes('reception')) return 'reception';
+   if (t.includes('pre')) return 'pre-wedding';
+   if (t.includes('maternity')) return 'maternity';
+   if (t.includes('bridal')) return 'bridal';
+   if (t.includes('family')) return 'family';
+   if (t.includes('portfolio')) return 'portfolio';
+   return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+};
+
 const GalleryCard: React.FC<{ item: any; index: number }> = ({ item, index }) => {
-   const [imgSrc, setImgSrc] = useState(item.coverImageUrl);
+   const navigate = useNavigate();
+   const [imgSrc, setImgSrc] = useState(item.coverImageUrl || item.coverImage);
    const [isFallback, setIsFallback] = useState(false);
 
    const variant = index % 4;
@@ -30,8 +46,7 @@ const GalleryCard: React.FC<{ item: any; index: number }> = ({ item, index }) =>
    }
 
    const divisionLabels = ["AAHA Kalyanam", "Candid Moments", "Tiny Toes", "Artisans Signature"];
-   const divisionLabel = divisionLabels[variant];
-   const hasLink = !!item.instagramUrl;
+   const divisionLabel = item.category || divisionLabels[variant];
 
    const handleImageError = () => {
       if (!isFallback) {
@@ -41,18 +56,21 @@ const GalleryCard: React.FC<{ item: any; index: number }> = ({ item, index }) =>
    };
 
    const handleClick = () => {
-      if (hasLink) {
-         window.open(item.instagramUrl, '_blank', 'noopener,noreferrer');
+      const targetSlug = getSlugFromTitle(item.title, item.slug);
+      if (targetSlug === 'portfolio') {
+         navigate('/portfolio');
+      } else {
+         navigate(`/collections/${targetSlug}`);
       }
    };
 
    return (
       <div
          onClick={handleClick}
-         className={`${colSpanClass} ${aspectClass} group relative overflow-hidden rounded-[3rem] border border-white/5 hover:border-white/20 transition-all duration-500 ${hasLink ? 'cursor-pointer' : 'cursor-default'}`}
+         className={`${colSpanClass} ${aspectClass} group relative overflow-hidden rounded-[3rem] border border-white/5 hover:border-white/20 transition-all duration-500 cursor-pointer`}
       >
          <img
-            src={imgSrc}
+            src={imgSrc || galleryPlaceholder}
             onError={handleImageError}
             loading="lazy"
             decoding="async"

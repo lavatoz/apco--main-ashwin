@@ -25,6 +25,8 @@ import Breadcrumb from './components/Breadcrumb';
 import PhotographyWorkflow from './components/PhotographyWorkflow';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import PackagesPage from './pages/PackagesPage';
+import PortfolioPage from './pages/PortfolioPage';
+import CollectionDetailPage from './pages/CollectionDetailPage';
 import LoginPage from './pages/LoginPage';
 import InvitePage from './pages/InvitePage';
 import SetupAccountPage from './pages/SetupAccountPage';
@@ -38,8 +40,8 @@ import CompanySettingsPage from './pages/CompanySettingsPage';
 import AlertsPage from './pages/AlertsPage';
 import CoordinationPage from './pages/CoordinationPage';
 import CoordinationCenter from './pages/CoordinationCenter';
-import WebsiteGalleryManager from './components/settings/WebsiteGalleryManager';
-import WebsiteGalleryForm from './components/settings/WebsiteGalleryForm';
+import GalleryCollectionsPage from './components/admin/gallery/GalleryCollectionsPage';
+import GalleryEditorPage from './components/admin/gallery/GalleryEditorPage';
 import WebsiteDivisionsManager from './components/settings/WebsiteDivisionsManager';
 import WebsiteDivisionForm from './components/settings/WebsiteDivisionForm';
 import BrandDetailPage from './pages/BrandDetailPage';
@@ -468,6 +470,8 @@ const App: React.FC = () => {
       <>
         <Routes>
           <Route path="/" element={<LandingPage onLogin={() => navigate('/login')} />} />
+          <Route path="/portfolio" element={<PortfolioPage />} />
+          <Route path="/collections/:slug" element={<CollectionDetailPage />} />
           <Route path="/packages" element={<PackagesPage onLogin={() => navigate('/login')} />} />
           <Route path="/invite/:token" element={<InvitePage onLogin={handleAuthLogin} />} />
           <Route path="/setup-account" element={<SetupAccountPage />} />
@@ -729,9 +733,12 @@ const App: React.FC = () => {
                 }} selectedDivisionId={selectedCompanyId} onOpenPortal={(client) => navigate(`/client/${client.id}`)} userRole={authRole} userId={getAuthUser()?.id} />}
               </PermissionRoute>} />
               <Route path="/ecosystem" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><SettingsView onOpenTeam={() => navigate('/team')} isAdmin={authRole === 'Admin'} /></PermissionRoute>} />
-              <Route path="/ecosystem/gallery" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><WebsiteGalleryManager /></PermissionRoute>} />
-              <Route path="/ecosystem/gallery/new" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><WebsiteGalleryForm /></PermissionRoute>} />
-              <Route path="/ecosystem/gallery/:id/edit" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><WebsiteGalleryForm /></PermissionRoute>} />
+              <Route path="/ecosystem/gallery" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><GalleryCollectionsPage /></PermissionRoute>} />
+              <Route path="/ecosystem/gallery/new" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><GalleryEditorPage /></PermissionRoute>} />
+              <Route path="/ecosystem/gallery/:id/edit" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><GalleryEditorPage /></PermissionRoute>} />
+              <Route path="/admin/gallery" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><GalleryCollectionsPage /></PermissionRoute>} />
+              <Route path="/admin/gallery/new" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><GalleryEditorPage /></PermissionRoute>} />
+              <Route path="/admin/gallery/:id/edit" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><GalleryEditorPage /></PermissionRoute>} />
               <Route path="/ecosystem/divisions" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><WebsiteDivisionsManager /></PermissionRoute>} />
               <Route path="/ecosystem/divisions/new" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><WebsiteDivisionForm /></PermissionRoute>} />
               <Route path="/ecosystem/divisions/:id/edit" element={<PermissionRoute allowedRoles={['Admin']} permission="system"><WebsiteDivisionForm /></PermissionRoute>} />
@@ -762,6 +769,8 @@ const App: React.FC = () => {
               {/* Legacy portal route for backward compatibility / staff view */}
               <Route path="/portal/:clientId" element={<RoleProtectedRoute allowedRoles={['Client', 'Admin', 'Staff']}><ClientPortal client={activeClient || {} as Client} onUpdateClient={() => { }} onBack={() => navigate('/login')} userRole={authRole} /></RoleProtectedRoute>} />
               <Route path="/agreement/:quoteId" element={<RoleProtectedRoute allowedRoles={['Client']}><AgreementPage /></RoleProtectedRoute>} />
+              <Route path="/portfolio" element={<PortfolioPage />} />
+              <Route path="/collections/:slug" element={<CollectionDetailPage />} />
               <Route path="/verify/:documentId" element={<PublicVerifyDocumentPage />} />
 
               <Route path="/unauthorized" element={<div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10"><h1 className="text-4xl font-black text-white mb-4">RESTRICTED ACCESS</h1><p className="text-zinc-500 font-mono text-xs mb-8">Permission Profile Conflict Detected</p><button onClick={() => navigate('/')} className="px-6 py-2 bg-white text-black text-[10px] font-black uppercase rounded-full">Return Base</button></div>} />

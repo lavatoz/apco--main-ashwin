@@ -49,7 +49,7 @@ export const websiteGallery = {
     });
   },
 
-  getPublicGalleries: async (): Promise<WebsiteGallery[]> => {
-    return fetchApi('/public/website-gallery');
+  getPublicGalleries: async (): Promise<any[]> => {
+    return fetchApi('/gallery/collections');
   },
 };
