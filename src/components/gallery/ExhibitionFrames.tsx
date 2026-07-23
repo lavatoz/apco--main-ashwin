@@ -8,10 +8,9 @@ import galleryPlaceholder from '../../assets/placeholders/gallery-placeholder.jp
 
 interface ExhibitionFramesProps {
   collections: GalleryCollection[];
-  hoveredId: string | null;
-  setHoveredId: (id: string | null) => void;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
+  isIntroActive: boolean;
 }
 
 // Utility to safely resolve collection cover image URLs against host, falling back to local asset
@@ -36,11 +35,10 @@ const resolveImageUrl = (url: string | null | undefined): string => {
 const IndividualFrame: React.FC<{
   collection: GalleryCollection;
   index: number;
-  hoveredId: string | null;
-  setHoveredId: (id: string | null) => void;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
-}> = ({ collection, index, hoveredId, setHoveredId, selectedId, setSelectedId }) => {
+  isIntroActive: boolean;
+}> = ({ collection, index, selectedId, setSelectedId, isIntroActive }) => {
   const groupRef = useRef<THREE.Group>(null);
   const goldMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
   const defocusMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
@@ -49,13 +47,7 @@ const IndividualFrame: React.FC<{
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [textureOpacity, setTextureOpacity] = useState(0.0);
   const [textAlpha, setTextAlpha] = useState(1.0);
-
-  const position = getFramePosition(index);
-  const isPortrait = index % 3 === 0; // Staggered aspect profiles
-  const width = isPortrait ? 2.2 : 3.4;
-  const height = isPortrait ? 3.3 : 2.2;
-  const outerWidth = width + 0.16;
-  const outerHeight = height + 0.16;
+  const [isHovered, setIsHovered] = useState(false);
 
   // Safe texture loading in useEffect to avoid Suspense context crashes on network 404s + clean dispose
   useEffect(() => {
@@ -98,10 +90,15 @@ const IndividualFrame: React.FC<{
 
   const isSelected = selectedId === collection.id;
   const isAnySelected = selectedId !== null;
-  const isHovered = hoveredId === collection.id && !isAnySelected;
-  const isSurrounding = (hoveredId !== null && hoveredId !== collection.id) || (isAnySelected && !isSelected);
 
-  // Gentle float oscillation and minor rotational wobble + Hover/Selection easing animations
+  // Restore cursor to auto if selected or unmounted
+  useEffect(() => {
+    if (isSelected) {
+      document.body.style.cursor = 'auto';
+    }
+  }, [isSelected]);
+
+  // Gentle float oscillation and minor rotational wobble + Selection & Hover Z easing animations
   useFrame((state) => {
     if (!groupRef.current) return;
     const time = state.clock.getElapsedTime();
@@ -114,8 +111,11 @@ const IndividualFrame: React.FC<{
     const floatAmp = isSelected ? 0.02 : 0.1;
     const floatY = position[1] + Math.sin(time * speed + offset) * floatAmp;
     
-    // Position targets based on hover & select state (Selected artwork moves closer to camera)
-    const targetZ = isSelected ? position[2] + 1.2 : (isHovered ? position[2] + 0.8 : position[2]);
+    // Z Position Target: Selected moves to +1.2, Hovered elevates by +0.05, Default sits at original
+    const targetZ = isSelected 
+      ? position[2] + 1.2 
+      : (isHovered && !isAnySelected && !isIntroActive ? position[2] + 0.05 : position[2]);
+      
     groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, floatY, 0.08);
     groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, targetZ, 0.08);
     
@@ -130,9 +130,9 @@ const IndividualFrame: React.FC<{
       setTextureOpacity((prev) => THREE.MathUtils.lerp(prev, 1.0, 0.05));
     }
 
-    // 2. Gold bezel emissive intensity animation (glow)
+    // 2. Gold bezel emissive intensity animation (glow only when selected, static 0.08 otherwise)
     if (goldMaterialRef.current) {
-      const targetEmissive = isSelected ? 0.98 : (isHovered ? 0.95 : (isSurrounding ? 0.0 : 0.08));
+      const targetEmissive = isSelected ? 0.98 : 0.08;
       goldMaterialRef.current.emissiveIntensity = THREE.MathUtils.lerp(
         goldMaterialRef.current.emissiveIntensity,
         targetEmissive,
@@ -140,9 +140,9 @@ const IndividualFrame: React.FC<{
       );
     }
 
-    // 3. Surround defocus dimming overlay opacity animation
+    // 3. Surround defocus dimming overlay opacity animation (only when selected, no hover dimming)
     if (defocusMaterialRef.current) {
-      const targetOpacity = isSelected ? 0.0 : (isAnySelected ? 0.85 : (isSurrounding ? 0.65 : 0.0));
+      const targetOpacity = isSelected ? 0.0 : (isAnySelected ? 0.85 : 0.0);
       defocusMaterialRef.current.opacity = THREE.MathUtils.lerp(
         defocusMaterialRef.current.opacity,
         targetOpacity,
@@ -150,9 +150,9 @@ const IndividualFrame: React.FC<{
       );
     }
 
-    // 4. Surrounding artwork dimming + texture fade-in
+    // 4. Surrounding artwork dimming + texture fade-in (only when selected, no hover dimming)
     if (textureMaterialRef.current) {
-      const targetOpacity = isSelected ? 1.0 : (isAnySelected ? 0.15 : (isSurrounding ? 0.4 : 1.0));
+      const targetOpacity = isSelected ? 1.0 : (isAnySelected ? 0.15 : 1.0);
       textureMaterialRef.current.opacity = THREE.MathUtils.lerp(
         textureMaterialRef.current.opacity,
         targetOpacity * textureOpacity,
@@ -160,10 +160,17 @@ const IndividualFrame: React.FC<{
       );
     }
 
-    // 5. Text opacity fade-out
-    const targetTextAlpha = isSelected ? 0.0 : (isAnySelected ? 0.0 : (isSurrounding ? 0.25 : 1.0));
+    // 5. Text opacity fade-out (only when selected, no text fading on hover)
+    const targetTextAlpha = isSelected ? 0.0 : (isAnySelected ? 0.0 : 1.0);
     setTextAlpha(THREE.MathUtils.lerp(textAlpha, targetTextAlpha, 0.08));
   });
+
+  const position = getFramePosition(index);
+  const isPortrait = index % 3 === 0; // Staggered aspect profiles
+  const width = isPortrait ? 2.2 : 3.4;
+  const height = isPortrait ? 3.3 : 2.2;
+  const outerWidth = width + 0.16;
+  const outerHeight = height + 0.16;
 
   const photoCount = collection._count?.images !== undefined 
     ? collection._count.images 
@@ -174,19 +181,21 @@ const IndividualFrame: React.FC<{
       ref={groupRef} 
       position={[position[0], position[1], position[2]]}
       onPointerOver={(e) => {
-        if (isAnySelected) return; // Disable hover interactions
+        if (isAnySelected || isIntroActive) return; // Disable hover interactions
         e.stopPropagation();
-        setHoveredId(collection.id);
+        setIsHovered(true);
+        document.body.style.cursor = 'pointer';
       }}
       onPointerOut={(e) => {
-        if (isAnySelected) return; // Disable hover interactions
         e.stopPropagation();
-        setHoveredId(null);
+        setIsHovered(false);
+        document.body.style.cursor = 'auto';
       }}
       onClick={(e) => {
         e.stopPropagation();
-        if (!isAnySelected) {
-          setHoveredId(null); // lock hovered
+        if (!isAnySelected && !isIntroActive) {
+          setIsHovered(false);
+          document.body.style.cursor = 'auto';
           setSelectedId(collection.id);
         }
       }}
@@ -300,10 +309,9 @@ const IndividualFrame: React.FC<{
 
 export const ExhibitionFrames: React.FC<ExhibitionFramesProps> = ({ 
   collections, 
-  hoveredId, 
-  setHoveredId,
   selectedId,
-  setSelectedId
+  setSelectedId,
+  isIntroActive
 }) => {
   return (
     <group>
@@ -312,10 +320,9 @@ export const ExhibitionFrames: React.FC<ExhibitionFramesProps> = ({
           key={collection.id} 
           collection={collection} 
           index={index} 
-          hoveredId={hoveredId}
-          setHoveredId={setHoveredId}
           selectedId={selectedId}
           setSelectedId={setSelectedId}
+          isIntroActive={isIntroActive}
         />
       ))}
     </group>

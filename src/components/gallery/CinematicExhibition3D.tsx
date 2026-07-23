@@ -1,6 +1,7 @@
 import React, { Suspense, useState, useRef, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Sparkles } from '@react-three/drei';
+import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 import ExhibitionFloor from './ExhibitionFloor';
 import ExhibitionFrames from './ExhibitionFrames';
@@ -11,7 +12,7 @@ import galleryPlaceholder from '../../assets/placeholders/gallery-placeholder.jp
 // Shared coordinate calculator for positioning gallery frames in staggered 3D space
 export const getFramePosition = (index: number): [number, number, number] => {
   const positions: [number, number, number][] = [
-    [0, 0.5, -4],        // 0: Center Hero
+    [0, 0.5, -4],        // 0: Center Hero (Featured)
     [-3.5, 0.8, -7],     // 1: Left Middle
     [3.5, 0.2, -6],      // 2: Right Middle
     [-4.8, 0.4, -11],    // 3: Left Far
@@ -144,7 +145,8 @@ const CameraControl: React.FC<{
   collections: GalleryCollection[];
   onArrivalComplete: () => void;
   prefersReducedMotion: boolean;
-}> = ({ selectedId, showOverlay, collections, onArrivalComplete, prefersReducedMotion }) => {
+  isIntroActive: boolean;
+}> = ({ selectedId, showOverlay, collections, onArrivalComplete, prefersReducedMotion, isIntroActive }) => {
   const currentLookAt = useRef<THREE.Vector3>(new THREE.Vector3(0, 0.3, -4.5));
   const arrivalTimeRef = useRef<number | null>(null);
 
@@ -158,6 +160,19 @@ const CameraControl: React.FC<{
     let targetLook = new THREE.Vector3(0, 0.3, -4.5);
     const time = state.clock.getElapsedTime();
 
+    // 1. Cinematic Guided Introduction Mode
+    if (isIntroActive) {
+      // Slowly glide camera from far back to focus position directly in front of the featured collection
+      targetCam.set(0, 0.35, 0.6);
+      targetLook.set(0, 0.5, -4); // Looks at center collection
+
+      state.camera.position.lerp(targetCam, 0.015); // Very slow ease-in glide
+      currentLookAt.current.lerp(targetLook, 0.015);
+      state.camera.lookAt(currentLookAt.current);
+      return;
+    }
+
+    // 2. Focused Frame Zoom-In Mode
     if (selectedId) {
       const idx = collections.findIndex(c => c.id === selectedId);
       if (idx !== -1) {
@@ -191,7 +206,7 @@ const CameraControl: React.FC<{
       }
     }
 
-    // Default Mouse Parallax camera behavior with subtle breathe
+    // 3. Default Parallax & Idle Mode
     arrivalTimeRef.current = null;
     const pointerX = prefersReducedMotion ? 0 : state.pointer.x;
     const pointerY = prefersReducedMotion ? 0 : state.pointer.y;
@@ -217,7 +232,7 @@ const CameraControl: React.FC<{
 };
 
 // Controls exposure adaptation: smoothly fades ambient/directional lights during transitions
-const LightingController: React.FC<{ selectedId: string | null }> = ({ selectedId }) => {
+const LightingController: React.FC<{ selectedId: string | null; isIntroActive: boolean }> = ({ selectedId, isIntroActive }) => {
   const ambientRef = useRef<THREE.AmbientLight>(null);
   const dir1Ref = useRef<THREE.DirectionalLight>(null);
   const dir2Ref = useRef<THREE.DirectionalLight>(null);
@@ -225,10 +240,10 @@ const LightingController: React.FC<{ selectedId: string | null }> = ({ selectedI
   useFrame(() => {
     const isAnySelected = selectedId !== null;
     
-    // Target light values
-    const targetAmbient = isAnySelected ? 0.04 : 0.2;
-    const targetDir1 = isAnySelected ? 0.08 : 0.4;
-    const targetDir2 = isAnySelected ? 0.12 : 0.7;
+    // Target light values (ambient fades up slowly on intro)
+    const targetAmbient = isIntroActive ? 0.02 : (isAnySelected ? 0.04 : 0.2);
+    const targetDir1 = isIntroActive ? 0.05 : (isAnySelected ? 0.08 : 0.4);
+    const targetDir2 = isIntroActive ? 0.08 : (isAnySelected ? 0.12 : 0.7);
 
     if (ambientRef.current) {
       ambientRef.current.intensity = THREE.MathUtils.lerp(ambientRef.current.intensity, targetAmbient, 0.08);
@@ -243,9 +258,9 @@ const LightingController: React.FC<{ selectedId: string | null }> = ({ selectedI
 
   return (
     <>
-      <ambientLight ref={ambientRef} intensity={0.2} color="#F7F7F7" />
-      <directionalLight ref={dir1Ref} position={[-6, 6, -2]} intensity={0.4} color="#8A8A8A" />
-      <directionalLight ref={dir2Ref} position={[6, 4, 2]} intensity={0.7} color="#C9A45D" />
+      <ambientLight ref={ambientRef} intensity={0.01} color="#F7F7F7" />
+      <directionalLight ref={dir1Ref} position={[-6, 6, -2]} intensity={0.1} color="#8A8A8A" />
+      <directionalLight ref={dir2Ref} position={[6, 4, 2]} intensity={0.1} color="#C9A45D" />
     </>
   );
 };
@@ -253,20 +268,22 @@ const LightingController: React.FC<{ selectedId: string | null }> = ({ selectedI
 // Dynamics controllers for spotlight tracking the active/hovered framed artwork
 const SpotlightController: React.FC<{
   selectedId: string | null;
-  hoveredId: string | null;
   collections: GalleryCollection[];
-}> = ({ selectedId, hoveredId, collections }) => {
+  isIntroActive: boolean;
+}> = ({ selectedId, collections, isIntroActive }) => {
   const spotLightRef = useRef<THREE.SpotLight>(null);
   const targetRef = useRef<THREE.Group>(null);
 
   useFrame(() => {
     if (!spotLightRef.current || !targetRef.current) return;
     
-    // Spotlight targets the selected frame, or the hovered frame, or default center hero
+    // Spotlight targets the selected frame, or center featured frame during introduction
     let targetPos = new THREE.Vector3(0, 0.5, -4);
-    const activeId = selectedId || hoveredId;
+    const activeId = selectedId;
     
-    if (activeId) {
+    if (isIntroActive) {
+      targetPos.set(0, 0.5, -4); // Lock spotlight target strictly on featured frame
+    } else if (activeId) {
       const idx = collections.findIndex((c) => c.id === activeId);
       if (idx !== -1) {
         const [x, y, z] = getFramePosition(idx);
@@ -274,8 +291,8 @@ const SpotlightController: React.FC<{
       }
     }
     
-    // Dynamic spotlight intensity mapping (higher on selected mesh)
-    const targetIntensity = selectedId ? 32 : 16;
+    // Soft spotlight intensity mapping (soft on intro, higher on selected mesh)
+    const targetIntensity = isIntroActive ? 12 : (selectedId ? 32 : 16);
     spotLightRef.current.intensity = THREE.MathUtils.lerp(spotLightRef.current.intensity, targetIntensity, 0.08);
 
     // Lerp focus position of spotlight
@@ -291,7 +308,7 @@ const SpotlightController: React.FC<{
         position={[0, 9, 2]}
         angle={0.45}
         penumbra={1}
-        intensity={16}
+        intensity={12}
         color="#C9A45D"
         castShadow
         shadow-mapSize={[1024, 1024]}
@@ -309,15 +326,23 @@ export const CinematicExhibition3D: React.FC<CinematicExhibition3DProps> = ({ co
   const finalCollections = collections.length > 0 ? collections : localMockCollections;
   const prefersReducedMotion = useReducedMotion();
   
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showOverlay, setShowOverlay] = useState(false);
+  const [isIntroActive, setIsIntroActive] = useState(false);
 
   // Type-safe collection details state (only loads images when selected)
   const [selectedDetail, setSelectedDetail] = useState<PublicCollectionDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  // 1. Fetch detailed collection data on-demand after selection
+  // 1. Determine if introduction sequence runs (skip if session flag is set or reduced motion is active)
+  useEffect(() => {
+    const introPlayed = sessionStorage.getItem('apco-exhibition-intro-played') === 'true';
+    if (!prefersReducedMotion && !introPlayed) {
+      setIsIntroActive(true);
+    }
+  }, [prefersReducedMotion]);
+
+  // 2. Fetch detailed collection data on-demand after selection
   useEffect(() => {
     if (!selectedId) {
       setSelectedDetail(null);
@@ -385,28 +410,37 @@ export const CinematicExhibition3D: React.FC<CinematicExhibition3DProps> = ({ co
       });
   }, [selectedId, finalCollections]);
 
-  // 2. Accessibility: Escape key resets selection during camera travel
+  // 3. Accessibility: Escape key resets selection during camera travel or intro
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && selectedId) {
-        setSelectedId(null);
-        setShowOverlay(false);
+      if (e.key === 'Escape') {
+        if (isIntroActive) {
+          handleBeginExhibition();
+        } else if (selectedId) {
+          setSelectedId(null);
+          setShowOverlay(false);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId]);
+  }, [selectedId, isIntroActive]);
 
   const handleCloseOverlay = () => {
     setSelectedId(null);
     setShowOverlay(false);
   };
 
+  const handleBeginExhibition = () => {
+    sessionStorage.setItem('apco-exhibition-intro-played', 'true');
+    setIsIntroActive(false);
+  };
+
   const isAnySelected = selectedId !== null;
 
   return (
     <div className="relative w-full h-[70vh] sm:h-[80vh] md:h-[85vh] bg-[#0B0B0B] overflow-hidden select-none border-b border-white/5">
-      {/* 1. Ambient Spot Light Beam Effect (CSS radial gradient) */}
+      {/* 1. Ambient Spot Light Glow Effect */}
       <div className="exhibition-spotlight-glow" />
       
       {/* 2. Soft Edge Vignette Overlay */}
@@ -434,7 +468,7 @@ export const CinematicExhibition3D: React.FC<CinematicExhibition3DProps> = ({ co
       {/* 4. Canvas Container */}
       <Canvas
         shadows
-        camera={{ position: [0, 0.2, 4.5], fov: 60 }}
+        camera={{ position: [0, 1.2, 9.0], fov: 60 }} // Camera starts back for guided intro sequence
         gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
       >
         {/* Background matte color */}
@@ -444,13 +478,13 @@ export const CinematicExhibition3D: React.FC<CinematicExhibition3DProps> = ({ co
         <fog attach="fog" args={['#0B0B0B', 4, 18]} />
 
         {/* 5. Lighting Setup (Dim background lights dynamically when selection is active) */}
-        <LightingController selectedId={selectedId} />
+        <LightingController selectedId={selectedId} isIntroActive={isIntroActive} />
 
         {/* Golden Spotlight controller */}
         <SpotlightController 
           selectedId={selectedId}
-          hoveredId={hoveredId} 
-          collections={finalCollections} 
+          collections={finalCollections}
+          isIntroActive={isIntroActive}
         />
 
         {/* 6. Gold Dust Floating Particles */}
@@ -468,10 +502,9 @@ export const CinematicExhibition3D: React.FC<CinematicExhibition3DProps> = ({ co
           <ExhibitionFloor />
           <ExhibitionFrames
             collections={finalCollections}
-            hoveredId={hoveredId}
-            setHoveredId={setHoveredId}
             selectedId={selectedId}
             setSelectedId={setSelectedId}
+            isIntroActive={isIntroActive}
           />
         </Suspense>
 
@@ -482,11 +515,22 @@ export const CinematicExhibition3D: React.FC<CinematicExhibition3DProps> = ({ co
           collections={finalCollections}
           onArrivalComplete={() => setShowOverlay(true)}
           prefersReducedMotion={prefersReducedMotion}
+          isIntroActive={isIntroActive}
         />
       </Canvas>
 
-      {/* 9. Minimal Interaction HUD Panel (Hide when selected) */}
-      {!isAnySelected && (
+      {/* 9. Cinematic Fade from Black Cover (Only plays once per session, skipped if reduced motion active) */}
+      {!sessionStorage.getItem('apco-exhibition-intro-played') && !prefersReducedMotion && (
+        <motion.div
+          initial={{ opacity: 1 }}
+          animate={{ opacity: 0 }}
+          transition={{ duration: 2.2, ease: 'easeInOut' }}
+          className="absolute inset-0 bg-[#0B0B0B] z-30 pointer-events-none"
+        />
+      )}
+
+      {/* 10. Minimal Interaction HUD Panel (Hide during intro or selection) */}
+      {!isAnySelected && !isIntroActive && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 pointer-events-none text-center">
           <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#F7F7F7] mb-1.5 font-sans">
             Black Box Curation
@@ -503,7 +547,54 @@ export const CinematicExhibition3D: React.FC<CinematicExhibition3DProps> = ({ co
       <div className="absolute bottom-6 right-6 w-8 h-[1px] bg-[#C9A45D]/30" />
       <div className="absolute bottom-6 right-6 h-8 w-[1px] bg-[#C9A45D]/30" />
 
-      {/* 10. Slide-in Editorial Panel Overlay */}
+      {/* 11. Guided Introduction Overlay */}
+      <AnimatePresence>
+        {isIntroActive && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+            className="absolute inset-0 z-20 flex flex-col justify-center items-center bg-black/40 text-center select-none"
+          >
+            <motion.span
+              initial={{ y: 15, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.8, duration: 1.0 }}
+              className="text-[9px] font-mono tracking-[0.35em] text-[#C9A45D] uppercase mb-4"
+            >
+              Artisans Co. Gallery Curation
+            </motion.span>
+            <motion.h1
+              initial={{ y: 15, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 1.1, duration: 1.2 }}
+              className="text-4xl md:text-5xl font-black uppercase text-[#F7F7F7] font-serif-luxury tracking-wide mb-3 px-4 leading-none"
+            >
+              Welcome to the Exhibition
+            </motion.h1>
+            <motion.p
+              initial={{ y: 15, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 1.4, duration: 1.2 }}
+              className="text-xs text-zinc-400 font-sans tracking-widest uppercase mb-10 px-4"
+            >
+              Explore our finest wedding stories.
+            </motion.p>
+            <motion.button
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 1.8, duration: 0.8 }}
+              onClick={handleBeginExhibition}
+              className="px-10 py-4 rounded-full bg-[#C9A45D] text-black text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white hover:scale-105 transition-all duration-300 cursor-pointer shadow-[0_0_30px_rgba(201,164,93,0.3)] focus:outline-none focus:ring-1 focus:ring-[#C9A45D]"
+            >
+              Begin Exhibition
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 12. Slide-in Editorial Panel Overlay */}
       {showOverlay && (
         <WeddingStoryOverlay
           detail={selectedDetail}
