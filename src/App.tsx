@@ -127,7 +127,7 @@ const PermissionRoute = ({ permission, children, allowedRoles }: { permission?: 
   return <>{children}</>;
 };
 
-const NavItem = ({ to, icon: Icon, label }: { to: string, icon: React.ElementType, label: string }) => {
+const NavItem = ({ to, icon: Icon, label }: { to: string, icon: React.ComponentType<any>, label: string }) => {
   return (
     <NavLink
       to={to}

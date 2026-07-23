@@ -1,6 +1,7 @@
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
  
 .font-sans {
   font-family: var(--theme-font-family), ui-sans-serif, system-ui, sans-serif !important;
@@ -320,4 +321,70 @@ body[data-graphics="aurora"] .glass-panel-dark,
 .animate-dialog-content {
   animation: dialog-scale-in 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CINEMATIC 3D EXHIBITION GALLERY DESIGN SYSTEM
+   Curated variables, typography, and visual assets for Artisans Co.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --exhibition-bg: #0B0B0B;
+  --exhibition-accent: #C9A45D;
+  --exhibition-white: #F7F7F7;
+  --exhibition-gray: #8A8A8A;
+  --font-editorial: 'Cormorant Garamond', serif;
+  --font-serif-luxury: 'Playfair Display', serif;
+}
+
+.font-editorial {
+  font-family: var(--font-editorial) !important;
+}
+
+.font-serif-luxury {
+  font-family: var(--font-serif-luxury) !important;
+}
+
+/* Cinematic Vignette Overlay */
+.exhibition-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle, transparent 40%, rgba(11, 11, 11, 0.95) 100%);
+  z-index: 10;
+}
+
+/* Cinematic Spotlights Glow */
+.exhibition-spotlight-glow {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 40%;
+  background: radial-gradient(ellipse at top, rgba(201, 164, 93, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Premium Gold Text styles */
+.text-gold-accent {
+  color: var(--exhibition-accent);
+}
+
+.border-gold-accent {
+  border-color: var(--exhibition-accent);
+}
+
+/* Custom premium scroll for luxury exhibition details */
+.exhibition-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.exhibition-scroll::-webkit-scrollbar-track {
+  background: rgba(11, 11, 11, 0.5);
+}
+.exhibition-scroll::-webkit-scrollbar-thumb {
+  background: var(--exhibition-accent);
+  border-radius: 2px;
+}
+
 
