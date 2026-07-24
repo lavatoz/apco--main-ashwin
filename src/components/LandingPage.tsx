@@ -6,7 +6,7 @@ import { api } from '../services/api';
 import { type PublicDivisionMedia } from '../services/api/divisions';
 import { getFullUrl } from '../utils/media';
 import galleryPlaceholder from '../assets/placeholders/gallery-placeholder.jpg';
-import { openWhatsApp } from '../utils/whatsapp';
+import { buildWhatsAppUrl } from '../utils/whatsapp';
 
 const getSlugFromTitle = (title: string, itemSlug?: string): string => {
    if (itemSlug) return itemSlug;
@@ -541,8 +541,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                       <div className="space-y-6">
                          <h5 className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Studio</h5>
                          <div className="flex flex-col gap-4 text-sm font-bold text-zinc-400">
-                            <a href="https://www.instagram.com/aahakalyanam.from.apco/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">AAHA Kalyanam</a>
-                            <a href="https://www.instagram.com/tinytoes.from.apco/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Tiny Toes</a>
+                            <a href="https://www.instagram.com/aahakalyanam.from.apco?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">AAHA Kalyanam</a>
+                            <a href="https://www.instagram.com/tinytoes.from.apco?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Tiny Toes</a>
                             <a href="https://www.google.com/search?num=10&newwindow=1&sca_esv=58ed6498840539ce&sxsrf=AE3TifP3xKbAXk-Lkm27q4qSZDFzjQrWyQ:1767363113304&kgmid=/g/11rb9ky4rz&q=Artisans+Production+Company&shndl=30&shem=ptotplc,shrtsdl&source=sh/x/loc/uni/m1/1&kgs=58f10297eb1b944b&utm_source=ptotplc,shrtsdl,sh/x/loc/uni/m1/1#lrd=0x3b061f1eb422a52f:0xd8bbbe8300057cb1,1,,,," target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Reviews</a>
                             <a
                                href="#contact"
@@ -576,14 +576,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                             <button onClick={onLogin} className="text-left hover:text-white transition-colors">Member Login</button>
                             <button onClick={onLogin} className="text-left hover:text-white transition-colors">Project Access</button>
                             <a
-                               href="#"
-                               onClick={(e) => {
-                                  e.preventDefault();
-                                  openWhatsApp({
-                                     message: "Hello Artisans Co., I need assistance with my booking or project.",
-                                     source: "Footer Support"
-                                  });
-                               }}
+                               href={buildWhatsAppUrl({
+                                  message: "Hello Artisans Co., I need assistance with my booking or project.",
+                                  source: "Footer Support"
+                               }) || '#'}
+                               target="_blank"
+                               rel="noopener noreferrer"
                                className="hover:text-white transition-colors"
                             >
                                Support
