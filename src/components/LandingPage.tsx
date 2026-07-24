@@ -418,17 +418,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                            )
                            : [];
 
-                        const handleDivisionClick = () => {
-                           if (instagramUrl) {
-                              window.open(instagramUrl, '_blank', 'noopener,noreferrer');
-                           }
-                        };
-
                         return (
                            <div
                               key={division.id}
-                              onClick={handleDivisionClick}
-                              className={`flex flex-col ${isEvenTheme ? 'md:flex-row-reverse' : 'md:flex-row'} gap-16 items-center group ${instagramUrl ? 'cursor-pointer' : 'cursor-default pointer-events-none'}`}
+                              className={`flex flex-col ${isEvenTheme ? 'md:flex-row-reverse' : 'md:flex-row'} gap-16 items-center group`}
                            >
                               {/* Text content info */}
                               <div className={`flex-1 space-y-8 ${isEvenTheme ? '' : 'order-2 md:order-1'}`}>
@@ -440,43 +433,78 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                                     {division.description}
                                  </p>
                                  {instagramUrl && (
-                                    <span
-                                       className={isEvenTheme
-                                          ? "inline-flex items-center gap-3 px-8 py-4 border border-primary/50 text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all duration-300"
-                                          : "inline-flex items-center gap-3 px-8 py-4 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-300"
-                                       }
+                                    <a
+                                       href={instagramUrl}
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       aria-label={`Visit ${division.name} Instagram page`}
+                                       className="inline-flex items-center gap-2 px-8 py-4 bg-transparent border border-white/20 hover:border-white text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white w-max cursor-pointer"
                                     >
                                        <span>Visit Instagram</span>
-                                       <ArrowUpRight className="w-3 h-3" />
-                                    </span>
+                                       <span className="text-xs">→</span>
+                                    </a>
                                  )}
                               </div>
 
                               {/* Media Scrolling Feed */}
                               <div className={`flex-1 ${isEvenTheme ? 'relative' : 'order-1 md:order-2'} w-full overflow-hidden`}>
-                                 <div className="relative w-full overflow-hidden group/feed rounded-[3rem] border border-white/10 glass-panel p-2">
-                                    {marqueeMedia.length > 0 ? (
-                                       <div
-                                          className="flex gap-4 animate-marquee hover:pause"
-                                          style={isEvenTheme ? { animationDirection: 'reverse' } : undefined}
-                                       >
-                                          {marqueeMedia.map((mediaItem, i) => (
-                                             <MediaCard
-                                                key={`${mediaItem.id}-${i}`}
-                                                mediaItem={mediaItem}
-                                                instagramUrl={instagramUrl}
-                                             />
-                                          ))}
+                                 {instagramUrl ? (
+                                    <a
+                                       href={instagramUrl}
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       aria-label={`Visit ${division.name} Instagram portfolio`}
+                                       className="block focus:outline-none focus:ring-2 focus:ring-white rounded-[3rem] cursor-pointer"
+                                    >
+                                       <div className="relative w-full overflow-hidden group/feed rounded-[3rem] border border-white/10 glass-panel p-2">
+                                          {marqueeMedia.length > 0 ? (
+                                             <div
+                                                className="flex gap-4 animate-marquee hover:pause"
+                                                style={isEvenTheme ? { animationDirection: 'reverse' } : undefined}
+                                             >
+                                                {marqueeMedia.map((mediaItem, i) => (
+                                                   <MediaCard
+                                                      key={`${mediaItem.id}-${i}`}
+                                                      mediaItem={mediaItem}
+                                                      instagramUrl={instagramUrl}
+                                                   />
+                                                ))}
+                                             </div>
+                                          ) : (
+                                             <div className="flex justify-center items-center h-64 text-zinc-500 font-bold uppercase text-[10px] tracking-widest">
+                                                No Media Available
+                                             </div>
+                                          )}
+                                          {/* Gradient Masks */}
+                                          <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none rounded-l-[3rem]" />
+                                          <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none rounded-r-[3rem]" />
                                        </div>
-                                    ) : (
-                                       <div className="flex justify-center items-center h-64 text-zinc-500 font-bold uppercase text-[10px] tracking-widest">
-                                          No Media Available
-                                       </div>
-                                    )}
-                                    {/* Gradient Masks */}
-                                    <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none rounded-l-[3rem]" />
-                                    <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none rounded-r-[3rem]" />
-                                 </div>
+                                    </a>
+                                 ) : (
+                                    <div className="relative w-full overflow-hidden group/feed rounded-[3rem] border border-white/10 glass-panel p-2">
+                                       {marqueeMedia.length > 0 ? (
+                                          <div
+                                             className="flex gap-4 animate-marquee hover:pause"
+                                             style={isEvenTheme ? { animationDirection: 'reverse' } : undefined}
+                                          >
+                                             {marqueeMedia.map((mediaItem, i) => (
+                                                <MediaCard
+                                                   key={`${mediaItem.id}-${i}`}
+                                                   mediaItem={mediaItem}
+                                                   instagramUrl={instagramUrl}
+                                                />
+                                             ))}
+                                          </div>
+                                       ) : (
+                                          <div className="flex justify-center items-center h-64 text-zinc-500 font-bold uppercase text-[10px] tracking-widest">
+                                             No Media Available
+                                          </div>
+                                       )}
+                                       {/* Gradient Masks */}
+                                       <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none rounded-l-[3rem]" />
+                                       <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none rounded-r-[3rem]" />
+                                    </div>
+                                 )}
                               </div>
                            </div>
                         );
