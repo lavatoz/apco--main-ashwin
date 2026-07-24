@@ -47,7 +47,6 @@ const IndividualFrame: React.FC<{
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [textureOpacity, setTextureOpacity] = useState(0.0);
   const [textAlpha, setTextAlpha] = useState(1.0);
-  const [isHovered, setIsHovered] = useState(false);
 
   // Safe texture loading in useEffect to avoid Suspense context crashes on network 404s + clean dispose
   useEffect(() => {
@@ -111,10 +110,8 @@ const IndividualFrame: React.FC<{
     const floatAmp = isSelected ? 0.02 : 0.1;
     const floatY = position[1] + Math.sin(time * speed + offset) * floatAmp;
     
-    // Z Position Target: Selected moves to +1.2, Hovered elevates by +0.05, Default sits at original
-    const targetZ = isSelected 
-      ? position[2] + 1.2 
-      : (isHovered && !isAnySelected && !isIntroActive ? position[2] + 0.05 : position[2]);
+    // Z Position Target: Selected moves to +1.2, Default sits at original (no hover elevation)
+    const targetZ = isSelected ? position[2] + 1.2 : position[2];
       
     groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, floatY, 0.08);
     groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, targetZ, 0.08);
@@ -183,18 +180,15 @@ const IndividualFrame: React.FC<{
       onPointerOver={(e) => {
         if (isAnySelected || isIntroActive) return; // Disable hover interactions
         e.stopPropagation();
-        setIsHovered(true);
         document.body.style.cursor = 'pointer';
       }}
       onPointerOut={(e) => {
         e.stopPropagation();
-        setIsHovered(false);
         document.body.style.cursor = 'auto';
       }}
       onClick={(e) => {
         e.stopPropagation();
         if (!isAnySelected && !isIntroActive) {
-          setIsHovered(false);
           document.body.style.cursor = 'auto';
           setSelectedId(collection.id);
         }
