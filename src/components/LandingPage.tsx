@@ -193,6 +193,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
       };
    }, []);
 
+   console.log('[DEBUG] LandingPage divisions state:', divisions);
+
    return (
       <div className="min-h-screen bg-transparent text-white font-sans selection:bg-primary selection:text-white overflow-x-hidden relative">
 
