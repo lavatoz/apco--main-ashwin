@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import { type PublicDivisionMedia } from '../services/api/divisions';
 import { getFullUrl } from '../utils/media';
 import galleryPlaceholder from '../assets/placeholders/gallery-placeholder.jpg';
+import { openWhatsApp } from '../utils/whatsapp';
 
 const getSlugFromTitle = (title: string, itemSlug?: string): string => {
    if (itemSlug) return itemSlug;
@@ -546,7 +547,19 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                          <div className="flex flex-col gap-4 text-sm font-bold text-zinc-400">
                             <button onClick={onLogin} className="text-left hover:text-white transition-colors">Member Login</button>
                             <button onClick={onLogin} className="text-left hover:text-white transition-colors">Project Access</button>
-                            <a href="#" className="hover:text-white transition-colors">Support</a>
+                            <a
+                               href="#"
+                               onClick={(e) => {
+                                  e.preventDefault();
+                                  openWhatsApp({
+                                     message: "Hello Artisans Co., I need assistance with my booking or project.",
+                                     source: "Footer Support"
+                                  });
+                               }}
+                               className="hover:text-white transition-colors"
+                            >
+                               Support
+                            </a>
                          </div>
                       </div>
                    </div>
