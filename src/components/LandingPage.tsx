@@ -438,10 +438,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                                        target="_blank"
                                        rel="noopener noreferrer"
                                        aria-label={`Visit ${division.name} Instagram page`}
-                                       className="inline-flex items-center gap-2 px-8 py-4 bg-transparent border border-white/20 hover:border-white text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white w-max cursor-pointer"
+                                       className="inline-flex items-center gap-2.5 px-6 py-3 bg-transparent border border-white/20 hover:border-white text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white w-max cursor-pointer"
                                     >
+                                       <Instagram className="w-3.5 h-3.5 text-white/90" />
                                        <span>Visit Instagram</span>
-                                       <span className="text-xs">→</span>
+                                       <span className="text-[10px] translate-y-[0.5px]">→</span>
                                     </a>
                                  )}
                               </div>
@@ -457,6 +458,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                                        className="block focus:outline-none focus:ring-2 focus:ring-white rounded-[3rem] cursor-pointer"
                                     >
                                        <div className="relative w-full overflow-hidden group/feed rounded-[3rem] border border-white/10 glass-panel p-2">
+                                          {/* Hover Overlay */}
+                                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/feed:opacity-100 flex items-center justify-center gap-2 transition-opacity duration-300 z-20 pointer-events-none rounded-[2.8rem]">
+                                             <Instagram className="w-5 h-5 text-white" />
+                                             <span className="text-xs font-black uppercase tracking-widest text-white">View on Instagram</span>
+                                             <ArrowUpRight className="w-4 h-4 text-white" />
+                                          </div>
                                           {marqueeMedia.length > 0 ? (
                                              <div
                                                 className="flex gap-4 animate-marquee hover:pause"
