@@ -45,7 +45,7 @@ const ThemeDiagnosticsPanel: React.FC = () => {
                 </div>
                 <div className="flex justify-between items-center border-b border-white/10 pb-3">
                     <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5"><Type className="w-3 h-3"/> Typography</span>
-                    <span className="text-[10px] font-bold text-white uppercase">{settings.typographyPreset || 'executive'}</span>
+                    <span className="text-[10px] font-bold text-white uppercase">{settings.typographyPreset || 'luxury'}</span>
                 </div>
 
                 <div className="pt-1">

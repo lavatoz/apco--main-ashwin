@@ -640,7 +640,7 @@ class Z extends d {
     this.physics.update(e);
     for (let idx = 0; idx < this.count; idx++) {
       U.position.fromArray(this.physics.positionData, 3 * idx);
-      if (idx === 0 && this.config.followCursor === false) {
+      if (idx === 0) {
         U.scale.setScalar(0);
       } else {
         U.scale.setScalar(this.physics.sizeData[idx]);

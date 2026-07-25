@@ -383,7 +383,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const themePreset = settings.themePreset || 'artisans-noir';
     const graphicsPreset = settings.graphicsPreset || 'classic';
-    const typographyPreset = settings.typographyPreset || 'executive';
+    const typographyPreset = settings.typographyPreset || 'luxury';
 
     applyTheme(themePreset, graphicsPreset, typographyPreset, globalSettings.customThemes || []);
   }, [settings, globalSettings.customThemes]);

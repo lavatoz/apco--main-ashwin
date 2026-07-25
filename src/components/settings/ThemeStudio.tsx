@@ -20,7 +20,7 @@ export const ThemeStudio: React.FC<ThemeStudioProps> = ({ company, onUpdate }) =
   // ── Active (applied) theme — read from company prop ─────────────────────────
   const activeTheme = company.themePreset || 'artisans-noir';
   const activeGraphics = company.graphicsPreset || 'classic';
-  const activeTypography = company.typographyPreset || 'executive';
+  const activeTypography = company.typographyPreset || 'luxury';
 
   // ── Preview (staging) state — what's shown in the preview pane ─────────────
   const [previewTheme, setPreviewTheme] = useState(activeTheme);
@@ -31,7 +31,7 @@ export const ThemeStudio: React.FC<ThemeStudioProps> = ({ company, onUpdate }) =
   useEffect(() => {
     setPreviewTheme(company.themePreset || 'artisans-noir');
     setPreviewGraphics(company.graphicsPreset || 'classic');
-    setPreviewTypography(company.typographyPreset || 'executive');
+    setPreviewTypography(company.typographyPreset || 'luxury');
   }, [company.themePreset, company.graphicsPreset, company.typographyPreset]);
 
   // Whether preview differs from what's applied
@@ -90,7 +90,7 @@ export const ThemeStudio: React.FC<ThemeStudioProps> = ({ company, onUpdate }) =
       blurIntensity: builderState.blurIntensity || '20px',
       baseTheme: 'artisans-noir',
       graphics: builderState.graphics || 'classic',
-      typography: builderState.typography || 'executive',
+      typography: builderState.typography || 'luxury',
     };
 
     const existingCustoms = globalSettings.customThemes || [];
