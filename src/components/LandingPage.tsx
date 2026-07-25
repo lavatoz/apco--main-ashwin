@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Instagram, Mail, Camera, Film, ArrowUpRight, Sparkles, MapPin, Clapperboard, Globe, Layers } from 'lucide-react';
 import Packages from './Packages';
@@ -154,10 +154,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
    const [divisions, setDivisions] = useState<any[]>([]);
    const [divisionsLoading, setDivisionsLoading] = useState(true);
    const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+   const [isVisible, setIsVisible] = useState(false);
+   const [scrollY, setScrollY] = useState(0);
+   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+   const philosophyRef = useRef<HTMLDivElement>(null);
 
    useEffect(() => {
-      const handleScroll = () => setScrolled(window.scrollY > 50);
-      window.addEventListener('scroll', handleScroll);
+      const handleScroll = () => {
+         setScrolled(window.scrollY > 50);
+         setScrollY(window.scrollY);
+      };
+      window.addEventListener('scroll', handleScroll, { passive: true });
 
       // Parallax/Gradient effect based on mouse
       const handleMouseMove = (e: MouseEvent) => {
@@ -169,6 +176,24 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
          setIsMobile(window.innerWidth < 768);
       };
       window.addEventListener('resize', handleResize);
+
+      // prefers-reduced-motion detection
+      const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      setPrefersReducedMotion(mediaQuery.matches);
+      const motionListener = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+      mediaQuery.addEventListener('change', motionListener);
+
+      // Intersection Observer for Philosophy Section
+      const observer = new IntersectionObserver(([entry]) => {
+         if (entry.isIntersecting) {
+            setIsVisible(true);
+            observer.unobserve(entry.target);
+         }
+      }, { threshold: 0.15 });
+
+      if (philosophyRef.current) {
+         observer.observe(philosophyRef.current);
+      }
 
       const loadData = async () => {
          setLoading(true);
@@ -192,12 +217,34 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
          window.removeEventListener('scroll', handleScroll);
          window.removeEventListener('mousemove', handleMouseMove);
          window.removeEventListener('resize', handleResize);
+         mediaQuery.removeEventListener('change', motionListener);
+         observer.disconnect();
       };
    }, []);
 
-   console.log('[DEBUG] LandingPage divisions state:', divisions);
+    console.log('[DEBUG] LandingPage divisions state:', divisions);
 
-   return (
+    // Calculate relative parallax offset for the philosophy section image
+    let parallaxOffset = 0;
+    if (philosophyRef.current && !prefersReducedMotion) {
+       const rect = philosophyRef.current.getBoundingClientRect();
+       const elementTop = rect.top + scrollY;
+       const scrollPosition = scrollY + window.innerHeight / 2;
+       parallaxOffset = (scrollPosition - (elementTop + rect.height / 2)) * 0.05;
+       parallaxOffset = Math.min(40, Math.max(-40, parallaxOffset));
+    }
+
+    const getAnimationStyle = (delay: number) => {
+       if (prefersReducedMotion) return {};
+       return {
+          transitionProperty: 'all',
+          transitionDuration: '800ms',
+          transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          transitionDelay: `${delay}ms`
+       };
+    };
+
+    return (
       <div className="min-h-screen bg-transparent text-white font-sans selection:bg-primary selection:text-white overflow-x-hidden relative">
 
          {/* Matte Noise Overlay */}
@@ -325,47 +372,104 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
             </div>
          </section>
 
-         {/* Philosophy Section */}
-         <section id="philosophy" className="py-32 px-6 relative z-10">
-            <div className="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-2 gap-24 items-center">
-               <div className="space-y-10 animate-ios-slide-up" style={{ animationDelay: '0.2s' }}>
-                  <span className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 px-4 py-2 rounded-full bg-emerald-900/10 border border-emerald-900/20 w-max">
-                     <Sparkles className="w-3 h-3" />
-                     The Artisan Way
-                  </span>
-                  <h2 className="text-4xl md:text-6xl font-medium leading-tight">
-                     More than coverage.<br />
-                     <span className="text-zinc-600">This is your legacy.</span>
-                  </h2>
-                  <div className="text-zinc-400 text-lg leading-relaxed space-y-6">
-                     <p>
-                        Whether it is the grandeur of <span className="text-white">AAHA Kalyanam</span> or the tender innocence of <span className="text-white">Tiny Toes</span>, our lens seeks the emotion behind the moment.
-                     </p>
-                     <p>
-                        We don't just click buttons; we craft time capsules. Operating from Mumbai and traveling globally, we bring a cinematic, editorial flair to your most personal celebrations.
-                     </p>
-                  </div>
-                  <div className="pt-4">
-                     <a href="https://www.instagram.com/artisansproductioncompany/" target="_blank" rel="noreferrer" className="group inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest hover:text-emerald-400 transition-colors">
-                        Follow Our Journey <ArrowRight className="w-3 h-3 group-hover:translate-x-2 transition-transform" />
-                     </a>
-                  </div>
-               </div>
-               <div className="relative aspect-[3/4] rounded-[3rem] overflow-hidden group border border-white/10 animate-ios-slide-up glass-panel p-2" style={{ animationDelay: '0.4s' }}>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent z-10 rounded-[2.5rem]" />
-                  <img
-                     src="https://images.unsplash.com/photo-1583939003579-730e3918a45a?q=80&w=2574&auto=format&fit=crop"
-                     className="w-full h-full object-cover grayscale group-hover:grayscale-0 scale-110 group-hover:scale-100 transition-all duration-[1.5s] ease-in-out rounded-[2.5rem]"
-                     alt="Artisans Philosophy"
-                  />
-                  <div className="absolute bottom-8 left-8 z-20">
-                     <div className="w-16 h-16 glass-panel backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
-                        <Clapperboard className="w-6 h-6 text-white" />
-                     </div>
-                  </div>
-               </div>
-            </div>
-         </section>
+          {/* Philosophy Section */}
+          <section 
+             id="philosophy" 
+             ref={philosophyRef}
+             className="py-32 px-6 relative overflow-hidden z-10"
+             style={{
+                background: 'radial-gradient(circle at 75% 50%, rgba(16, 185, 129, 0.02) 0%, transparent 60%), radial-gradient(circle at 25% 50%, rgba(0, 0, 0, 0.95) 0%, #080808 100%)'
+             }}
+          >
+             {/* Gentle vignette overlays */}
+             <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/50 via-transparent to-black/50 z-0" />
+             <div className="absolute inset-0 pointer-events-none bg-noise opacity-[0.02] z-0" />
+
+             <div className="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-[60%_40%] lg:grid-cols-[65%_35%] gap-16 lg:gap-24 items-center relative z-10">
+                <div className="space-y-10">
+                   <div 
+                      style={getAnimationStyle(100)} 
+                      className={`inline-flex items-center gap-2.5 px-4.5 py-2.5 rounded-full bg-emerald-950/20 border border-emerald-500/10 text-emerald-400 backdrop-blur-md w-max ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+                   >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.25em]">THE ARTISAN WAY</span>
+                   </div>
+
+                   <h2 className="text-4xl md:text-5xl lg:text-6xl font-medium leading-[1.15] tracking-tight">
+                      <span className="block overflow-hidden">
+                         <span 
+                            style={getAnimationStyle(200)}
+                            className={`block transition-transform duration-[850ms] ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
+                         >
+                            More than coverage.
+                         </span>
+                      </span>
+                      <span className="block overflow-hidden mt-1.5">
+                         <span 
+                            style={getAnimationStyle(300)}
+                            className={`block text-zinc-500 transition-transform duration-[850ms] ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
+                         >
+                            This is your legacy.
+                         </span>
+                      </span>
+                   </h2>
+
+                   <div 
+                      style={getAnimationStyle(450)} 
+                      className={`text-zinc-400 text-lg leading-relaxed space-y-6 max-w-[600px] transition-all duration-[800ms] ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+                   >
+                      <p>
+                         Whether it is the grandeur of <span className="font-semibold text-white">AAHA Kalyanam</span> or the tender innocence of <span className="font-semibold text-white">Tiny Toes</span>, our lens seeks the emotion behind the moment.
+                      </p>
+                      <p>
+                         We don't just click buttons; we craft time capsules. Operating from Mumbai and traveling globally, we bring a cinematic, editorial flair to your most personal celebrations.
+                      </p>
+                   </div>
+
+                   <div 
+                      style={getAnimationStyle(600)} 
+                      className={`pt-4 transition-all duration-[800ms] ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+                   >
+                      <a 
+                         href="https://www.instagram.com/artisansproductioncompany/" 
+                         target="_blank" 
+                         rel="noreferrer" 
+                         className="group inline-flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 hover:border-white/20 rounded-full text-white text-xs font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-500 hover:shadow-[0_0_35px_rgba(255,255,255,0.25)] hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                      >
+                         <span>FOLLOW OUR JOURNEY</span>
+                         <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1.5" />
+                      </a>
+                   </div>
+                </div>
+
+                <div 
+                   style={{ 
+                      transform: prefersReducedMotion ? 'none' : `translateY(${parallaxOffset}px)`
+                   }}
+                   className="relative w-full aspect-[3/4] md:aspect-[4/5] lg:aspect-[3/4] rounded-[2rem] overflow-hidden group border border-white/10 glass-panel p-2 shadow-2xl transition-transform duration-[400ms] ease-out"
+                >
+                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10 rounded-[1.8rem]" />
+                   
+                   {/* Floating Division Icon Overlay */}
+                   <div className="absolute top-6 right-6 z-20 glass-panel backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-2 shadow-lg">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-[8px] font-black uppercase tracking-[0.25em] text-white/80">Artisans Signature</span>
+                   </div>
+
+                   <img
+                      src="https://images.unsplash.com/photo-1583939003579-730e3918a45a?q=80&w=2574&auto=format&fit=crop"
+                      loading="lazy"
+                      className={`w-full h-full object-cover grayscale transition-all duration-[1200ms] ease-out group-hover:grayscale-0 motion-safe:group-hover:scale-105 rounded-[1.8rem] ${isVisible ? 'scale-100' : 'scale-105'}`}
+                      alt="Artisans Philosophy"
+                   />
+                   <div className="absolute bottom-8 left-8 z-20">
+                      <div className="w-12 h-12 glass-panel backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
+                         <Clapperboard className="w-5 h-5 text-white" />
+                      </div>
+                   </div>
+                </div>
+             </div>
+          </section>
 
          {/* Selected Works - Futuristic Grid */}
          <section id="work" className="py-32 px-6 relative z-10">
