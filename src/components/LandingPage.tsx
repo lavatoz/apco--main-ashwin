@@ -91,8 +91,7 @@ const GalleryCard: React.FC<{ item: any; index: number }> = ({ item, index }) =>
 
 const MediaCard: React.FC<{
    mediaItem: PublicDivisionMedia;
-   instagramUrl: string | null;
-}> = React.memo(({ mediaItem, instagramUrl }) => {
+}> = React.memo(({ mediaItem }) => {
    const [hasError, setHasError] = useState(false);
    const [imgSrc, setImgSrc] = useState(getFullUrl(mediaItem.url));
    const [isFallback, setIsFallback] = useState(false);
@@ -110,9 +109,7 @@ const MediaCard: React.FC<{
       setHasError(true);
    };
 
-   const cardClassName = instagramUrl
-      ? 'relative w-48 h-64 flex-shrink-0 rounded-2xl overflow-hidden cursor-pointer border border-white/10 group/item'
-      : 'relative w-48 h-64 flex-shrink-0 rounded-2xl overflow-hidden cursor-default border border-white/10 group/item';
+   const cardClassName = 'relative w-48 h-64 flex-shrink-0 rounded-2xl overflow-hidden cursor-default border border-white/10 group/item';
 
    return (
       <div className={cardClassName}>
@@ -138,11 +135,6 @@ const MediaCard: React.FC<{
             />
          )}
          <div className="absolute inset-0 bg-black/20 group-hover/item:bg-transparent transition-colors" />
-         {instagramUrl && (
-            <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-md p-1.5 rounded-full opacity-0 group-hover/item:opacity-100 transition-opacity">
-               <Instagram className="w-3 h-3 text-white" />
-            </div>
-         )}
       </div>
    );
 });
@@ -451,69 +443,28 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
 
                               {/* Media Scrolling Feed */}
                               <div className={`flex-1 ${isEvenTheme ? 'relative' : 'order-1 md:order-2'} w-full overflow-hidden`}>
-                                 {instagramUrl ? (
-                                    <a
-                                       href={instagramUrl}
-                                       target="_blank"
-                                       rel="noopener noreferrer"
-                                       aria-label={`Visit ${division.name} Instagram portfolio`}
-                                       className="block focus:outline-none focus:ring-2 focus:ring-white rounded-[3rem] cursor-pointer"
-                                    >
-                                       <div className="relative w-full overflow-hidden group/feed rounded-[3rem] border border-white/10 glass-panel p-2">
-                                          {/* Hover Overlay */}
-                                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/feed:opacity-100 flex items-center justify-center gap-2 transition-opacity duration-300 z-20 pointer-events-none rounded-[2.8rem]">
-                                             <Instagram className="w-5 h-5 text-white" />
-                                             <span className="text-xs font-black uppercase tracking-widest text-white">View on Instagram</span>
-                                             <ArrowUpRight className="w-4 h-4 text-white" />
-                                          </div>
-                                          {marqueeMedia.length > 0 ? (
-                                             <div
-                                                className="flex gap-4 animate-marquee hover:pause"
-                                                style={isEvenTheme ? { animationDirection: 'reverse' } : undefined}
-                                             >
-                                                {marqueeMedia.map((mediaItem, i) => (
-                                                   <MediaCard
-                                                      key={`${mediaItem.id}-${i}`}
-                                                      mediaItem={mediaItem}
-                                                      instagramUrl={instagramUrl}
-                                                   />
-                                                ))}
-                                             </div>
-                                          ) : (
-                                             <div className="flex justify-center items-center h-64 text-zinc-500 font-bold uppercase text-[10px] tracking-widest">
-                                                No Media Available
-                                             </div>
-                                          )}
-                                          {/* Gradient Masks */}
-                                          <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none rounded-l-[3rem]" />
-                                          <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none rounded-r-[3rem]" />
+                                 <div className="relative w-full overflow-hidden rounded-[3rem] border border-white/10 glass-panel p-2">
+                                    {marqueeMedia.length > 0 ? (
+                                       <div
+                                          className="flex gap-4 animate-marquee hover:pause"
+                                          style={isEvenTheme ? { animationDirection: 'reverse' } : undefined}
+                                       >
+                                          {marqueeMedia.map((mediaItem, i) => (
+                                             <MediaCard
+                                                key={`${mediaItem.id}-${i}`}
+                                                mediaItem={mediaItem}
+                                             />
+                                          ))}
                                        </div>
-                                    </a>
-                                 ) : (
-                                    <div className="relative w-full overflow-hidden group/feed rounded-[3rem] border border-white/10 glass-panel p-2">
-                                       {marqueeMedia.length > 0 ? (
-                                          <div
-                                             className="flex gap-4 animate-marquee hover:pause"
-                                             style={isEvenTheme ? { animationDirection: 'reverse' } : undefined}
-                                          >
-                                             {marqueeMedia.map((mediaItem, i) => (
-                                                <MediaCard
-                                                   key={`${mediaItem.id}-${i}`}
-                                                   mediaItem={mediaItem}
-                                                   instagramUrl={instagramUrl}
-                                                />
-                                             ))}
-                                          </div>
-                                       ) : (
-                                          <div className="flex justify-center items-center h-64 text-zinc-500 font-bold uppercase text-[10px] tracking-widest">
-                                             No Media Available
-                                          </div>
-                                       )}
-                                       {/* Gradient Masks */}
-                                       <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none rounded-l-[3rem]" />
-                                       <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none rounded-r-[3rem]" />
-                                    </div>
-                                 )}
+                                    ) : (
+                                       <div className="flex justify-center items-center h-64 text-zinc-500 font-bold uppercase text-[10px] tracking-widest">
+                                          No Media Available
+                                       </div>
+                                    )}
+                                    {/* Gradient Masks */}
+                                    <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none rounded-l-[3rem]" />
+                                    <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none rounded-r-[3rem]" />
+                                 </div>
                               </div>
                            </div>
                         );
