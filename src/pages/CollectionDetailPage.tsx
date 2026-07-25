@@ -8,11 +8,23 @@ import ScrollProgress from '../components/gallery/ScrollProgress';
 import { updateSEOMetadata } from '../utils/seo';
 import { ArrowLeft, Compass, RefreshCw } from 'lucide-react';
 
-const EditorialGallery = lazy(() => import('../components/gallery/EditorialGallery'));
-const Lightbox = lazy(() => import('../components/gallery/Lightbox'));
-const RelatedCollections = lazy(() => import('../components/gallery/RelatedCollections'));
-const CollectionFooterNavigation = lazy(() => import('../components/gallery/CollectionFooterNavigation'));
-const EmptyGalleryState = lazy(() => import('../components/gallery/EmptyGalleryState'));
+const lazyWithRetry = (componentImport: () => Promise<{ default: React.ComponentType<any> }>) => {
+  return lazy(async () => {
+    try {
+      return await componentImport();
+    } catch (error) {
+      console.error("Chunk load failed. Refreshing page to load latest version...", error);
+      window.location.reload();
+      return new Promise<{ default: React.ComponentType<any> }>(() => {});
+    }
+  });
+};
+
+const EditorialGallery = lazyWithRetry(() => import('../components/gallery/EditorialGallery'));
+const Lightbox = lazyWithRetry(() => import('../components/gallery/Lightbox'));
+const RelatedCollections = lazyWithRetry(() => import('../components/gallery/RelatedCollections'));
+const CollectionFooterNavigation = lazyWithRetry(() => import('../components/gallery/CollectionFooterNavigation'));
+const EmptyGalleryState = lazyWithRetry(() => import('../components/gallery/EmptyGalleryState'));
 
 const ComponentLoader: React.FC = () => (
   <div className="w-full py-20 flex justify-center items-center bg-black">
@@ -145,7 +157,7 @@ export const CollectionDetailPage: React.FC = () => {
         {hasPhotos ? (
           <EditorialGallery
             photos={mappedPhotos}
-            onImageClick={(idx) => setLightboxIndex(idx)}
+            onImageClick={(idx: number) => setLightboxIndex(idx)}
           />
         ) : (
           <EmptyGalleryState />
