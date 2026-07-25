@@ -153,6 +153,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
    const [loading, setLoading] = useState(true);
    const [divisions, setDivisions] = useState<any[]>([]);
    const [divisionsLoading, setDivisionsLoading] = useState(true);
+   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
    useEffect(() => {
       const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -163,6 +164,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
          setMousePos({ x: e.clientX, y: e.clientY });
       };
       window.addEventListener('mousemove', handleMouseMove);
+
+      const handleResize = () => {
+         setIsMobile(window.innerWidth < 768);
+      };
+      window.addEventListener('resize', handleResize);
 
       const loadData = async () => {
          setLoading(true);
@@ -185,6 +191,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
       return () => {
          window.removeEventListener('scroll', handleScroll);
          window.removeEventListener('mousemove', handleMouseMove);
+         window.removeEventListener('resize', handleResize);
       };
    }, []);
 
@@ -250,7 +257,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                />
                <div className="absolute inset-0 z-0">
                   <Ballpit
-                     count={140}
+                     count={isMobile ? 50 : 140}
                      gravity={0.4}
                      friction={0.99}
                      wallBounce={0.95}

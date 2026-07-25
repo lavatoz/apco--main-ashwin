@@ -52,6 +52,8 @@ class x {
   #l;
   constructor(e) {
     this.#e = { ...e };
+    this.maxPixelRatio = e.maxPixelRatio ?? (window.innerWidth < 768 ? 1.0 : 1.5);
+    this.minPixelRatio = e.minPixelRatio ?? 1;
     this.#m();
     this.#d();
     this.#p();
