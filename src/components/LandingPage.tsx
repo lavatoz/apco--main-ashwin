@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Instagram, Mail, Camera, Film, ArrowUpRight, Sparkles, MapPin, Clapperboard, Globe, Layers } from 'lucide-react';
 import Packages from './Packages';
+import Ballpit from './Ballpit';
+import StarBorder from './StarBorder';
+import ShinyText from './ShinyText';
 import { api } from '../services/api';
 import { type PublicDivisionMedia } from '../services/api/divisions';
 import { getFullUrl } from '../utils/media';
@@ -218,13 +221,18 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                      <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-white scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
                   </a>
                </div>
-               <button
+               <StarBorder
+                  as="button"
                   onClick={onLogin}
-                  className="group flex items-center gap-3 px-6 py-3 glass-panel rounded-full text-white text-[9px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-500 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]"
+                  className="rounded-full group hover:shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-shadow duration-500"
+                  innerClassName="flex items-center gap-3 px-6 py-3 bg-[#0c0c0e]/90 backdrop-blur-xl border border-white/10 rounded-full text-white text-[9px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-500"
+                  color="white"
+                  speed="5s"
+                  thickness={1.5}
                >
                   <span>Client Portal</span>
                   <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-               </button>
+               </StarBorder>
             </div>
          </nav>
 
@@ -240,11 +248,45 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                   className="w-full h-full object-cover opacity-60 grayscale hover:grayscale-0 transition-all duration-[2s] scale-105 animate-[pulse_10s_ease-in-out_infinite]"
                   alt="Cinematic Production"
                />
+               <div className="absolute inset-0 z-0">
+                  <Ballpit
+                     count={140}
+                     gravity={0.4}
+                     friction={0.99}
+                     wallBounce={0.95}
+                     followCursor={true}
+                     colors={[0xffffff, 0x052e16, 0x14532d, 0x166534, 0x15803d, 0x22c55e]}
+                     ambientColor={0xffffff}
+                     ambientIntensity={1.5}
+                     lightIntensity={300}
+                     minSize={0.4}
+                     maxSize={0.8}
+                  />
+               </div>
             </div>
 
             <div className="relative z-20 max-w-[1800px] mx-auto w-full mb-10 pl-4 md:pl-10">
-               <h1 className="text-[12vw] leading-[0.8] font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-b from-white to-white/30 animate-ios-slide-up" style={{ animationDelay: '0.2s' }}>
-                  CRAFTING<br />MEMORIES
+               <h1 className="text-[12vw] leading-[0.8] font-black tracking-tighter uppercase animate-ios-slide-up" style={{ animationDelay: '0.2s' }}>
+                  <ShinyText
+                     text="CRAFTING"
+                     disabled={false}
+                     speed={3}
+                     className="block"
+                     color="rgba(255, 255, 255, 0.8)"
+                     shineColor="#ffffff"
+                     spread={40}
+                     direction="left"
+                  />
+                  <ShinyText
+                     text="MEMORIES"
+                     disabled={false}
+                     speed={3}
+                     className="block"
+                     color="rgba(255, 255, 255, 0.3)"
+                     shineColor="#ffffff"
+                     spread={40}
+                     direction="left"
+                  />
                </h1>
             </div>
 

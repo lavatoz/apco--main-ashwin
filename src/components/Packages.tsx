@@ -1,6 +1,7 @@
 import React from 'react';
 import { Check } from 'lucide-react';
 import { openWhatsApp } from '../utils/whatsapp';
+import StarBorder from './StarBorder';
 
 const Packages: React.FC = () => {
   const handleWhatsAppClick = () => {
@@ -109,12 +110,17 @@ Service Interested In:`;
         </div>
 
         <div className="flex justify-center pt-4">
-          <button
+          <StarBorder
+            as="button"
             onClick={handleWhatsAppClick}
-            className="w-[260px] py-4 bg-white text-black font-semibold text-xs tracking-[0.2em] uppercase hover:bg-zinc-200 transition-all duration-300 shadow-sm"
+            className="w-[260px] select-none"
+            innerClassName="w-full py-4 bg-black text-white border border-zinc-800 font-semibold text-xs tracking-[0.2em] uppercase hover:bg-zinc-900 transition-all duration-300"
+            color="white"
+            speed="5s"
+            thickness={1.5}
           >
             PLAN YOUR MEMORIES
-          </button>
+          </StarBorder>
         </div>
       </section>
     </div>
