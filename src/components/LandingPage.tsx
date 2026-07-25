@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Instagram, Mail, Camera, Film, ArrowUpRight, Sparkles, MapPin, Clapperboard, Globe, Layers } from 'lucide-react';
+import { ArrowRight, Instagram, Mail, Camera, Film, ArrowUpRight, Sparkles, MapPin, Clapperboard, Globe, Layers, Menu, X } from 'lucide-react';
 import Packages from './Packages';
 import Ballpit from './Ballpit';
 import StarBorder from './StarBorder';
@@ -158,11 +158,31 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
    const [scrollY, setScrollY] = useState(0);
    const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
    const philosophyRef = useRef<HTMLDivElement>(null);
+   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+   const [activeSection, setActiveSection] = useState('home');
 
    useEffect(() => {
       const handleScroll = () => {
-         setScrolled(window.scrollY > 50);
-         setScrollY(window.scrollY);
+         const currentScrollY = window.scrollY;
+         setScrolled(currentScrollY > 50);
+         setScrollY(currentScrollY);
+
+         // Active section detection
+         const sections = ['philosophy', 'work', 'divisions', 'packages'];
+         const scrollPos = currentScrollY + 250;
+         let currentSec = 'home';
+         for (const section of sections) {
+            const el = document.getElementById(section);
+            if (el) {
+               const top = el.offsetTop;
+               const height = el.offsetHeight;
+               if (scrollPos >= top && scrollPos < top + height) {
+                  currentSec = section;
+                  break;
+               }
+            }
+         }
+         setActiveSection(currentSec);
       };
       window.addEventListener('scroll', handleScroll, { passive: true });
 
@@ -222,6 +242,28 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
       };
    }, []);
 
+    // Lock body scrolling when mobile menu is open
+    useEffect(() => {
+       if (isMobileMenuOpen) {
+          const originalStyle = window.getComputedStyle(document.body).overflow;
+          document.body.style.overflow = 'hidden';
+          return () => {
+             document.body.style.overflow = originalStyle;
+          };
+       }
+    }, [isMobileMenuOpen]);
+
+    // Close mobile menu on Escape key press
+    useEffect(() => {
+       const handleKeyDown = (e: KeyboardEvent) => {
+          if (e.key === 'Escape') {
+             setIsMobileMenuOpen(false);
+          }
+       };
+       window.addEventListener('keydown', handleKeyDown);
+       return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
     console.log('[DEBUG] LandingPage divisions state:', divisions);
 
     // Calculate relative parallax offset for the philosophy section image
@@ -244,6 +286,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
        };
     };
 
+    const handleBackdropClick = (e: React.MouseEvent) => {
+       if (e.target === e.currentTarget) {
+          setIsMobileMenuOpen(false);
+       }
+    };
+
     return (
       <div className="min-h-screen bg-transparent text-white font-sans selection:bg-primary selection:text-white overflow-x-hidden relative">
 
@@ -258,37 +306,123 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
             }}
          />
 
-         {/* Navigation */}
-         <nav className={`fixed top-0 left-0 right-0 z-50 py-6 px-8 flex justify-between items-center transition-all duration-700 ${scrolled ? 'glass-panel-dark border-b border-white/5 py-4' : 'bg-transparent'}`}>
-            <div className="flex items-center gap-4 group cursor-pointer">
-               <div className="w-10 h-10 bg-white text-black flex items-center justify-center font-black text-xl rounded-2xl group-hover:rotate-12 transition-transform duration-500 shadow-[0_0_20px_rgba(255,255,255,0.3)]">A</div>
-               <span className="text-xs font-bold tracking-[0.3em] uppercase opacity-80 group-hover:opacity-100 transition-opacity">Artisans Co.</span>
-            </div>
+          {/* Navigation */}
+          <nav className={`fixed top-0 left-0 right-0 z-50 py-6 px-8 flex justify-between items-center transition-all duration-700 ${scrolled ? 'glass-panel-dark border-b border-white/5 py-4' : 'bg-transparent'}`}>
+             <div className="flex items-center gap-4 group cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                <div className="w-10 h-10 bg-white text-black flex items-center justify-center font-black text-xl rounded-2xl group-hover:rotate-12 transition-transform duration-500 shadow-[0_0_20px_rgba(255,255,255,0.3)]">A</div>
+                <span className="text-xs font-bold tracking-[0.3em] uppercase opacity-80 group-hover:opacity-100 transition-opacity">Artisans Co.</span>
+             </div>
+ 
+             <div className="flex items-center gap-10">
+                <div className="hidden lg:flex items-center gap-8 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 font-sans">
+                   <a href="#philosophy" className="hover:text-white hover:scale-105 transition-all duration-300">Studio</a>
+                   <a href="#work" className="hover:text-white hover:scale-105 transition-all duration-300">Portfolio</a>
+                   <a href="#divisions" className="hover:text-white hover:scale-105 transition-all duration-300">Divisions</a>
+                   <a href="#packages" className="hover:text-white hover:scale-105 transition-all duration-300 relative group">
+                      PACKAGES
+                      <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-white scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
+                   </a>
+                </div>
+                
+                <StarBorder
+                   as="button"
+                   onClick={onLogin}
+                   className="hidden lg:inline-block rounded-full group hover:shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-shadow duration-500"
+                   innerClassName="flex items-center gap-3 px-6 py-3 bg-[#0c0c0e]/90 backdrop-blur-xl border border-white/10 rounded-full text-white text-[9px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-500"
+                   color="white"
+                   speed="5s"
+                   thickness={1.5}
+                >
+                   <span>Client Portal</span>
+                   <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                </StarBorder>
 
-            <div className="flex items-center gap-10">
-               <div className="hidden md:flex items-center gap-8 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 font-sans">
-                  <a href="#philosophy" className="hover:text-white hover:scale-105 transition-all duration-300">Studio</a>
-                  <a href="#work" className="hover:text-white hover:scale-105 transition-all duration-300">Portfolio</a>
-                  <a href="#divisions" className="hover:text-white hover:scale-105 transition-all duration-300">Divisions</a>
-                  <a href="#packages" className="hover:text-white hover:scale-105 transition-all duration-300 relative group">
-                     PACKAGES
-                     <span className="absolute -bottom-1 left-0 right-0 h-[1px] bg-white scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
-                  </a>
-               </div>
-               <StarBorder
-                  as="button"
-                  onClick={onLogin}
-                  className="rounded-full group hover:shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-shadow duration-500"
-                  innerClassName="flex items-center gap-3 px-6 py-3 bg-[#0c0c0e]/90 backdrop-blur-xl border border-white/10 rounded-full text-white text-[9px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-500"
-                  color="white"
-                  speed="5s"
-                  thickness={1.5}
-               >
-                  <span>Client Portal</span>
-                  <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-               </StarBorder>
-            </div>
-         </nav>
+                {/* Hamburger menu button for mobile/tablet */}
+                <button
+                   onClick={() => setIsMobileMenuOpen(true)}
+                   aria-label="Open navigation menu"
+                   aria-expanded={isMobileMenuOpen}
+                   aria-controls="mobile-menu"
+                   className="lg:hidden p-3 rounded-full hover:bg-white/5 border border-white/5 bg-white/5 flex items-center justify-center cursor-pointer transition-all active:scale-95 text-white"
+                >
+                   <Menu className="w-5 h-5" />
+                </button>
+             </div>
+          </nav>
+
+          {/* Mobile Navigation Overlay */}
+          <div
+             id="mobile-menu"
+             role="dialog"
+             aria-modal="true"
+             aria-label="Navigation Menu"
+             onClick={handleBackdropClick}
+             className={`fixed inset-0 z-[100] bg-black/60 backdrop-blur-2xl flex flex-col justify-between p-8 transition-all duration-500 ease-out lg:hidden ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          >
+             {/* Header inside menu overlay */}
+             <div className="flex justify-between items-center w-full">
+                <div className="flex items-center gap-4">
+                   <div className="w-10 h-10 bg-white text-black flex items-center justify-center font-black text-xl rounded-2xl">A</div>
+                   <span className="text-xs font-bold tracking-[0.3em] uppercase opacity-80 text-white">Artisans Co.</span>
+                </div>
+                <button
+                   onClick={() => setIsMobileMenuOpen(false)}
+                   aria-label="Close navigation menu"
+                   className="p-3 rounded-full hover:bg-white/10 transition-colors text-white cursor-pointer"
+                >
+                   <X className="w-6 h-6" />
+                </button>
+             </div>
+
+             {/* Navigation list */}
+             <div className="flex flex-col justify-center items-center flex-1 py-12">
+                <nav className="flex flex-col gap-6 text-center w-full max-w-sm">
+                   {[
+                      { label: 'Studio', href: '#philosophy', active: activeSection === 'philosophy', type: 'anchor' },
+                      { label: 'Portfolio', href: '/portfolio', active: false, type: 'route' },
+                      { label: 'Gallery', href: '#work', active: activeSection === 'work', type: 'anchor' },
+                      { label: 'Divisions', href: '#divisions', active: activeSection === 'divisions', type: 'anchor' },
+                      { label: 'Packages', href: '#packages', active: activeSection === 'packages', type: 'anchor' },
+                      { label: 'Client Portal', active: false, type: 'button' }
+                   ].map((item) => {
+                      const baseClass = "text-xl font-black uppercase tracking-[0.25em] py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-all duration-300 w-full min-h-[48px] focus:outline-none focus:ring-2 focus:ring-emerald-500";
+                      const activeClass = item.active ? "text-white bg-white/5" : "text-zinc-500 hover:text-white hover:bg-white/5";
+                      
+                      if (item.type === 'button') {
+                         return (
+                            <button
+                               key={item.label}
+                               onClick={() => {
+                                  setIsMobileMenuOpen(false);
+                                  onLogin();
+                               }}
+                               className={`${baseClass} ${activeClass} text-center`}
+                            >
+                               {item.label}
+                            </button>
+                         );
+                      }
+
+                      return (
+                         <a
+                            key={item.label}
+                            href={item.href}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className={`${baseClass} ${activeClass}`}
+                         >
+                            {item.active && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                            {item.label}
+                         </a>
+                      );
+                   })}
+                </nav>
+             </div>
+
+             {/* Footer inside mobile menu overlay */}
+             <div className="w-full text-center text-[10px] font-bold uppercase tracking-widest text-zinc-600 border-t border-white/5 pt-6">
+                <p>© 2025 Artisans Co. Productions</p>
+             </div>
+          </div>
 
          {/* Hero Section */}
          <section className="h-screen w-full relative flex flex-col justify-end px-6 pb-20 overflow-hidden">
