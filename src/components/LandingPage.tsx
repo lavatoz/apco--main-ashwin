@@ -832,16 +832,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                               className={`flex flex-col ${isEvenTheme ? 'md:flex-row-reverse' : 'md:flex-row'} gap-16 items-center group`}
                            >
                               {/* Text content info */}
-                              <div className={`flex-1 space-y-8 ${isEvenTheme ? '' : 'order-2 md:order-1'}`}>
-                                 <div className={iconContainerClass}>
+                              <div className={`flex-1 flex flex-col items-start ${isEvenTheme ? '' : 'order-2 md:order-1'}`}>
+                                 <div className={`${iconContainerClass} mb-6`}>
                                     <Icon className="w-10 h-10" />
                                  </div>
-                                 <div className="flex flex-col gap-6 md:gap-7">
-                                    <h3 className="solan-vesta-title" style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', letterSpacing: '-0.03em' }}>{division.name}</h3>
-                                    <p className="division-editorial-description">
-                                       {division.description}
-                                    </p>
-                                 </div>
+                                 <h3 className="solan-vesta-title mb-5" style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', letterSpacing: '-0.03em' }}>{division.name}</h3>
+                                 <p className="division-editorial-description mb-8">
+                                    {division.description}
+                                 </p>
                                  {instagramUrl && (
                                     <a
                                        href={instagramUrl}
