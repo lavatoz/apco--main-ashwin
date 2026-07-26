@@ -1,4 +1,5 @@
 import React, { Suspense, useState, useRef, useEffect } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Sparkles } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -326,9 +327,46 @@ export const CinematicExhibition3D: React.FC<CinematicExhibition3DProps> = ({ co
   const finalCollections = collections.length > 0 ? collections : localMockCollections;
   const prefersReducedMotion = useReducedMotion();
   
+  const { selectSlug } = useParams<{ selectSlug?: string }>();
+  const location = useLocation();
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showOverlay, setShowOverlay] = useState(false);
   const [isIntroActive, setIsIntroActive] = useState(false);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const querySelect = searchParams.get('select');
+    const activeSlug = selectSlug || querySelect;
+
+    if (activeSlug && finalCollections.length > 0) {
+      const mappedSlug = (() => {
+        switch (activeSlug) {
+          case 'royal-wedding': return 'royal-union';
+          case 'aaha-kalyanam': return 'sacred-tales';
+          case 'tiny-toes': return 'golden-silhouette';
+          case 'destination-wedding': return 'villa-romantica';
+          case 'pre-wedding': return 'courtyard-prelude';
+          case 'corporate': return 'midnight-embrace';
+          default: return activeSlug;
+        }
+      })();
+
+      const found = finalCollections.find(
+        c => c.slug === activeSlug || 
+             c.slug === mappedSlug ||
+             c.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') === activeSlug ||
+             c.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') === mappedSlug
+      );
+
+      if (found) {
+        setSelectedId(found.id);
+        setShowOverlay(true);
+        setIsIntroActive(false);
+        sessionStorage.setItem('apco-exhibition-intro-played', 'true');
+      }
+    }
+  }, [selectSlug, location.search, finalCollections]);
 
   // Type-safe collection details state (only loads images when selected)
   const [selectedDetail, setSelectedDetail] = useState<PublicCollectionDetail | null>(null);

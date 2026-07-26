@@ -10,6 +10,7 @@ import { type PublicDivisionMedia } from '../services/api/divisions';
 import { getFullUrl } from '../utils/media';
 import galleryPlaceholder from '../assets/placeholders/gallery-placeholder.jpg';
 import { buildWhatsAppUrl } from '../utils/whatsapp';
+import { gsap } from 'gsap';
 
 const getSlugFromTitle = (title: string, itemSlug?: string): string => {
    if (itemSlug) return itemSlug;
@@ -147,6 +148,7 @@ interface LandingPageProps {
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
+   const navigate = useNavigate();
    const [scrolled, setScrolled] = useState(false);
    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
    const [galleries, setGalleries] = useState<any[]>([]);
@@ -158,6 +160,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
    const [scrollY, setScrollY] = useState(0);
    const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
    const philosophyRef = useRef<HTMLDivElement>(null);
+   const menuRef = useRef<HTMLDivElement>(null);
+   const linksRef = useRef<HTMLDivElement>(null);
+   const footerLinksRef = useRef<HTMLDivElement>(null);
    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
    const [activeSection, setActiveSection] = useState('home');
 
@@ -264,6 +269,70 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
        return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
+    // GSAP menu animations
+    useEffect(() => {
+       if (!menuRef.current) return;
+       
+       const links = linksRef.current?.querySelectorAll('a, button');
+       const footerItems = footerLinksRef.current?.children;
+
+       if (isMobileMenuOpen) {
+          gsap.killTweensOf([menuRef.current, links, footerItems]);
+          
+          gsap.set(menuRef.current, { opacity: 0, y: -20, display: 'flex' });
+          if (links) gsap.set(links, { opacity: 0, y: 15 });
+          if (footerItems) gsap.set(footerItems, { opacity: 0, y: 10 });
+
+          const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+          tl.to(menuRef.current, {
+             opacity: 1,
+             y: 0,
+             duration: 0.5
+          });
+          
+          if (links && links.length > 0) {
+             tl.to(links, {
+                opacity: 1,
+                y: 0,
+                duration: 0.4,
+                stagger: 0.05
+             }, '-=0.3');
+          }
+
+          if (footerItems && footerItems.length > 0) {
+             tl.to(footerItems, {
+                opacity: 1,
+                y: 0,
+                duration: 0.3,
+                stagger: 0.05
+             }, '-=0.2');
+          }
+       } else {
+          gsap.killTweensOf([menuRef.current, links, footerItems]);
+          const tl = gsap.timeline({
+             defaults: { ease: 'power3.inOut' },
+             onComplete: () => {
+                gsap.set(menuRef.current, { display: 'none' });
+             }
+          });
+          
+          if (links && links.length > 0) {
+             tl.to(links, {
+                opacity: 0,
+                y: -10,
+                duration: 0.3,
+                stagger: 0.02
+             });
+          }
+          
+          tl.to(menuRef.current, {
+             opacity: 0,
+             y: -15,
+             duration: 0.4
+          }, '-=0.2');
+       }
+    }, [isMobileMenuOpen]);
+
     console.log('[DEBUG] LandingPage divisions state:', divisions);
 
     // Calculate relative parallax offset for the philosophy section image
@@ -286,9 +355,31 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
        };
     };
 
-    const handleBackdropClick = (e: React.MouseEvent) => {
-       if (e.target === e.currentTarget) {
-          setIsMobileMenuOpen(false);
+    const handleMobileNavClick = (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>, href: string, type: string) => {
+       e.preventDefault();
+       setIsMobileMenuOpen(false);
+
+       if (type === 'route') {
+          setTimeout(() => {
+             navigate(href);
+          }, 450); // Wait for menu close GSAP animation to complete
+       } else if (type === 'button') {
+          setTimeout(() => {
+             onLogin();
+          }, 450);
+       } else {
+          const id = href.replace('#', '');
+          const element = document.getElementById(id);
+          if (element) {
+             setTimeout(() => {
+                const yOffset = -80; // Navbar spacing offset
+                const y = element.getBoundingClientRect().top + window.scrollY + yOffset;
+                window.scrollTo({
+                   top: y,
+                   behavior: 'smooth'
+                });
+             }, 450);
+          }
        }
     };
 
@@ -353,15 +444,21 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
           {/* Mobile Navigation Overlay */}
           <div
              id="mobile-menu"
+             ref={menuRef}
              role="dialog"
              aria-modal="true"
              aria-label="Navigation Menu"
-             onClick={handleBackdropClick}
-             className={`fixed inset-0 z-[100] bg-black/60 backdrop-blur-2xl flex flex-col justify-between p-8 transition-all duration-500 ease-out lg:hidden ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+             style={{ display: 'none' }}
+             onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                   setIsMobileMenuOpen(false);
+                }
+             }}
+             className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-2xl flex flex-col justify-between p-8 lg:hidden"
           >
              {/* Header inside menu overlay */}
              <div className="flex justify-between items-center w-full">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 cursor-pointer" onClick={() => { setIsMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                    <div className="w-10 h-10 bg-white text-black flex items-center justify-center font-black text-xl rounded-2xl">A</div>
                    <span className="text-xs font-bold tracking-[0.3em] uppercase opacity-80 text-white">Artisans Co.</span>
                 </div>
@@ -375,27 +472,23 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
              </div>
 
              {/* Navigation list */}
-             <div className="flex flex-col justify-center items-center flex-1 py-12">
-                <nav className="flex flex-col gap-6 text-center w-full max-w-sm">
+             <div className="flex flex-col justify-center items-center flex-1 py-6" ref={linksRef}>
+                <nav className="flex flex-col gap-5 text-center w-full max-w-sm">
                    {[
-                      { label: 'Studio', href: '#philosophy', active: activeSection === 'philosophy', type: 'anchor' },
-                      { label: 'Portfolio', href: '/portfolio', active: false, type: 'route' },
-                      { label: 'Gallery', href: '#work', active: activeSection === 'work', type: 'anchor' },
-                      { label: 'Divisions', href: '#divisions', active: activeSection === 'divisions', type: 'anchor' },
-                      { label: 'Packages', href: '#packages', active: activeSection === 'packages', type: 'anchor' },
-                      { label: 'Client Portal', active: false, type: 'button' }
+                      { label: 'STUDIO', href: '#philosophy', active: activeSection === 'philosophy', type: 'anchor' },
+                      { label: 'PORTFOLIO', href: '/portfolio', active: false, type: 'route' },
+                      { label: 'GALLERY', href: '/curated-gallery', active: false, type: 'route' },
+                      { label: 'DIVISIONS', href: '#divisions', active: activeSection === 'divisions', type: 'anchor' },
+                      { label: 'PACKAGES', href: '#packages', active: activeSection === 'packages', type: 'anchor' }
                    ].map((item) => {
-                      const baseClass = "text-xl font-black uppercase tracking-[0.25em] py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-all duration-300 w-full min-h-[48px] focus:outline-none focus:ring-2 focus:ring-emerald-500";
+                      const baseClass = "text-xl font-bold uppercase tracking-[0.25em] py-3.5 px-6 rounded-2xl flex items-center justify-center gap-3 transition-all duration-300 w-full min-h-[48px] focus:outline-none focus:ring-1 focus:ring-white/20";
                       const activeClass = item.active ? "text-white bg-white/5" : "text-zinc-500 hover:text-white hover:bg-white/5";
                       
                       if (item.type === 'button') {
                          return (
                             <button
                                key={item.label}
-                               onClick={() => {
-                                  setIsMobileMenuOpen(false);
-                                  onLogin();
-                               }}
+                               onClick={(e) => handleMobileNavClick(e, '', 'button')}
                                className={`${baseClass} ${activeClass} text-center`}
                             >
                                {item.label}
@@ -407,7 +500,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                          <a
                             key={item.label}
                             href={item.href}
-                            onClick={() => setIsMobileMenuOpen(false)}
+                            onClick={(e) => handleMobileNavClick(e, item.href, item.type)}
                             className={`${baseClass} ${activeClass}`}
                          >
                             {item.active && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
@@ -419,9 +512,54 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
              </div>
 
              {/* Footer inside mobile menu overlay */}
-             <div className="w-full text-center text-[10px] font-bold uppercase tracking-widest text-zinc-600 border-t border-white/5 pt-6">
-                <p>© 2025 Artisans Co. Productions</p>
+             <div className="w-full flex flex-col gap-6 text-center border-t border-white/5 pt-6" ref={footerLinksRef}>
+                <div className="flex justify-center gap-8 text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+                   <a 
+                      href="https://www.instagram.com/artisansproductioncompany/" 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="hover:text-white transition-colors"
+                   >
+                      Instagram
+                   </a>
+                   <a 
+                      href={buildWhatsAppUrl({
+                         message: "Hello Artisans Co., I would like to get in touch with you.",
+                         source: "Mobile Menu Footer"
+                      }) || '#'} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="hover:text-white transition-colors"
+                   >
+                      WhatsApp
+                   </a>
+                   <a 
+                      href="https://www.google.com/maps?q=Mumbai,+India" 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="hover:text-white transition-colors"
+                   >
+                      Location
+                   </a>
+                </div>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-600">© 2025 Artisans Co. Productions</p>
              </div>
+          </div>
+
+          {/* Sticky Bottom CTA for Mobile */}
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 lg:hidden w-[calc(100%-3rem)] max-w-[360px] pointer-events-auto">
+             <a
+                href={buildWhatsAppUrl({
+                   message: "Hello Artisans Co., I would like to enquire about your photography and film packages.",
+                   source: "Sticky Mobile CTA"
+                }) || '#'}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-3 w-full py-4 bg-[#0c0c0e]/90 border border-white/15 backdrop-blur-md text-white font-black uppercase text-[10px] tracking-[0.25em] rounded-full shadow-[0_15px_35px_rgba(0,0,0,0.8)] active:scale-95 transition-all duration-300 hover:border-white/30"
+             >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Enquire on WhatsApp</span>
+             </a>
           </div>
 
          {/* Hero Section */}

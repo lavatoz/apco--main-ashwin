@@ -48,6 +48,8 @@ import BrandDetailPage from './pages/BrandDetailPage';
 import SecurityHubPage from './pages/SecurityHubPage';
 import StaffPortal from './pages/staff/StaffPortal';
 import PublicVerifyDocumentPage from './pages/PublicVerifyDocumentPage';
+import CuratedGalleryPage from './pages/CuratedGalleryPage';
+import CollectionStoryPage from './pages/CollectionStoryPage';
 import { useCompanySettings, clearCompanySettingsCache } from './hooks/useCompanySettings';
 import { type UserPermission, type CompanyProfile } from './types';
 import { usePermissions } from './hooks/usePermissions';
@@ -471,7 +473,10 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<LandingPage onLogin={() => navigate('/login')} />} />
           <Route path="/portfolio" element={<PortfolioPage />} />
+          <Route path="/portfolio/:selectSlug" element={<PortfolioPage />} />
           <Route path="/collections/:slug" element={<CollectionDetailPage />} />
+          <Route path="/curated-gallery" element={<CuratedGalleryPage />} />
+          <Route path="/curated-gallery/:slug" element={<CollectionStoryPage />} />
           <Route path="/packages" element={<PackagesPage onLogin={() => navigate('/login')} />} />
           <Route path="/invite/:token" element={<InvitePage onLogin={handleAuthLogin} />} />
           <Route path="/setup-account" element={<SetupAccountPage />} />
@@ -770,7 +775,10 @@ const App: React.FC = () => {
               <Route path="/portal/:clientId" element={<RoleProtectedRoute allowedRoles={['Client', 'Admin', 'Staff']}><ClientPortal client={activeClient || {} as Client} onUpdateClient={() => { }} onBack={() => navigate('/login')} userRole={authRole} /></RoleProtectedRoute>} />
               <Route path="/agreement/:quoteId" element={<RoleProtectedRoute allowedRoles={['Client']}><AgreementPage /></RoleProtectedRoute>} />
               <Route path="/portfolio" element={<PortfolioPage />} />
+              <Route path="/portfolio/:selectSlug" element={<PortfolioPage />} />
               <Route path="/collections/:slug" element={<CollectionDetailPage />} />
+              <Route path="/curated-gallery" element={<CuratedGalleryPage />} />
+              <Route path="/curated-gallery/:slug" element={<CollectionStoryPage />} />
               <Route path="/verify/:documentId" element={<PublicVerifyDocumentPage />} />
 
               <Route path="/unauthorized" element={<div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-10"><h1 className="text-4xl font-black text-white mb-4">RESTRICTED ACCESS</h1><p className="text-zinc-500 font-mono text-xs mb-8">Permission Profile Conflict Detected</p><button onClick={() => navigate('/')} className="px-6 py-2 bg-white text-black text-[10px] font-black uppercase rounded-full">Return Base</button></div>} />
