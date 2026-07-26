@@ -836,10 +836,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                                  <div className={iconContainerClass}>
                                     <Icon className="w-10 h-10" />
                                  </div>
-                                  <h3 className="solan-vesta-title" style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', letterSpacing: '-0.03em' }}>{division.name}</h3>
-                                 <p className="text-lg text-zinc-400 font-medium leading-relaxed max-w-lg">
-                                    {division.description}
-                                 </p>
+                                 <div className="flex flex-col gap-6 md:gap-7">
+                                    <h3 className="solan-vesta-title" style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', letterSpacing: '-0.03em' }}>{division.name}</h3>
+                                    <p className="division-editorial-description">
+                                       {division.description}
+                                    </p>
+                                 </div>
                                  {instagramUrl && (
                                     <a
                                        href={instagramUrl}

@@ -421,3 +421,19 @@ body[data-graphics="aurora"] .glass-panel-dark,
   -webkit-text-stroke: 0px !important;
   font-synthesis: none !important;
 }
+
+/* Refined reading serif for division descriptions */
+.division-editorial-description {
+  font-family: "Cormorant Garamond", "Source Serif 4", "Libre Baskerville", "Georgia", serif !important;
+  font-size: clamp(1rem, 1.8vw, 1.25rem) !important;
+  font-weight: 400 !important;
+  line-height: 1.8 !important;
+  letter-spacing: 0.005em !important;
+  color: rgba(255, 255, 255, 0.72) !important;
+  max-width: 36rem !important;
+  text-align: left !important;
+  text-transform: none !important;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0px !important;
+  font-synthesis: none !important;
+}
