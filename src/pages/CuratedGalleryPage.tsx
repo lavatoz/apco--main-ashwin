@@ -101,7 +101,7 @@ export const CuratedGalleryPage: React.FC = () => {
           transition={{ duration: 0.8, ease: 'easeOut' }}
           className="text-center mb-16"
         >
-          <h1 className="text-4xl md:text-6xl font-normal uppercase tracking-[0.15em] font-serif text-white mb-4">
+          <h1 className="solan-vesta-title" style={{ fontSize: 'clamp(2.5rem, 6vw, 4.5rem)', letterSpacing: '-0.03em' }}>
             Curated Gallery
           </h1>
           <p className="text-zinc-500 font-serif italic text-sm md:text-base tracking-wider max-w-lg mx-auto">
@@ -181,7 +181,7 @@ export const CuratedGalleryPage: React.FC = () => {
                     </div>
 
                     {/* Title */}
-                    <h3 className="text-2xl md:text-3xl font-normal uppercase tracking-wide font-serif text-white mb-2 leading-tight">
+                    <h3 className="solan-vesta-title mb-2" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', letterSpacing: '-0.03em' }}>
                       {item.title}
                     </h3>
 

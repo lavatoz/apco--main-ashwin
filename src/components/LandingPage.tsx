@@ -34,20 +34,24 @@ const GalleryCard: React.FC<{ item: any; index: number }> = ({ item, index }) =>
    const variant = index % 4;
    let colSpanClass = 'lg:col-span-8';
    let aspectClass = 'aspect-[16/10]';
-   let titleClass = 'text-4xl font-black uppercase mb-3';
+   let titleClass = 'solan-vesta-title mb-3';
+   let fontSizeStyle = { fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', letterSpacing: '-0.03em' };
 
    if (variant === 1) {
       colSpanClass = 'lg:col-span-4';
       aspectClass = 'aspect-[4/5] lg:aspect-auto';
-      titleClass = 'text-3xl font-black uppercase mb-3';
+      titleClass = 'solan-vesta-title mb-3';
+      fontSizeStyle = { fontSize: 'clamp(1.5rem, 3.5vw, 2rem)', letterSpacing: '-0.03em' };
    } else if (variant === 2) {
       colSpanClass = 'lg:col-span-4';
       aspectClass = 'aspect-square';
-      titleClass = 'text-3xl font-black uppercase mb-3';
+      titleClass = 'solan-vesta-title mb-3';
+      fontSizeStyle = { fontSize: 'clamp(1.5rem, 3.5vw, 2rem)', letterSpacing: '-0.03em' };
    } else if (variant === 3) {
       colSpanClass = 'lg:col-span-8';
       aspectClass = 'aspect-[16/10]';
-      titleClass = 'text-4xl font-black uppercase mb-3';
+      titleClass = 'solan-vesta-title mb-3';
+      fontSizeStyle = { fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', letterSpacing: '-0.03em' };
    }
 
    const divisionLabels = ["AAHA Kalyanam", "Candid Moments", "Tiny Toes", "Artisans Signature"];
@@ -84,7 +88,7 @@ const GalleryCard: React.FC<{ item: any; index: number }> = ({ item, index }) =>
          />
          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
          <div className="absolute bottom-0 left-0 p-12 translate-y-4 group-hover:translate-y-0 transition-transform duration-700">
-            <h3 className={titleClass}>{item.title}</h3>
+            <h3 className={titleClass} style={fontSizeStyle}>{item.title}</h3>
             <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 bg-zinc-900/20 border border-white/10 px-3 py-1 rounded-full w-max backdrop-blur-md">
                {divisionLabel}
             </p>
@@ -577,7 +581,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
             </div>
 
             <div className="relative z-20 max-w-[1800px] mx-auto w-full mb-10 pl-4 md:pl-10">
-               <h1 className="leading-[0.85] uppercase animate-ios-slide-up luxury-hero-heading" style={{ animationDelay: '0.2s' }}>
+                <h1 className="leading-[0.85] uppercase animate-ios-slide-up luxury-hero-heading solan-vesta-title" style={{ animationDelay: '0.2s' }}>
                   <ShinyText
                      text="CRAFTING"
                      disabled={false}
@@ -652,24 +656,24 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                       <span className="text-[10px] font-black uppercase tracking-[0.25em]">THE ARTISAN WAY</span>
                    </div>
 
-                   <h2 className="text-4xl md:text-5xl lg:text-6xl font-medium leading-[1.15] tracking-tight">
-                      <span className="block overflow-hidden">
-                         <span 
-                            style={getAnimationStyle(200)}
-                            className={`block transition-transform duration-[850ms] ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
-                         >
-                            More than coverage.
-                         </span>
-                      </span>
-                      <span className="block overflow-hidden mt-1.5">
-                         <span 
-                            style={getAnimationStyle(300)}
-                            className={`block text-zinc-500 transition-transform duration-[850ms] ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
-                         >
-                            This is your legacy.
-                         </span>
-                      </span>
-                   </h2>
+                    <h2 className="solan-vesta-title tracking-tight" style={{ fontSize: 'clamp(2.5rem, 6vw, 4.5rem)', letterSpacing: '-0.03em' }}>
+                       <span className="block overflow-hidden">
+                          <span 
+                             style={getAnimationStyle(200)}
+                             className={`block transition-transform duration-[850ms] ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
+                          >
+                             More than coverage.
+                          </span>
+                       </span>
+                       <span className="block overflow-hidden mt-1.5">
+                          <span 
+                             style={getAnimationStyle(300)}
+                             className={`block transition-transform duration-[850ms] ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
+                          >
+                             This is your legacy.
+                          </span>
+                       </span>
+                    </h2>
 
                    <div 
                       style={getAnimationStyle(450)} 
@@ -731,7 +735,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
          {/* Selected Works - Futuristic Grid */}
          <section id="work" className="py-32 px-6 relative z-10">
             <div className="max-w-[1800px] mx-auto mb-20 flex flex-col md:flex-row justify-between items-end gap-6 animate-ios-slide-up">
-               <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter text-white/90">Curated Gallery</h2>
+                <h2 className="solan-vesta-title" style={{ fontSize: 'clamp(3rem, 8vw, 6rem)', letterSpacing: '-0.03em' }}>Curated Gallery</h2>
                <span className="text-xs font-bold uppercase tracking-widest text-zinc-600 mb-2 px-4 py-2 rounded-full border border-white/10 glass-panel">Highlights 2024-25</span>
             </div>
 
@@ -760,7 +764,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
          {/* Divisions - Futuristic Cards */}
          <section id="divisions" className="py-32 px-6 relative z-10">
             <div className="max-w-[1400px] mx-auto">
-               <h2 className="text-[10vw] font-black uppercase tracking-tighter leading-none mb-24 opacity-20 text-transparent bg-clip-text bg-gradient-to-b from-white to-transparent">Divisions</h2>
+                <h2 className="solan-vesta-title opacity-20" style={{ fontSize: 'clamp(5rem, 10vw, 9rem)', letterSpacing: '-0.03em' }}>Divisions</h2>
 
                {divisionsLoading ? (
                   /* Premium Loading Skeletons */
@@ -832,7 +836,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                                  <div className={iconContainerClass}>
                                     <Icon className="w-10 h-10" />
                                  </div>
-                                 <h3 className="text-4xl md:text-6xl font-black uppercase tracking-tight">{division.name}</h3>
+                                  <h3 className="solan-vesta-title" style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', letterSpacing: '-0.03em' }}>{division.name}</h3>
                                  <p className="text-lg text-zinc-400 font-medium leading-relaxed max-w-lg">
                                     {division.description}
                                  </p>

@@ -50,7 +50,8 @@ export const CollectionHero: React.FC<CollectionHeroProps> = ({ collection }) =>
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="text-6xl sm:text-7xl md:text-9xl font-black uppercase tracking-tight text-white leading-none mb-6 drop-shadow-2xl font-serif"
+          className="solan-vesta-title mb-6"
+          style={{ fontSize: 'clamp(4rem, 12vw, 11rem)', letterSpacing: '-0.03em' }}
         >
           {collection.title}
         </motion.h1>

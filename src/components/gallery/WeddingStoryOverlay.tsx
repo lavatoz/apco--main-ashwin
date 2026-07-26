@@ -225,7 +225,7 @@ export const WeddingStoryOverlay: React.FC<WeddingStoryOverlayProps> = ({
           <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#C9A45D] bg-[#C9A45D]/10 px-3 py-1 rounded-full border border-[#C9A45D]/20 inline-block mb-4 font-mono">
             {collection.category}
           </span>
-          <h2 id="story-title" className="text-4xl md:text-5xl font-black uppercase tracking-tight text-[#F7F7F7] font-serif-luxury leading-tight">
+          <h2 id="story-title" className="solan-vesta-title" style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', letterSpacing: '-0.03em' }}>
             {collection.title}
           </h2>
         </div>

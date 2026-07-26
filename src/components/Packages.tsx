@@ -27,7 +27,7 @@ Service Interested In:`;
     <div className="max-w-6xl mx-auto px-6 py-24 md:py-32 relative z-10 flex flex-col items-center">
       {/* Header */}
       <div className="text-center max-w-3xl mb-16 md:mb-24 animate-ios-slide-up">
-        <h2 className="text-4xl md:text-5xl lg:text-6xl font-extralight tracking-tight text-white leading-tight mb-6">
+        <h2 className="solan-vesta-title" style={{ fontSize: 'clamp(2.5rem, 6vw, 4.5rem)' }}>
           Let's Create Your Story
         </h2>
         <p className="text-xs md:text-sm font-light tracking-[0.2em] uppercase text-zinc-400 max-w-2xl mx-auto">
@@ -102,7 +102,7 @@ Service Interested In:`;
         style={{ animationDelay: '0.3s' }}
       >
         <div className="space-y-3">
-          <h3 className="text-2xl md:text-3xl font-extralight tracking-wide text-white leading-tight">
+          <h3 className="solan-vesta-title" style={{ fontSize: 'clamp(1.75rem, 4vw, 2.5rem)' }}>
             Ready to preserve your memories?
           </h3>
           <p className="text-zinc-400 text-xs md:text-sm font-light max-w-xl mx-auto leading-relaxed">

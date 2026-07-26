@@ -45,7 +45,7 @@ export const RelatedCollections: React.FC<RelatedCollectionsProps> = ({ currentS
             <span className="text-[9px] font-black uppercase tracking-[0.35em] text-zinc-500 block mb-2 font-mono">
               Curated Recommendations
             </span>
-            <h3 className="text-3xl md:text-5xl font-black uppercase tracking-tight text-white font-serif">
+            <h3 className="solan-vesta-title" style={{ fontSize: 'clamp(2rem, 5vw, 3rem)' }}>
               You May Also Like
             </h3>
           </div>
@@ -93,7 +93,7 @@ export const RelatedCollections: React.FC<RelatedCollectionsProps> = ({ currentS
                 {/* Content Details */}
                 <div className="p-6 md:p-8 space-y-4">
                   <div className="flex justify-between items-start gap-4">
-                    <h4 className="text-2xl font-black uppercase tracking-tight text-white group-hover:text-blue-400 transition-colors font-serif">
+                    <h4 className="solan-vesta-title group-hover:text-blue-400 transition-colors" style={{ fontSize: 'clamp(1.25rem, 3vw, 1.75rem)' }}>
                       {item.title}
                     </h4>
                     <span className="flex items-center gap-1.5 text-[9px] font-mono font-bold uppercase tracking-widest text-zinc-400 bg-white/5 border border-white/10 px-2.5 py-1 rounded-full whitespace-nowrap">

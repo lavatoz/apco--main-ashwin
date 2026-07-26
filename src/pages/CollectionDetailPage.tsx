@@ -86,7 +86,7 @@ export const CollectionDetailPage: React.FC = () => {
         <CollectionNavigation title="Collection Not Found" />
         <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center bg-black">
           <Compass className="w-16 h-16 text-zinc-600 mb-6 animate-pulse" />
-          <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tight text-white mb-4 font-serif">
+          <h1 className="solan-vesta-title mb-4" style={{ fontSize: 'clamp(2.5rem, 6vw, 4.5rem)', letterSpacing: '-0.03em' }}>
             Collection Not Found
           </h1>
           <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest max-w-md leading-relaxed mb-8">

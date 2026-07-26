@@ -333,7 +333,7 @@ body[data-graphics="aurora"] .glass-panel-dark,
   --exhibition-white: #F7F7F7;
   --exhibition-gray: #8A8A8A;
   --font-editorial: 'Cormorant Garamond', serif;
-  --font-serif-luxury: 'Playfair Display', serif;
+  --font-serif-luxury: "Solan Vesta", "Canela Display", "Noe Display", "PP Editorial New", "Cormorant Garamond", "Playfair Display", serif;
 }
 
 .font-editorial {
@@ -342,6 +342,14 @@ body[data-graphics="aurora"] .glass-panel-dark,
 
 .font-serif-luxury {
   font-family: var(--font-serif-luxury) !important;
+  font-weight: 400 !important;
+  text-transform: uppercase !important;
+  line-height: 0.88 !important;
+  letter-spacing: -0.03em !important;
+  color: #ffffff !important;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0px !important;
+  font-synthesis: none !important;
 }
 
 /* Cinematic Vignette Overlay */
@@ -387,13 +395,29 @@ body[data-graphics="aurora"] .glass-panel-dark,
   border-radius: 2px;
 }
 
-/* Luxury Editorial serif hero heading across all devices */
-.luxury-hero-heading {
-  font-family: 'Canela Display', 'Canela', 'Noe Display', 'PP Editorial New', 'Cormorant Garamond', 'Playfair Display', serif !important;
+/* Reusable Typography Utility for Solan Vesta */
+.solan-vesta-title {
+  font-family: "Solan Vesta", "Canela Display", "Noe Display", "PP Editorial New", "Cormorant Garamond", "Playfair Display", serif !important;
   font-weight: 400 !important;
-  font-size: clamp(4rem, 12vw, 11rem) !important;
-  letter-spacing: clamp(-0.04em, -0.03vw, -0.02em) !important;
-  line-height: 0.85 !important;
+  text-transform: uppercase !important;
+  line-height: 0.88 !important;
+  letter-spacing: -0.03em !important;
+  color: #ffffff !important;
   text-shadow: none !important;
   -webkit-text-stroke: 0px !important;
+  font-synthesis: none !important;
+}
+
+/* Luxury Editorial serif hero heading across all devices */
+.luxury-hero-heading {
+  font-family: "Solan Vesta", "Canela Display", "Noe Display", "PP Editorial New", "Cormorant Garamond", "Playfair Display", serif !important;
+  font-weight: 400 !important;
+  font-size: clamp(4rem, 12vw, 11rem) !important;
+  letter-spacing: -0.03em !important;
+  line-height: 0.88 !important;
+  text-transform: uppercase !important;
+  color: #ffffff !important;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0px !important;
+  font-synthesis: none !important;
 }

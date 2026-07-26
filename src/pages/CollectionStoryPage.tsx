@@ -64,7 +64,7 @@ export const CollectionStoryPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#0B0B0B] text-white flex flex-col justify-center items-center p-8 text-center font-sans">
         <Compass className="w-12 h-12 text-[#C9A45D]/30 mb-6 animate-pulse" />
-        <h2 className="text-3xl font-serif uppercase tracking-wider mb-4">Collection Not Found</h2>
+        <h2 className="solan-vesta-title text-3xl mb-4" style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', letterSpacing: '-0.03em' }}>Collection Not Found</h2>
         <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest max-w-sm leading-relaxed mb-8">
           {error || 'The collection story you are looking for does not exist or has been archived.'}
         </p>
@@ -143,7 +143,7 @@ export const CollectionStoryPage: React.FC = () => {
             </div>
 
             {/* Collection Title */}
-            <h1 className="text-4xl md:text-5xl font-normal uppercase tracking-wide font-serif text-white mb-6 leading-tight max-w-xl">
+            <h1 className="solan-vesta-title mb-6 max-w-xl" style={{ fontSize: 'clamp(2.5rem, 6vw, 4.5rem)', letterSpacing: '-0.03em' }}>
               {collection.title}
             </h1>
 
@@ -248,7 +248,7 @@ export const CollectionStoryPage: React.FC = () => {
           <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#C9A45D] mb-3 block">
             Immersive 3D Space
           </span>
-          <h4 className="text-xl md:text-2xl font-normal font-serif text-white mb-4 uppercase tracking-wide">
+          <h4 className="solan-vesta-title mb-4" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', letterSpacing: '-0.03em' }}>
             Experience the Exhibition
           </h4>
           <p className="text-zinc-500 text-[11px] font-serif max-w-sm mx-auto mb-8 leading-relaxed italic">

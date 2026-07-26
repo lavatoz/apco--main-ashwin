@@ -489,7 +489,7 @@ export const CinematicExhibition3D: React.FC<CinematicExhibition3DProps> = ({ co
         <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.4em] text-[#C9A45D] block mb-1 font-mono">
           Exhibition Space
         </span>
-        <h1 className="text-xl sm:text-2xl font-black uppercase tracking-widest text-[#F7F7F7] font-serif-luxury leading-none">
+        <h1 className="solan-vesta-title text-xl sm:text-2xl" style={{ fontSize: 'clamp(1.25rem, 3vw, 1.75rem)', letterSpacing: '-0.03em' }}>
           THE ARTISANS NOIR
         </h1>
       </div>
@@ -607,7 +607,8 @@ export const CinematicExhibition3D: React.FC<CinematicExhibition3DProps> = ({ co
               initial={{ y: 15, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 1.1, duration: 1.2 }}
-              className="text-4xl md:text-5xl font-black uppercase text-[#F7F7F7] font-serif-luxury tracking-wide mb-3 px-4 leading-none"
+              className="solan-vesta-title mb-3 px-4"
+              style={{ fontSize: 'clamp(2.5rem, 6vw, 4rem)', letterSpacing: '-0.03em' }}
             >
               Welcome to the Exhibition
             </motion.h1>
