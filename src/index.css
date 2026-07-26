@@ -387,4 +387,13 @@ body[data-graphics="aurora"] .glass-panel-dark,
   border-radius: 2px;
 }
 
-
+/* Luxury Editorial serif hero heading across all devices */
+.luxury-hero-heading {
+  font-family: 'Canela Display', 'Canela', 'Noe Display', 'PP Editorial New', 'Cormorant Garamond', 'Playfair Display', serif !important;
+  font-weight: 400 !important;
+  font-size: clamp(4rem, 12vw, 11rem) !important;
+  letter-spacing: clamp(-0.04em, -0.03vw, -0.02em) !important;
+  line-height: 0.85 !important;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0px !important;
+}

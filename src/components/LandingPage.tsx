@@ -546,21 +546,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
              </div>
           </div>
 
-          {/* Sticky Bottom CTA for Mobile */}
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 lg:hidden w-[calc(100%-3rem)] max-w-[360px] pointer-events-auto">
-             <a
-                href={buildWhatsAppUrl({
-                   message: "Hello Artisans Co., I would like to enquire about your photography and film packages.",
-                   source: "Sticky Mobile CTA"
-                }) || '#'}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-center gap-3 w-full py-4 bg-[#0c0c0e]/90 border border-white/15 backdrop-blur-md text-white font-black uppercase text-[10px] tracking-[0.25em] rounded-full shadow-[0_15px_35px_rgba(0,0,0,0.8)] active:scale-95 transition-all duration-300 hover:border-white/30"
-             >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Enquire on WhatsApp</span>
-             </a>
-          </div>
 
          {/* Hero Section */}
          <section className="h-screen w-full relative flex flex-col justify-end px-6 pb-20 overflow-hidden">
@@ -592,7 +577,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
             </div>
 
             <div className="relative z-20 max-w-[1800px] mx-auto w-full mb-10 pl-4 md:pl-10">
-               <h1 className="text-[12vw] leading-[0.8] font-black tracking-tighter uppercase animate-ios-slide-up" style={{ animationDelay: '0.2s' }}>
+               <h1 className="leading-[0.85] uppercase animate-ios-slide-up luxury-hero-heading" style={{ animationDelay: '0.2s' }}>
                   <ShinyText
                      text="CRAFTING"
                      disabled={false}
