@@ -812,8 +812,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                         const Icon = isEvenTheme ? Camera : Film;
 
                         const iconContainerClass = isEvenTheme
-                           ? "w-24 h-24 bg-primary/10 glass-panel rounded-[2rem] flex items-center justify-center border border-primary/20 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-[0_0_40px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_40px_rgba(59,130,246,0.4)]"
-                           : "w-24 h-24 glass-panel rounded-[2rem] flex items-center justify-center border border-white/10 group-hover:bg-white group-hover:text-black transition-all duration-500 shadow-[0_0_40px_rgba(255,255,255,0.05)] group-hover:shadow-[0_0_40px_rgba(255,255,255,0.3)]";
+                           ? "w-24 h-24 bg-primary/10 glass-panel rounded-[2rem] flex items-center justify-center border border-primary/20 text-white group-hover:bg-primary group-hover:scale-105 transition-all duration-500 shadow-[0_0_40px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_40px_rgba(59,130,246,0.4)]"
+                           : "w-24 h-24 glass-panel rounded-[2rem] flex items-center justify-center border border-white/10 text-white group-hover:bg-white/10 group-hover:border-white/30 group-hover:scale-105 transition-all duration-500 shadow-[0_0_40px_rgba(255,255,255,0.05)] group-hover:shadow-[0_0_40px_rgba(255,255,255,0.25)]";
 
                         const sortedMedia = division.media && division.media.length > 0
                            ? [...division.media].sort((a: any, b: any) => a.position - b.position)
@@ -834,7 +834,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
                               {/* Text content info */}
                               <div className={`flex-1 flex flex-col items-start ${isEvenTheme ? '' : 'order-2 md:order-1'}`}>
                                  <div className={`${iconContainerClass} mb-6`}>
-                                    <Icon className="w-10 h-10" />
+                                    <Icon className="w-10 h-10 text-white" />
                                  </div>
                                  <h3 className="solan-vesta-title mb-5" style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', letterSpacing: '-0.03em' }}>{division.name}</h3>
                                  <p className="division-editorial-description mb-8">
